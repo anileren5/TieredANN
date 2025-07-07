@@ -1,0 +1,232 @@
+
+
+======================================================================
+ Experiment Settings
+======================================================================
+data_type: float                                                      
+data_path: data/sift/sift_base.bin                                    
+query_path: data/sift/sift_query.bin                                  
+groundtruth_path: data/sift/sift_groundtruth.bin                      
+R: 32                                                                 
+L: 128                                                                
+K: 10                                                                 
+alpha: 1.2                                                            
+insert_threads: 32                                                    
+consolidate_threads: 32                                               
+build_threads: 32                                                     
+search_threads: 32                                                    
+batch_size_in_percentage: 50.0                                        
+iterations: 10                                                        
+======================================================================
+
+L2: Using AVX2 distance computation DistanceL2Float
+Reading (with alignment) bin file data/sift/sift_base.bin ...Metadata: #pts = 1000000, #dims = 128, aligned_dim = 128... allocating aligned memory of 512000000 bytes... done. Copying data to mem_aligned buffer... done.
+build() took 33222.6 ms
+Reading (with alignment) bin file data/sift/sift_query.bin ...Metadata: #pts = 10000, #dims = 128, aligned_dim = 128... allocating aligned memory of 5120000 bytes... done. Copying data to mem_aligned buffer... done.
+Opened: data/sift/sift_groundtruth.bin, size: 4000008, cache_size: 4000008
+Reading truthset file data/sift/sift_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+
+
+====================================== Initial Search ===============================
+
+search(): 10000 queries using 32 threads
+  Total time:     376.909 ms
+  Avg latency:    1.19961 ms/query
+  QPS:            26531.6
+  QPS/thread:     829.112
+10Recall@10: 99.509%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 1======================================
+
+Starting consolidate_deletes...  done in 6.45435 seconds.
+delete_and_consolidate() took 6509.63 ms
+insert_batch(): 500000 inserts in 27.5969 sec
+IQPS: 18118
+IQPS/thread: 566.186
+search(): 10000 queries using 32 threads
+  Total time:     360.715 ms
+  Avg latency:    1.14783 ms/query
+  QPS:            27722.7
+  QPS/thread:     866.335
+10Recall@10: 99.552%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 2======================================
+
+Starting consolidate_deletes...  done in 6.38952 seconds.
+delete_and_consolidate() took 6466.91 ms
+insert_batch(): 500000 inserts in 27.9013 sec
+IQPS: 17920.3
+IQPS/thread: 560.009
+search(): 10000 queries using 32 threads
+  Total time:     418.165 ms
+  Avg latency:    1.32921 ms/query
+  QPS:            23914
+  QPS/thread:     747.312
+10Recall@10: 99.561%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 3======================================
+
+Starting consolidate_deletes...  done in 6.68038 seconds.
+delete_and_consolidate() took 6783.21 ms
+insert_batch(): 500000 inserts in 28.0229 sec
+IQPS: 17842.5
+IQPS/thread: 557.579
+search(): 10000 queries using 32 threads
+  Total time:     376.942 ms
+  Avg latency:    1.20019 ms/query
+  QPS:            26529.3
+  QPS/thread:     829.04
+10Recall@10: 99.558%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 4======================================
+
+Starting consolidate_deletes...  done in 6.87317 seconds.
+delete_and_consolidate() took 6949.41 ms
+insert_batch(): 500000 inserts in 27.9192 sec
+IQPS: 17908.8
+IQPS/thread: 559.65
+search(): 10000 queries using 32 threads
+  Total time:     352.429 ms
+  Avg latency:    1.12126 ms/query
+  QPS:            28374.5
+  QPS/thread:     886.705
+10Recall@10: 99.538%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 5======================================
+
+Starting consolidate_deletes...  done in 6.29077 seconds.
+delete_and_consolidate() took 6353.58 ms
+insert_batch(): 500000 inserts in 27.5028 sec
+IQPS: 18180
+IQPS/thread: 568.125
+search(): 10000 queries using 32 threads
+  Total time:     364.282 ms
+  Avg latency:    1.15945 ms/query
+  QPS:            27451.3
+  QPS/thread:     857.852
+10Recall@10: 99.568%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 6======================================
+
+Starting consolidate_deletes...  done in 6.77007 seconds.
+delete_and_consolidate() took 6837.64 ms
+insert_batch(): 500000 inserts in 28.2656 sec
+IQPS: 17689.4
+IQPS/thread: 552.792
+search(): 10000 queries using 32 threads
+  Total time:     416.798 ms
+  Avg latency:    1.32594 ms/query
+  QPS:            23992.5
+  QPS/thread:     749.764
+10Recall@10: 99.548%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 7======================================
+
+Starting consolidate_deletes...  done in 7.47024 seconds.
+delete_and_consolidate() took 7537.18 ms
+insert_batch(): 500000 inserts in 27.9282 sec
+IQPS: 17903.1
+IQPS/thread: 559.471
+search(): 10000 queries using 32 threads
+  Total time:     349.175 ms
+  Avg latency:    1.11084 ms/query
+  QPS:            28638.9
+  QPS/thread:     894.966
+10Recall@10: 99.534%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 8======================================
+
+Starting consolidate_deletes...  done in 6.40989 seconds.
+delete_and_consolidate() took 6475.09 ms
+insert_batch(): 500000 inserts in 28.079 sec
+IQPS: 17806.9
+IQPS/thread: 556.466
+search(): 10000 queries using 32 threads
+  Total time:     353.307 ms
+  Avg latency:    1.12407 ms/query
+  QPS:            28304
+  QPS/thread:     884.499
+10Recall@10: 99.539%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 9======================================
+
+Starting consolidate_deletes...  done in 6.38501 seconds.
+delete_and_consolidate() took 6438.97 ms
+insert_batch(): 500000 inserts in 27.1784 sec
+IQPS: 18397
+IQPS/thread: 574.905
+search(): 10000 queries using 32 threads
+  Total time:     347.613 ms
+  Avg latency:    1.10711 ms/query
+  QPS:            28767.6
+  QPS/thread:     898.988
+10Recall@10: 99.566%
+
+
+=====================================================================================
+
+
+
+========================================Cycle 10======================================
+
+Starting consolidate_deletes...  done in 6.76316 seconds.
+delete_and_consolidate() took 6816.27 ms
+insert_batch(): 500000 inserts in 27.6905 sec
+IQPS: 18056.7
+IQPS/thread: 564.273
+search(): 10000 queries using 32 threads
+  Total time:     346.728 ms
+  Avg latency:    1.10344 ms/query
+  QPS:            28841.1
+  QPS/thread:     901.283
+10Recall@10: 99.548%
+
+
+=====================================================================================
+

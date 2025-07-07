@@ -1,0 +1,34 @@
+eren@eren:~/Desktop/summer@EPFL/DiskANN$ ./build/apps/search_memory_index  --data_type float --dist_fn l2 --index_path_prefix ./index/sift/index_sift_learn_R32_L50_A1.2_PQ16 --query_file ./data/sift/sift_query.bin  --gt_file ./data/sift/sift_groundtruth.bin -K 100 -L 32 64 96 128 160 192 256 512 1024 2048 4096 8192  --result_path ./results/sift/
+Reading (with alignment) bin file ./data/sift/sift_query.bin ...Metadata: #pts = 10000, #dims = 128, aligned_dim = 128... allocating aligned memory of 5120000 bytes... done. Copying data to mem_aligned buffer... done.
+Opened: ./data/sift/sift_groundtruth.bin, size: 4000008, cache_size: 4000008
+Reading truthset file ./data/sift/sift_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+L2: Using AVX2 distance computation DistanceL2Float
+Resizing took: 0.0301149s
+From graph header, expected_file_size: 105112612, _max_observed_degree: 32, _start: 123742, file_frozen_pts: 0
+Loading vamana graph ./index/sift/index_sift_learn_R32_L50_A1.2_PQ16...done. Index has 1000000 nodes and 25278147 out-edges, _start is set to 123742
+Num frozen points:0 _nd: 1000000 _start: 123742 size(_location_to_tag): 0 size(_tag_to_location):0 Max points: 1000000
+Index loaded
+Using 28 threads to search
+  Ls         QPS     Avg dist cmps  Mean Latency (mus)   99.9 Latency  Recall@100
+=================================================================================
+Ignoring search with L:32 since it's smaller than K:100
+Ignoring search with L:64 since it's smaller than K:100
+Ignoring search with L:96 since it's smaller than K:100
+ 128    11161.90           2306.18             2498.55        6200.02       93.99
+ 160    10546.51           2748.16             2646.76        5106.27       95.66
+ 192    10108.84           3173.28             2761.62        5675.49       96.70
+ 256     9268.29           3982.53             3011.43        5961.61       97.94
+ 512     7139.92           6863.49             3912.21       14588.10       99.39
+1024     5129.03          11722.79             5447.46        9335.09       99.85
+2048     3355.26          19780.28             8329.33       25867.03       99.96
+4096     1977.61          32910.06            14134.84       40001.25       99.98
+8192      887.26          53888.45            31493.33      103221.98       99.99
+Done searching. Now saving results 
+Ignoring search with L:32 since it's smaller than K:100
+Ignoring search with L:64 since it's smaller than K:100
+Ignoring search with L:96 since it's smaller than K:100
+Writing bin: ./results/sift/_128_idx_uint32.bin
+bin: #pts = 10000, #dims = 100, size = 4000008B
+basic_ios::clear: iostream error
+Index search failed.

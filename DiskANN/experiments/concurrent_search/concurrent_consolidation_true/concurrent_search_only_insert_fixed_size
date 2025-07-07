@@ -1,0 +1,596 @@
+
+
+======================================================================
+ Experiment Settings
+======================================================================
+data_type: float                                                      
+data_path: data/sift/sift_base.bin                                    
+query_path: data/sift/sift_query.bin                                  
+chunks_groundtruth_path: data/sift/sift_chunk_groundtruths/sift_chunk 
+chunk_size: 100000                                                    
+R: 32                                                                 
+L: 128                                                                
+K: 100                                                                
+alpha: 1.20                                                           
+insert_threads: 4                                                     
+consolidate_threads: 4                                                
+build_threads: 4                                                      
+search_threads: 4                                                     
+======================================================================
+
+L2: Using AVX2 distance computation DistanceL2Float
+Reading (with alignment) bin file data/sift/sift_base.bin ...Metadata: #pts = 1000000, #dims = 128, aligned_dim = 128... allocating aligned memory of 512000000 bytes... done. Copying data to mem_aligned buffer... done.
+Index start points set: #1
+[2025-07-01 10:09:55.359] build(): range=[0,999999] threads=4 duration_ms=80070
+Reading (with alignment) bin file data/sift/sift_query.bin ...Metadata: #pts = 10000, #dims = 128, aligned_dim = 128... allocating aligned memory of 5120000 bytes... done. Copying data to mem_aligned buffer... done.
+[2025-07-01 10:09:56.104] search(): queries=10000 threads=4 total_time_ms=740.729 avg_latency_ms=0.295336 qps=13500.2 qps_per_thread=3375.05
+[2025-07-01 10:09:56.845] search(): queries=10000 threads=4 total_time_ms=740.653 avg_latency_ms=0.295319 qps=13501.6 qps_per_thread=3375.4
+[2025-07-01 10:09:57.605] search(): queries=10000 threads=4 total_time_ms=759.719 avg_latency_ms=0.302934 qps=13162.8 qps_per_thread=3290.69
+[2025-07-01 10:09:58.351] search(): queries=10000 threads=4 total_time_ms=746.072 avg_latency_ms=0.297513 qps=13403.5 qps_per_thread=3350.88
+[2025-07-01 10:09:59.093] search(): queries=10000 threads=4 total_time_ms=741.417 avg_latency_ms=0.29561 qps=13487.7 qps_per_thread=3371.92
+[2025-07-01 10:09:59.823] search(): queries=10000 threads=4 total_time_ms=730.065 avg_latency_ms=0.291121 qps=13697.4 qps_per_thread=3424.35
+[2025-07-01 10:10:00.364] exclude_start()
+[2025-07-01 10:10:00.590] search(): queries=10000 threads=4 total_time_ms=767.513 avg_latency_ms=0.306027 qps=13029.1 qps_per_thread=3257.28
+[2025-07-01 10:10:01.401] search(): queries=10000 threads=4 total_time_ms=810.576 avg_latency_ms=0.323248 qps=12336.9 qps_per_thread=3084.22
+[2025-07-01 10:10:02.242] search(): queries=10000 threads=4 total_time_ms=840.741 avg_latency_ms=0.335284 qps=11894.3 qps_per_thread=2973.57
+[2025-07-01 10:10:03.073] search(): queries=10000 threads=4 total_time_ms=830.744 avg_latency_ms=0.33124 qps=12037.4 qps_per_thread=3009.35
+[2025-07-01 10:10:03.889] search(): queries=10000 threads=4 total_time_ms=815.985 avg_latency_ms=0.325356 qps=12255.1 qps_per_thread=3063.78
+[2025-07-01 10:10:04.708] search(): queries=10000 threads=4 total_time_ms=819.169 avg_latency_ms=0.326634 qps=12207.5 qps_per_thread=3051.87
+[2025-07-01 10:10:05.522] search(): queries=10000 threads=4 total_time_ms=814.452 avg_latency_ms=0.324789 qps=12278.2 qps_per_thread=3069.55
+[2025-07-01 10:10:06.343] search(): queries=10000 threads=4 total_time_ms=820.143 avg_latency_ms=0.327074 qps=12193 qps_per_thread=3048.25
+[2025-07-01 10:10:07.160] search(): queries=10000 threads=4 total_time_ms=817.319 avg_latency_ms=0.325957 qps=12235.1 qps_per_thread=3058.78
+[2025-07-01 10:10:07.970] search(): queries=10000 threads=4 total_time_ms=810.073 avg_latency_ms=0.323019 qps=12344.6 qps_per_thread=3086.14
+[2025-07-01 10:10:08.774] search(): queries=10000 threads=4 total_time_ms=804.12 avg_latency_ms=0.320704 qps=12436 qps_per_thread=3108.99
+[2025-07-01 10:10:09.602] search(): queries=10000 threads=4 total_time_ms=827.39 avg_latency_ms=0.329873 qps=12086.2 qps_per_thread=3021.55
+[2025-07-01 10:10:10.413] search(): queries=10000 threads=4 total_time_ms=810.832 avg_latency_ms=0.323354 qps=12333 qps_per_thread=3083.25
+[2025-07-01 10:10:11.221] search(): queries=10000 threads=4 total_time_ms=807.865 avg_latency_ms=0.32215 qps=12378.3 qps_per_thread=3094.58
+[2025-07-01 10:10:12.023] search(): queries=10000 threads=4 total_time_ms=802.28 avg_latency_ms=0.319871 qps=12464.5 qps_per_thread=3116.12
+[2025-07-01 10:10:12.817] search(): queries=10000 threads=4 total_time_ms=794.229 avg_latency_ms=0.31673 qps=12590.8 qps_per_thread=3147.71
+[2025-07-01 10:10:13.603] search(): queries=10000 threads=4 total_time_ms=786.122 avg_latency_ms=0.313433 qps=12720.7 qps_per_thread=3180.17
+[2025-07-01 10:10:14.400] search(): queries=10000 threads=4 total_time_ms=796.292 avg_latency_ms=0.31753 qps=12558.2 qps_per_thread=3139.55
+[2025-07-01 10:10:15.186] search(): queries=10000 threads=4 total_time_ms=786.101 avg_latency_ms=0.313454 qps=12721 qps_per_thread=3180.25
+[2025-07-01 10:10:15.965] search(): queries=10000 threads=4 total_time_ms=779.028 avg_latency_ms=0.310627 qps=12836.5 qps_per_thread=3209.13
+[2025-07-01 10:10:16.734] search(): queries=10000 threads=4 total_time_ms=769.119 avg_latency_ms=0.306675 qps=13001.9 qps_per_thread=3250.47
+[2025-07-01 10:10:17.500] search(): queries=10000 threads=4 total_time_ms=765.758 avg_latency_ms=0.305279 qps=13059 qps_per_thread=3264.74
+[2025-07-01 10:10:17.889] delete_and_consolidate(): range=[0,99999] duration_ms=17525
+[2025-07-01 10:10:18.207] search(): queries=10000 threads=4 total_time_ms=706.52 avg_latency_ms=0.2817 qps=14153.9 qps_per_thread=3538.47
+[2025-07-01 10:10:18.890] search(): queries=10000 threads=4 total_time_ms=683.607 avg_latency_ms=0.272574 qps=14628.3 qps_per_thread=3657.07
+[2025-07-01 10:10:19.564] search(): queries=10000 threads=4 total_time_ms=673.474 avg_latency_ms=0.268547 qps=14848.4 qps_per_thread=3712.09
+[2025-07-01 10:10:19.890] exclude_end()
+[2025-07-01 10:10:19.890] only_insert_phase_start()
+[2025-07-01 10:10:20.309] search(): queries=10000 threads=4 total_time_ms=745.531 avg_latency_ms=0.297309 qps=13413.3 qps_per_thread=3353.32
+[2025-07-01 10:10:21.103] search(): queries=10000 threads=4 total_time_ms=793.103 avg_latency_ms=0.316319 qps=12608.7 qps_per_thread=3152.17
+[2025-07-01 10:10:21.911] search(): queries=10000 threads=4 total_time_ms=807.809 avg_latency_ms=0.322202 qps=12379.2 qps_per_thread=3094.79
+[2025-07-01 10:10:22.735] search(): queries=10000 threads=4 total_time_ms=824.613 avg_latency_ms=0.328896 qps=12126.9 qps_per_thread=3031.73
+[2025-07-01 10:10:23.565] search(): queries=10000 threads=4 total_time_ms=829.689 avg_latency_ms=0.330938 qps=12052.7 qps_per_thread=3013.18
+[2025-07-01 10:10:24.393] search(): queries=10000 threads=4 total_time_ms=827.807 avg_latency_ms=0.330163 qps=12080.1 qps_per_thread=3020.03
+[2025-07-01 10:10:25.229] search(): queries=10000 threads=4 total_time_ms=836.361 avg_latency_ms=0.33356 qps=11956.6 qps_per_thread=2989.14
+[2025-07-01 10:10:26.075] search(): queries=10000 threads=4 total_time_ms=846.002 avg_latency_ms=0.337432 qps=11820.3 qps_per_thread=2955.08
+[2025-07-01 10:10:26.936] search(): queries=10000 threads=4 total_time_ms=860.729 avg_latency_ms=0.343314 qps=11618.1 qps_per_thread=2904.52
+[2025-07-01 10:10:27.792] search(): queries=10000 threads=4 total_time_ms=856.049 avg_latency_ms=0.341412 qps=11681.6 qps_per_thread=2920.39
+[2025-07-01 10:10:28.655] search(): queries=10000 threads=4 total_time_ms=862.274 avg_latency_ms=0.343931 qps=11597.2 qps_per_thread=2899.31
+[2025-07-01 10:10:29.518] search(): queries=10000 threads=4 total_time_ms=863.146 avg_latency_ms=0.344281 qps=11585.5 qps_per_thread=2896.38
+[2025-07-01 10:10:29.806] insert(): range=[0,99999] threads=4 total_time_ms=9916.39 avg_latency_ms=0.395427 qps=10084.3 qps_per_thread=2521.08
+[2025-07-01 10:10:29.807] sleep_insert_delete_phase_start()
+[2025-07-01 10:10:30.304] search(): queries=10000 threads=4 total_time_ms=785.971 avg_latency_ms=0.313466 qps=12723.1 qps_per_thread=3180.78
+[2025-07-01 10:10:31.039] search(): queries=10000 threads=4 total_time_ms=735.135 avg_latency_ms=0.293164 qps=13602.9 qps_per_thread=3400.74
+[2025-07-01 10:10:31.773] search(): queries=10000 threads=4 total_time_ms=733.455 avg_latency_ms=0.292493 qps=13634.1 qps_per_thread=3408.52
+[2025-07-01 10:10:32.502] search(): queries=10000 threads=4 total_time_ms=729.159 avg_latency_ms=0.290777 qps=13714.4 qps_per_thread=3428.61
+[2025-07-01 10:10:33.227] search(): queries=10000 threads=4 total_time_ms=724.736 avg_latency_ms=0.289016 qps=13798.1 qps_per_thread=3449.53
+[2025-07-01 10:10:33.961] search(): queries=10000 threads=4 total_time_ms=734.78 avg_latency_ms=0.293021 qps=13609.5 qps_per_thread=3402.38
+[2025-07-01 10:10:34.688] search(): queries=10000 threads=4 total_time_ms=726.942 avg_latency_ms=0.289886 qps=13756.3 qps_per_thread=3439.07
+[2025-07-01 10:10:35.414] search(): queries=10000 threads=4 total_time_ms=725.889 avg_latency_ms=0.289468 qps=13776.2 qps_per_thread=3444.05
+[2025-07-01 10:10:36.142] search(): queries=10000 threads=4 total_time_ms=727.24 avg_latency_ms=0.289999 qps=13750.6 qps_per_thread=3437.65
+[2025-07-01 10:10:36.867] search(): queries=10000 threads=4 total_time_ms=725.685 avg_latency_ms=0.289399 qps=13780.1 qps_per_thread=3445.02
+[2025-07-01 10:10:37.598] search(): queries=10000 threads=4 total_time_ms=730.79 avg_latency_ms=0.291426 qps=13683.8 qps_per_thread=3420.96
+[2025-07-01 10:10:38.338] search(): queries=10000 threads=4 total_time_ms=739.385 avg_latency_ms=0.294848 qps=13524.8 qps_per_thread=3381.19
+[2025-07-01 10:10:39.073] search(): queries=10000 threads=4 total_time_ms=735.505 avg_latency_ms=0.2933 qps=13596.1 qps_per_thread=3399.03
+[2025-07-01 10:10:39.807] exclude_start()
+[2025-07-01 10:10:39.826] search(): queries=10000 threads=4 total_time_ms=753.039 avg_latency_ms=0.300244 qps=13279.5 qps_per_thread=3319.88
+[2025-07-01 10:10:40.637] search(): queries=10000 threads=4 total_time_ms=811.174 avg_latency_ms=0.323493 qps=12327.8 qps_per_thread=3081.95
+[2025-07-01 10:10:41.450] search(): queries=10000 threads=4 total_time_ms=812.409 avg_latency_ms=0.323963 qps=12309.1 qps_per_thread=3077.27
+[2025-07-01 10:10:42.272] search(): queries=10000 threads=4 total_time_ms=821.992 avg_latency_ms=0.327755 qps=12165.6 qps_per_thread=3041.39
+[2025-07-01 10:10:43.084] search(): queries=10000 threads=4 total_time_ms=812.408 avg_latency_ms=0.323934 qps=12309.1 qps_per_thread=3077.27
+[2025-07-01 10:10:43.896] search(): queries=10000 threads=4 total_time_ms=811.489 avg_latency_ms=0.323604 qps=12323 qps_per_thread=3080.76
+[2025-07-01 10:10:44.710] search(): queries=10000 threads=4 total_time_ms=814.282 avg_latency_ms=0.324665 qps=12280.8 qps_per_thread=3070.19
+[2025-07-01 10:10:45.507] search(): queries=10000 threads=4 total_time_ms=796.482 avg_latency_ms=0.317621 qps=12555.2 qps_per_thread=3138.8
+[2025-07-01 10:10:46.307] search(): queries=10000 threads=4 total_time_ms=800.458 avg_latency_ms=0.319143 qps=12492.9 qps_per_thread=3123.21
+[2025-07-01 10:10:47.102] search(): queries=10000 threads=4 total_time_ms=794.803 avg_latency_ms=0.31695 qps=12581.7 qps_per_thread=3145.44
+[2025-07-01 10:10:47.899] search(): queries=10000 threads=4 total_time_ms=796.238 avg_latency_ms=0.317468 qps=12559.1 qps_per_thread=3139.77
+[2025-07-01 10:10:48.690] search(): queries=10000 threads=4 total_time_ms=791.257 avg_latency_ms=0.315566 qps=12638.1 qps_per_thread=3159.53
+[2025-07-01 10:10:49.483] search(): queries=10000 threads=4 total_time_ms=793.301 avg_latency_ms=0.316323 qps=12605.6 qps_per_thread=3151.39
+[2025-07-01 10:10:50.283] search(): queries=10000 threads=4 total_time_ms=799.283 avg_latency_ms=0.318696 qps=12511.2 qps_per_thread=3127.8
+[2025-07-01 10:10:51.059] search(): queries=10000 threads=4 total_time_ms=776.195 avg_latency_ms=0.309549 qps=12883.4 qps_per_thread=3220.84
+[2025-07-01 10:10:51.835] search(): queries=10000 threads=4 total_time_ms=775.969 avg_latency_ms=0.309464 qps=12887.1 qps_per_thread=3221.78
+[2025-07-01 10:10:52.603] search(): queries=10000 threads=4 total_time_ms=768.01 avg_latency_ms=0.306266 qps=13020.7 qps_per_thread=3255.17
+[2025-07-01 10:10:53.369] search(): queries=10000 threads=4 total_time_ms=765.628 avg_latency_ms=0.305357 qps=13061.2 qps_per_thread=3265.29
+[2025-07-01 10:10:54.150] search(): queries=10000 threads=4 total_time_ms=781.627 avg_latency_ms=0.311679 qps=12793.8 qps_per_thread=3198.46
+[2025-07-01 10:10:54.917] search(): queries=10000 threads=4 total_time_ms=766.899 avg_latency_ms=0.305828 qps=13039.5 qps_per_thread=3259.88
+[2025-07-01 10:10:55.433] delete_and_consolidate(): range=[100000,199999] duration_ms=15625
+[2025-07-01 10:10:55.644] search(): queries=10000 threads=4 total_time_ms=726.343 avg_latency_ms=0.289666 qps=13767.6 qps_per_thread=3441.9
+[2025-07-01 10:10:56.325] search(): queries=10000 threads=4 total_time_ms=681.472 avg_latency_ms=0.271708 qps=14674.1 qps_per_thread=3668.53
+[2025-07-01 10:10:57.025] search(): queries=10000 threads=4 total_time_ms=700.009 avg_latency_ms=0.27909 qps=14285.5 qps_per_thread=3571.38
+[2025-07-01 10:10:57.433] exclude_end()
+[2025-07-01 10:10:57.433] only_insert_phase_start()
+[2025-07-01 10:10:57.763] search(): queries=10000 threads=4 total_time_ms=738.075 avg_latency_ms=0.294343 qps=13548.8 qps_per_thread=3387.19
+[2025-07-01 10:10:58.585] search(): queries=10000 threads=4 total_time_ms=821.661 avg_latency_ms=0.327745 qps=12170.5 qps_per_thread=3042.62
+[2025-07-01 10:10:59.415] search(): queries=10000 threads=4 total_time_ms=829.414 avg_latency_ms=0.330861 qps=12056.7 qps_per_thread=3014.18
+[2025-07-01 10:11:00.247] search(): queries=10000 threads=4 total_time_ms=832.71 avg_latency_ms=0.332174 qps=12009 qps_per_thread=3002.25
+[2025-07-01 10:11:01.080] search(): queries=10000 threads=4 total_time_ms=832.838 avg_latency_ms=0.3322 qps=12007.1 qps_per_thread=3001.78
+[2025-07-01 10:11:01.929] search(): queries=10000 threads=4 total_time_ms=848.322 avg_latency_ms=0.338399 qps=11788 qps_per_thread=2947
+[2025-07-01 10:11:02.787] search(): queries=10000 threads=4 total_time_ms=858.068 avg_latency_ms=0.342283 qps=11654.1 qps_per_thread=2913.52
+[2025-07-01 10:11:03.640] search(): queries=10000 threads=4 total_time_ms=853.135 avg_latency_ms=0.340317 qps=11721.5 qps_per_thread=2930.37
+[2025-07-01 10:11:04.493] search(): queries=10000 threads=4 total_time_ms=852.602 avg_latency_ms=0.3401 qps=11728.8 qps_per_thread=2932.2
+[2025-07-01 10:11:05.516] search(): queries=10000 threads=4 total_time_ms=1022.77 avg_latency_ms=0.407978 qps=9777.37 qps_per_thread=2444.34
+[2025-07-01 10:11:06.845] search(): queries=10000 threads=4 total_time_ms=1328.97 avg_latency_ms=0.530066 qps=7524.62 qps_per_thread=1881.16
+[2025-07-01 10:11:08.051] search(): queries=10000 threads=4 total_time_ms=1206.35 avg_latency_ms=0.4812 qps=8289.44 qps_per_thread=2072.36
+[2025-07-01 10:11:08.369] insert(): range=[100000,199999] threads=4 total_time_ms=10935.4 avg_latency_ms=0.436067 qps=9144.59 qps_per_thread=2286.15
+[2025-07-01 10:11:08.370] sleep_insert_delete_phase_start()
+[2025-07-01 10:11:09.083] search(): queries=10000 threads=4 total_time_ms=1031.8 avg_latency_ms=0.411576 qps=9691.79 qps_per_thread=2422.95
+[2025-07-01 10:11:10.013] search(): queries=10000 threads=4 total_time_ms=930.116 avg_latency_ms=0.370926 qps=10751.4 qps_per_thread=2687.84
+[2025-07-01 10:11:11.034] search(): queries=10000 threads=4 total_time_ms=1021.21 avg_latency_ms=0.407311 qps=9792.32 qps_per_thread=2448.08
+[2025-07-01 10:11:11.937] search(): queries=10000 threads=4 total_time_ms=902.213 avg_latency_ms=0.359804 qps=11083.9 qps_per_thread=2770.97
+[2025-07-01 10:11:12.713] search(): queries=10000 threads=4 total_time_ms=776.333 avg_latency_ms=0.309607 qps=12881.1 qps_per_thread=3220.27
+[2025-07-01 10:11:13.473] search(): queries=10000 threads=4 total_time_ms=760.118 avg_latency_ms=0.30316 qps=13155.9 qps_per_thread=3288.96
+[2025-07-01 10:11:14.265] search(): queries=10000 threads=4 total_time_ms=791.32 avg_latency_ms=0.315571 qps=12637.1 qps_per_thread=3159.28
+[2025-07-01 10:11:15.034] search(): queries=10000 threads=4 total_time_ms=769.011 avg_latency_ms=0.306717 qps=13003.7 qps_per_thread=3250.93
+[2025-07-01 10:11:15.804] search(): queries=10000 threads=4 total_time_ms=769.795 avg_latency_ms=0.306995 qps=12990.5 qps_per_thread=3247.62
+[2025-07-01 10:11:16.576] search(): queries=10000 threads=4 total_time_ms=771.997 avg_latency_ms=0.307904 qps=12953.4 qps_per_thread=3238.35
+[2025-07-01 10:11:17.371] search(): queries=10000 threads=4 total_time_ms=795.11 avg_latency_ms=0.316913 qps=12576.9 qps_per_thread=3144.22
+[2025-07-01 10:11:18.152] search(): queries=10000 threads=4 total_time_ms=780.782 avg_latency_ms=0.311349 qps=12807.7 qps_per_thread=3201.92
+[2025-07-01 10:11:18.370] exclude_start()
+[2025-07-01 10:11:19.005] search(): queries=10000 threads=4 total_time_ms=853.036 avg_latency_ms=0.340194 qps=11722.8 qps_per_thread=2930.71
+[2025-07-01 10:11:19.897] search(): queries=10000 threads=4 total_time_ms=892.293 avg_latency_ms=0.355863 qps=11207.1 qps_per_thread=2801.77
+[2025-07-01 10:11:20.797] search(): queries=10000 threads=4 total_time_ms=899.858 avg_latency_ms=0.358811 qps=11112.9 qps_per_thread=2778.22
+[2025-07-01 10:11:21.705] search(): queries=10000 threads=4 total_time_ms=908.23 avg_latency_ms=0.362047 qps=11010.4 qps_per_thread=2752.61
+[2025-07-01 10:11:22.613] search(): queries=10000 threads=4 total_time_ms=907.175 avg_latency_ms=0.361703 qps=11023.2 qps_per_thread=2755.81
+[2025-07-01 10:11:23.512] search(): queries=10000 threads=4 total_time_ms=899.178 avg_latency_ms=0.35859 qps=11121.3 qps_per_thread=2780.32
+[2025-07-01 10:11:24.407] search(): queries=10000 threads=4 total_time_ms=895.182 avg_latency_ms=0.356969 qps=11170.9 qps_per_thread=2792.73
+[2025-07-01 10:11:25.278] search(): queries=10000 threads=4 total_time_ms=870.523 avg_latency_ms=0.347135 qps=11487.3 qps_per_thread=2871.84
+[2025-07-01 10:11:26.153] search(): queries=10000 threads=4 total_time_ms=874.473 avg_latency_ms=0.348752 qps=11435.5 qps_per_thread=2858.86
+[2025-07-01 10:11:27.029] search(): queries=10000 threads=4 total_time_ms=876.871 avg_latency_ms=0.349646 qps=11404.2 qps_per_thread=2851.05
+[2025-07-01 10:11:27.920] search(): queries=10000 threads=4 total_time_ms=890.596 avg_latency_ms=0.355142 qps=11228.4 qps_per_thread=2807.11
+[2025-07-01 10:11:28.794] search(): queries=10000 threads=4 total_time_ms=873.328 avg_latency_ms=0.348241 qps=11450.5 qps_per_thread=2862.61
+[2025-07-01 10:11:29.656] search(): queries=10000 threads=4 total_time_ms=862.025 avg_latency_ms=0.343669 qps=11600.6 qps_per_thread=2900.15
+[2025-07-01 10:11:30.524] search(): queries=10000 threads=4 total_time_ms=868.072 avg_latency_ms=0.346155 qps=11519.8 qps_per_thread=2879.95
+[2025-07-01 10:11:31.378] search(): queries=10000 threads=4 total_time_ms=854.131 avg_latency_ms=0.340593 qps=11707.8 qps_per_thread=2926.95
+[2025-07-01 10:11:32.242] search(): queries=10000 threads=4 total_time_ms=864.372 avg_latency_ms=0.344598 qps=11569.1 qps_per_thread=2892.27
+[2025-07-01 10:11:33.092] search(): queries=10000 threads=4 total_time_ms=849.935 avg_latency_ms=0.338859 qps=11765.6 qps_per_thread=2941.4
+[2025-07-01 10:11:33.948] search(): queries=10000 threads=4 total_time_ms=855.084 avg_latency_ms=0.340989 qps=11694.8 qps_per_thread=2923.69
+[2025-07-01 10:11:34.804] search(): queries=10000 threads=4 total_time_ms=855.962 avg_latency_ms=0.341258 qps=11682.8 qps_per_thread=2920.69
+[2025-07-01 10:11:35.258] delete_and_consolidate(): range=[200000,299999] duration_ms=16887
+[2025-07-01 10:11:35.579] search(): queries=10000 threads=4 total_time_ms=775.504 avg_latency_ms=0.309241 qps=12894.8 qps_per_thread=3223.71
+[2025-07-01 10:11:36.276] search(): queries=10000 threads=4 total_time_ms=697.037 avg_latency_ms=0.277942 qps=14346.4 qps_per_thread=3586.61
+[2025-07-01 10:11:37.003] search(): queries=10000 threads=4 total_time_ms=726.085 avg_latency_ms=0.289556 qps=13772.5 qps_per_thread=3443.12
+[2025-07-01 10:11:37.258] exclude_end()
+[2025-07-01 10:11:37.258] only_insert_phase_start()
+[2025-07-01 10:11:37.797] search(): queries=10000 threads=4 total_time_ms=794.327 avg_latency_ms=0.316797 qps=12589.3 qps_per_thread=3147.32
+[2025-07-01 10:11:38.675] search(): queries=10000 threads=4 total_time_ms=877.981 avg_latency_ms=0.350148 qps=11389.8 qps_per_thread=2847.44
+[2025-07-01 10:11:39.576] search(): queries=10000 threads=4 total_time_ms=900.759 avg_latency_ms=0.359263 qps=11101.8 qps_per_thread=2775.44
+[2025-07-01 10:11:40.490] search(): queries=10000 threads=4 total_time_ms=914.003 avg_latency_ms=0.364558 qps=10940.9 qps_per_thread=2735.22
+[2025-07-01 10:11:41.397] search(): queries=10000 threads=4 total_time_ms=906.83 avg_latency_ms=0.361725 qps=11027.4 qps_per_thread=2756.86
+[2025-07-01 10:11:42.322] search(): queries=10000 threads=4 total_time_ms=925.303 avg_latency_ms=0.369107 qps=10807.3 qps_per_thread=2701.82
+[2025-07-01 10:11:43.250] search(): queries=10000 threads=4 total_time_ms=927.605 avg_latency_ms=0.369993 qps=10780.5 qps_per_thread=2695.11
+[2025-07-01 10:11:44.202] search(): queries=10000 threads=4 total_time_ms=952.174 avg_latency_ms=0.379814 qps=10502.3 qps_per_thread=2625.57
+[2025-07-01 10:11:45.140] search(): queries=10000 threads=4 total_time_ms=937.796 avg_latency_ms=0.37405 qps=10663.3 qps_per_thread=2665.82
+[2025-07-01 10:11:46.076] search(): queries=10000 threads=4 total_time_ms=935.967 avg_latency_ms=0.373347 qps=10684.1 qps_per_thread=2671.03
+[2025-07-01 10:11:47.023] search(): queries=10000 threads=4 total_time_ms=946.291 avg_latency_ms=0.377464 qps=10567.6 qps_per_thread=2641.89
+[2025-07-01 10:11:47.953] search(): queries=10000 threads=4 total_time_ms=930.22 avg_latency_ms=0.371078 qps=10750.1 qps_per_thread=2687.54
+[2025-07-01 10:11:48.338] insert(): range=[200000,299999] threads=4 total_time_ms=11079.9 avg_latency_ms=0.441829 qps=9025.36 qps_per_thread=2256.34
+[2025-07-01 10:11:48.339] sleep_insert_delete_phase_start()
+[2025-07-01 10:11:48.772] search(): queries=10000 threads=4 total_time_ms=819.303 avg_latency_ms=0.326821 qps=12205.5 qps_per_thread=3051.37
+[2025-07-01 10:11:49.523] search(): queries=10000 threads=4 total_time_ms=750.768 avg_latency_ms=0.299437 qps=13319.7 qps_per_thread=3329.93
+[2025-07-01 10:11:50.318] search(): queries=10000 threads=4 total_time_ms=794.353 avg_latency_ms=0.316835 qps=12588.9 qps_per_thread=3147.22
+[2025-07-01 10:11:51.122] search(): queries=10000 threads=4 total_time_ms=804.735 avg_latency_ms=0.320988 qps=12426.4 qps_per_thread=3106.61
+[2025-07-01 10:11:51.915] search(): queries=10000 threads=4 total_time_ms=792.468 avg_latency_ms=0.316022 qps=12618.8 qps_per_thread=3154.7
+[2025-07-01 10:11:52.683] search(): queries=10000 threads=4 total_time_ms=767.704 avg_latency_ms=0.306165 qps=13025.9 qps_per_thread=3256.46
+[2025-07-01 10:11:53.453] search(): queries=10000 threads=4 total_time_ms=770.341 avg_latency_ms=0.307224 qps=12981.3 qps_per_thread=3245.32
+[2025-07-01 10:11:54.235] search(): queries=10000 threads=4 total_time_ms=781.694 avg_latency_ms=0.311709 qps=12792.7 qps_per_thread=3198.18
+[2025-07-01 10:11:55.011] search(): queries=10000 threads=4 total_time_ms=776.353 avg_latency_ms=0.3096 qps=12880.7 qps_per_thread=3220.18
+[2025-07-01 10:11:55.811] search(): queries=10000 threads=4 total_time_ms=799.827 avg_latency_ms=0.318982 qps=12502.7 qps_per_thread=3125.68
+[2025-07-01 10:11:56.587] search(): queries=10000 threads=4 total_time_ms=775.148 avg_latency_ms=0.309138 qps=12900.8 qps_per_thread=3225.19
+[2025-07-01 10:11:57.370] search(): queries=10000 threads=4 total_time_ms=783.55 avg_latency_ms=0.312448 qps=12762.4 qps_per_thread=3190.61
+[2025-07-01 10:11:58.156] search(): queries=10000 threads=4 total_time_ms=786.084 avg_latency_ms=0.31348 qps=12721.3 qps_per_thread=3180.32
+[2025-07-01 10:11:58.339] exclude_start()
+[2025-07-01 10:11:58.972] search(): queries=10000 threads=4 total_time_ms=815.319 avg_latency_ms=0.325164 qps=12265.1 qps_per_thread=3066.29
+[2025-07-01 10:11:59.832] search(): queries=10000 threads=4 total_time_ms=860.513 avg_latency_ms=0.343114 qps=11621 qps_per_thread=2905.24
+[2025-07-01 10:12:00.706] search(): queries=10000 threads=4 total_time_ms=873.611 avg_latency_ms=0.348335 qps=11446.7 qps_per_thread=2861.69
+[2025-07-01 10:12:01.616] search(): queries=10000 threads=4 total_time_ms=909.997 avg_latency_ms=0.362812 qps=10989.1 qps_per_thread=2747.26
+[2025-07-01 10:12:02.533] search(): queries=10000 threads=4 total_time_ms=916.34 avg_latency_ms=0.36527 qps=10913 qps_per_thread=2728.25
+[2025-07-01 10:12:03.423] search(): queries=10000 threads=4 total_time_ms=890.464 avg_latency_ms=0.355004 qps=11230.1 qps_per_thread=2807.52
+[2025-07-01 10:12:04.316] search(): queries=10000 threads=4 total_time_ms=892.712 avg_latency_ms=0.355637 qps=11201.8 qps_per_thread=2800.46
+[2025-07-01 10:12:05.215] search(): queries=10000 threads=4 total_time_ms=898.819 avg_latency_ms=0.358417 qps=11125.7 qps_per_thread=2781.43
+[2025-07-01 10:12:06.096] search(): queries=10000 threads=4 total_time_ms=881.257 avg_latency_ms=0.351436 qps=11347.4 qps_per_thread=2836.86
+[2025-07-01 10:12:06.975] search(): queries=10000 threads=4 total_time_ms=878.411 avg_latency_ms=0.350242 qps=11384.2 qps_per_thread=2846.05
+[2025-07-01 10:12:07.851] search(): queries=10000 threads=4 total_time_ms=876.768 avg_latency_ms=0.349567 qps=11405.5 qps_per_thread=2851.38
+[2025-07-01 10:12:08.716] search(): queries=10000 threads=4 total_time_ms=864.505 avg_latency_ms=0.344748 qps=11567.3 qps_per_thread=2891.83
+[2025-07-01 10:12:09.597] search(): queries=10000 threads=4 total_time_ms=881.098 avg_latency_ms=0.351343 qps=11349.5 qps_per_thread=2837.37
+[2025-07-01 10:12:10.453] search(): queries=10000 threads=4 total_time_ms=856.084 avg_latency_ms=0.341401 qps=11681.1 qps_per_thread=2920.27
+[2025-07-01 10:12:11.291] search(): queries=10000 threads=4 total_time_ms=837.883 avg_latency_ms=0.334159 qps=11934.8 qps_per_thread=2983.71
+[2025-07-01 10:12:12.134] search(): queries=10000 threads=4 total_time_ms=842.779 avg_latency_ms=0.336068 qps=11865.5 qps_per_thread=2966.38
+[2025-07-01 10:12:12.957] search(): queries=10000 threads=4 total_time_ms=822.551 avg_latency_ms=0.328079 qps=12157.3 qps_per_thread=3039.32
+[2025-07-01 10:12:13.779] search(): queries=10000 threads=4 total_time_ms=822.558 avg_latency_ms=0.328036 qps=12157.2 qps_per_thread=3039.3
+[2025-07-01 10:12:14.593] search(): queries=10000 threads=4 total_time_ms=813.468 avg_latency_ms=0.324402 qps=12293 qps_per_thread=3073.26
+[2025-07-01 10:12:15.087] delete_and_consolidate(): range=[300000,399999] duration_ms=16747
+[2025-07-01 10:12:15.347] search(): queries=10000 threads=4 total_time_ms=754.377 avg_latency_ms=0.300866 qps=13256 qps_per_thread=3313.99
+[2025-07-01 10:12:16.038] search(): queries=10000 threads=4 total_time_ms=690.764 avg_latency_ms=0.275468 qps=14476.7 qps_per_thread=3619.18
+[2025-07-01 10:12:16.750] search(): queries=10000 threads=4 total_time_ms=711.422 avg_latency_ms=0.283725 qps=14056.4 qps_per_thread=3514.09
+[2025-07-01 10:12:17.087] exclude_end()
+[2025-07-01 10:12:17.087] only_insert_phase_start()
+[2025-07-01 10:12:17.514] search(): queries=10000 threads=4 total_time_ms=764.662 avg_latency_ms=0.304974 qps=13077.7 qps_per_thread=3269.42
+[2025-07-01 10:12:18.364] search(): queries=10000 threads=4 total_time_ms=849.634 avg_latency_ms=0.338861 qps=11769.8 qps_per_thread=2942.44
+[2025-07-01 10:12:19.253] search(): queries=10000 threads=4 total_time_ms=888.614 avg_latency_ms=0.354407 qps=11253.5 qps_per_thread=2813.37
+[2025-07-01 10:12:20.146] search(): queries=10000 threads=4 total_time_ms=893.341 avg_latency_ms=0.356335 qps=11193.9 qps_per_thread=2798.48
+[2025-07-01 10:12:21.078] search(): queries=10000 threads=4 total_time_ms=931.32 avg_latency_ms=0.371474 qps=10737.4 qps_per_thread=2684.36
+[2025-07-01 10:12:22.002] search(): queries=10000 threads=4 total_time_ms=924.241 avg_latency_ms=0.368645 qps=10819.7 qps_per_thread=2704.92
+[2025-07-01 10:12:22.940] search(): queries=10000 threads=4 total_time_ms=937.791 avg_latency_ms=0.374065 qps=10663.4 qps_per_thread=2665.84
+[2025-07-01 10:12:23.879] search(): queries=10000 threads=4 total_time_ms=939.135 avg_latency_ms=0.374497 qps=10648.1 qps_per_thread=2662.02
+[2025-07-01 10:12:24.825] search(): queries=10000 threads=4 total_time_ms=946.208 avg_latency_ms=0.377395 qps=10568.5 qps_per_thread=2642.13
+[2025-07-01 10:12:25.780] search(): queries=10000 threads=4 total_time_ms=954.452 avg_latency_ms=0.380631 qps=10477.2 qps_per_thread=2619.3
+[2025-07-01 10:12:26.755] search(): queries=10000 threads=4 total_time_ms=974.527 avg_latency_ms=0.388694 qps=10261.4 qps_per_thread=2565.35
+[2025-07-01 10:12:27.719] search(): queries=10000 threads=4 total_time_ms=964.004 avg_latency_ms=0.384506 qps=10373.4 qps_per_thread=2593.35
+[2025-07-01 10:12:27.999] insert(): range=[300000,399999] threads=4 total_time_ms=10911.6 avg_latency_ms=0.435131 qps=9164.59 qps_per_thread=2291.15
+[2025-07-01 10:12:27.999] sleep_insert_delete_phase_start()
+[2025-07-01 10:12:28.526] search(): queries=10000 threads=4 total_time_ms=807.32 avg_latency_ms=0.321909 qps=12386.7 qps_per_thread=3096.67
+[2025-07-01 10:12:29.273] search(): queries=10000 threads=4 total_time_ms=746.733 avg_latency_ms=0.297809 qps=13391.7 qps_per_thread=3347.92
+[2025-07-01 10:12:30.046] search(): queries=10000 threads=4 total_time_ms=773.532 avg_latency_ms=0.308485 qps=12927.7 qps_per_thread=3231.93
+[2025-07-01 10:12:30.826] search(): queries=10000 threads=4 total_time_ms=779.356 avg_latency_ms=0.310794 qps=12831.1 qps_per_thread=3207.78
+[2025-07-01 10:12:31.606] search(): queries=10000 threads=4 total_time_ms=780.179 avg_latency_ms=0.311174 qps=12817.6 qps_per_thread=3204.39
+[2025-07-01 10:12:32.372] search(): queries=10000 threads=4 total_time_ms=765.638 avg_latency_ms=0.305332 qps=13061 qps_per_thread=3265.25
+[2025-07-01 10:12:33.142] search(): queries=10000 threads=4 total_time_ms=770.35 avg_latency_ms=0.307217 qps=12981.1 qps_per_thread=3245.28
+[2025-07-01 10:12:33.920] search(): queries=10000 threads=4 total_time_ms=777.852 avg_latency_ms=0.31024 qps=12855.9 qps_per_thread=3213.98
+[2025-07-01 10:12:34.693] search(): queries=10000 threads=4 total_time_ms=772.927 avg_latency_ms=0.308273 qps=12937.8 qps_per_thread=3234.46
+[2025-07-01 10:12:35.472] search(): queries=10000 threads=4 total_time_ms=778.426 avg_latency_ms=0.310372 qps=12846.4 qps_per_thread=3211.61
+[2025-07-01 10:12:36.242] search(): queries=10000 threads=4 total_time_ms=770.625 avg_latency_ms=0.307266 qps=12976.5 qps_per_thread=3244.12
+[2025-07-01 10:12:37.008] search(): queries=10000 threads=4 total_time_ms=765.199 avg_latency_ms=0.305188 qps=13068.5 qps_per_thread=3267.12
+[2025-07-01 10:12:37.774] search(): queries=10000 threads=4 total_time_ms=766.039 avg_latency_ms=0.305503 qps=13054.2 qps_per_thread=3263.54
+[2025-07-01 10:12:37.999] exclude_start()
+[2025-07-01 10:12:38.585] search(): queries=10000 threads=4 total_time_ms=811.013 avg_latency_ms=0.323486 qps=12330.3 qps_per_thread=3082.56
+[2025-07-01 10:12:39.436] search(): queries=10000 threads=4 total_time_ms=851.266 avg_latency_ms=0.339494 qps=11747.2 qps_per_thread=2936.8
+[2025-07-01 10:12:40.312] search(): queries=10000 threads=4 total_time_ms=875.396 avg_latency_ms=0.349106 qps=11423.4 qps_per_thread=2855.85
+[2025-07-01 10:12:41.177] search(): queries=10000 threads=4 total_time_ms=864.91 avg_latency_ms=0.344961 qps=11561.9 qps_per_thread=2890.47
+[2025-07-01 10:12:42.070] search(): queries=10000 threads=4 total_time_ms=893.572 avg_latency_ms=0.356366 qps=11191 qps_per_thread=2797.76
+[2025-07-01 10:12:42.950] search(): queries=10000 threads=4 total_time_ms=879.301 avg_latency_ms=0.350684 qps=11372.7 qps_per_thread=2843.17
+[2025-07-01 10:12:43.825] search(): queries=10000 threads=4 total_time_ms=875.04 avg_latency_ms=0.348978 qps=11428.1 qps_per_thread=2857.01
+[2025-07-01 10:12:44.691] search(): queries=10000 threads=4 total_time_ms=866.508 avg_latency_ms=0.345574 qps=11540.6 qps_per_thread=2885.14
+[2025-07-01 10:12:45.558] search(): queries=10000 threads=4 total_time_ms=867.046 avg_latency_ms=0.345733 qps=11533.4 qps_per_thread=2883.35
+[2025-07-01 10:12:46.433] search(): queries=10000 threads=4 total_time_ms=874.396 avg_latency_ms=0.348678 qps=11436.5 qps_per_thread=2859.12
+[2025-07-01 10:12:47.284] search(): queries=10000 threads=4 total_time_ms=851.044 avg_latency_ms=0.339388 qps=11750.3 qps_per_thread=2937.57
+[2025-07-01 10:12:48.128] search(): queries=10000 threads=4 total_time_ms=843.956 avg_latency_ms=0.336559 qps=11849 qps_per_thread=2962.24
+[2025-07-01 10:12:48.997] search(): queries=10000 threads=4 total_time_ms=869.262 avg_latency_ms=0.346678 qps=11504 qps_per_thread=2876
+[2025-07-01 10:12:49.853] search(): queries=10000 threads=4 total_time_ms=854.966 avg_latency_ms=0.340882 qps=11696.4 qps_per_thread=2924.09
+[2025-07-01 10:12:50.794] search(): queries=10000 threads=4 total_time_ms=941.497 avg_latency_ms=0.375453 qps=10621.4 qps_per_thread=2655.34
+[2025-07-01 10:12:51.570] search(): queries=10000 threads=4 total_time_ms=776.09 avg_latency_ms=0.309531 qps=12885.1 qps_per_thread=3221.28
+[2025-07-01 10:12:52.368] search(): queries=10000 threads=4 total_time_ms=797.811 avg_latency_ms=0.318117 qps=12534.3 qps_per_thread=3133.58
+[2025-07-01 10:12:53.164] search(): queries=10000 threads=4 total_time_ms=795.528 avg_latency_ms=0.31725 qps=12570.3 qps_per_thread=3142.57
+[2025-07-01 10:12:53.993] search(): queries=10000 threads=4 total_time_ms=829.497 avg_latency_ms=0.330782 qps=12055.5 qps_per_thread=3013.87
+[2025-07-01 10:12:54.788] search(): queries=10000 threads=4 total_time_ms=794.559 avg_latency_ms=0.316861 qps=12585.6 qps_per_thread=3146.4
+[2025-07-01 10:12:55.206] delete_and_consolidate(): range=[400000,499999] duration_ms=17206
+[2025-07-01 10:12:55.512] search(): queries=10000 threads=4 total_time_ms=724.058 avg_latency_ms=0.288719 qps=13811 qps_per_thread=3452.76
+[2025-07-01 10:12:56.207] search(): queries=10000 threads=4 total_time_ms=695.055 avg_latency_ms=0.277147 qps=14387.4 qps_per_thread=3596.84
+[2025-07-01 10:12:56.890] search(): queries=10000 threads=4 total_time_ms=682.522 avg_latency_ms=0.272117 qps=14651.5 qps_per_thread=3662.89
+[2025-07-01 10:12:57.206] exclude_end()
+[2025-07-01 10:12:57.206] only_insert_phase_start()
+[2025-07-01 10:12:57.654] search(): queries=10000 threads=4 total_time_ms=763.998 avg_latency_ms=0.304675 qps=13089 qps_per_thread=3272.26
+[2025-07-01 10:12:58.479] search(): queries=10000 threads=4 total_time_ms=825.556 avg_latency_ms=0.329278 qps=12113 qps_per_thread=3028.26
+[2025-07-01 10:12:59.295] search(): queries=10000 threads=4 total_time_ms=815.797 avg_latency_ms=0.32538 qps=12258 qps_per_thread=3064.49
+[2025-07-01 10:13:00.171] search(): queries=10000 threads=4 total_time_ms=875.558 avg_latency_ms=0.349202 qps=11421.3 qps_per_thread=2855.32
+[2025-07-01 10:13:01.011] search(): queries=10000 threads=4 total_time_ms=840.04 avg_latency_ms=0.335077 qps=11904.2 qps_per_thread=2976.05
+[2025-07-01 10:13:01.857] search(): queries=10000 threads=4 total_time_ms=845.909 avg_latency_ms=0.337377 qps=11821.6 qps_per_thread=2955.4
+[2025-07-01 10:13:02.707] search(): queries=10000 threads=4 total_time_ms=849.626 avg_latency_ms=0.338891 qps=11769.9 qps_per_thread=2942.47
+[2025-07-01 10:13:03.565] search(): queries=10000 threads=4 total_time_ms=858.516 avg_latency_ms=0.342451 qps=11648 qps_per_thread=2912
+[2025-07-01 10:13:04.404] search(): queries=10000 threads=4 total_time_ms=838.485 avg_latency_ms=0.334442 qps=11926.3 qps_per_thread=2981.57
+[2025-07-01 10:13:05.278] search(): queries=10000 threads=4 total_time_ms=874.078 avg_latency_ms=0.348629 qps=11440.6 qps_per_thread=2860.16
+[2025-07-01 10:13:06.151] search(): queries=10000 threads=4 total_time_ms=872.406 avg_latency_ms=0.347982 qps=11462.6 qps_per_thread=2865.64
+[2025-07-01 10:13:06.987] insert(): range=[400000,499999] threads=4 total_time_ms=9779.93 avg_latency_ms=0.389979 qps=10225 qps_per_thread=2556.25
+[2025-07-01 10:13:06.987] sleep_insert_delete_phase_start()
+[2025-07-01 10:13:07.018] search(): queries=10000 threads=4 total_time_ms=867.883 avg_latency_ms=0.346198 qps=11522.3 qps_per_thread=2880.57
+[2025-07-01 10:13:07.750] search(): queries=10000 threads=4 total_time_ms=731.664 avg_latency_ms=0.291778 qps=13667.5 qps_per_thread=3416.87
+[2025-07-01 10:13:08.490] search(): queries=10000 threads=4 total_time_ms=739.613 avg_latency_ms=0.294947 qps=13520.6 qps_per_thread=3380.15
+[2025-07-01 10:13:09.232] search(): queries=10000 threads=4 total_time_ms=741.744 avg_latency_ms=0.295787 qps=13481.7 qps_per_thread=3370.44
+[2025-07-01 10:13:09.970] search(): queries=10000 threads=4 total_time_ms=738.087 avg_latency_ms=0.294349 qps=13548.5 qps_per_thread=3387.13
+[2025-07-01 10:13:10.710] search(): queries=10000 threads=4 total_time_ms=740.124 avg_latency_ms=0.29514 qps=13511.3 qps_per_thread=3377.81
+[2025-07-01 10:13:11.456] search(): queries=10000 threads=4 total_time_ms=745.713 avg_latency_ms=0.297344 qps=13410 qps_per_thread=3352.5
+[2025-07-01 10:13:12.197] search(): queries=10000 threads=4 total_time_ms=741.441 avg_latency_ms=0.295669 qps=13487.3 qps_per_thread=3371.81
+[2025-07-01 10:13:12.927] search(): queries=10000 threads=4 total_time_ms=729.963 avg_latency_ms=0.291095 qps=13699.3 qps_per_thread=3424.83
+[2025-07-01 10:13:13.665] search(): queries=10000 threads=4 total_time_ms=737.648 avg_latency_ms=0.294118 qps=13556.6 qps_per_thread=3389.15
+[2025-07-01 10:13:14.414] search(): queries=10000 threads=4 total_time_ms=748.645 avg_latency_ms=0.298559 qps=13357.5 qps_per_thread=3339.37
+[2025-07-01 10:13:15.148] search(): queries=10000 threads=4 total_time_ms=733.692 avg_latency_ms=0.292606 qps=13629.7 qps_per_thread=3407.42
+[2025-07-01 10:13:15.879] search(): queries=10000 threads=4 total_time_ms=731.298 avg_latency_ms=0.291643 qps=13674.3 qps_per_thread=3418.58
+[2025-07-01 10:13:16.617] search(): queries=10000 threads=4 total_time_ms=737.702 avg_latency_ms=0.294148 qps=13555.6 qps_per_thread=3388.9
+[2025-07-01 10:13:16.987] exclude_start()
+[2025-07-01 10:13:17.402] search(): queries=10000 threads=4 total_time_ms=785.282 avg_latency_ms=0.313164 qps=12734.3 qps_per_thread=3183.57
+[2025-07-01 10:13:18.225] search(): queries=10000 threads=4 total_time_ms=823.007 avg_latency_ms=0.3282 qps=12150.6 qps_per_thread=3037.64
+[2025-07-01 10:13:19.044] search(): queries=10000 threads=4 total_time_ms=819.3 avg_latency_ms=0.326727 qps=12205.5 qps_per_thread=3051.38
+[2025-07-01 10:13:19.853] search(): queries=10000 threads=4 total_time_ms=808.739 avg_latency_ms=0.322478 qps=12364.9 qps_per_thread=3091.23
+[2025-07-01 10:13:20.659] search(): queries=10000 threads=4 total_time_ms=805.397 avg_latency_ms=0.321166 qps=12416.2 qps_per_thread=3104.06
+[2025-07-01 10:13:21.464] search(): queries=10000 threads=4 total_time_ms=805.575 avg_latency_ms=0.32123 qps=12413.5 qps_per_thread=3103.37
+[2025-07-01 10:13:22.281] search(): queries=10000 threads=4 total_time_ms=816.359 avg_latency_ms=0.325535 qps=12249.5 qps_per_thread=3062.38
+[2025-07-01 10:13:23.079] search(): queries=10000 threads=4 total_time_ms=797.616 avg_latency_ms=0.318065 qps=12537.4 qps_per_thread=3134.34
+[2025-07-01 10:13:23.874] search(): queries=10000 threads=4 total_time_ms=795.711 avg_latency_ms=0.317329 qps=12567.4 qps_per_thread=3141.84
+[2025-07-01 10:13:24.667] search(): queries=10000 threads=4 total_time_ms=792.43 avg_latency_ms=0.316068 qps=12619.4 qps_per_thread=3154.85
+[2025-07-01 10:13:25.470] search(): queries=10000 threads=4 total_time_ms=803.505 avg_latency_ms=0.320473 qps=12445.5 qps_per_thread=3111.37
+[2025-07-01 10:13:26.269] search(): queries=10000 threads=4 total_time_ms=798.415 avg_latency_ms=0.318386 qps=12524.8 qps_per_thread=3131.21
+[2025-07-01 10:13:27.063] search(): queries=10000 threads=4 total_time_ms=794.211 avg_latency_ms=0.316736 qps=12591.1 qps_per_thread=3147.78
+[2025-07-01 10:13:27.852] search(): queries=10000 threads=4 total_time_ms=788.857 avg_latency_ms=0.3146 qps=12676.6 qps_per_thread=3169.14
+[2025-07-01 10:13:28.648] search(): queries=10000 threads=4 total_time_ms=795.348 avg_latency_ms=0.317164 qps=12573.1 qps_per_thread=3143.28
+[2025-07-01 10:13:29.438] search(): queries=10000 threads=4 total_time_ms=790.239 avg_latency_ms=0.315097 qps=12654.4 qps_per_thread=3163.6
+[2025-07-01 10:13:30.226] search(): queries=10000 threads=4 total_time_ms=788.445 avg_latency_ms=0.314403 qps=12683.2 qps_per_thread=3170.8
+[2025-07-01 10:13:30.998] search(): queries=10000 threads=4 total_time_ms=771.605 avg_latency_ms=0.30771 qps=12960 qps_per_thread=3240
+[2025-07-01 10:13:31.779] search(): queries=10000 threads=4 total_time_ms=781.077 avg_latency_ms=0.31148 qps=12802.8 qps_per_thread=3200.71
+[2025-07-01 10:13:32.541] search(): queries=10000 threads=4 total_time_ms=761.938 avg_latency_ms=0.30388 qps=13124.4 qps_per_thread=3281.11
+[2025-07-01 10:13:33.298] search(): queries=10000 threads=4 total_time_ms=756.648 avg_latency_ms=0.301784 qps=13216.2 qps_per_thread=3304.05
+[2025-07-01 10:13:33.652] delete_and_consolidate(): range=[500000,599999] duration_ms=16665
+[2025-07-01 10:13:34.007] search(): queries=10000 threads=4 total_time_ms=708.828 avg_latency_ms=0.282675 qps=14107.8 qps_per_thread=3526.95
+[2025-07-01 10:13:34.688] search(): queries=10000 threads=4 total_time_ms=681.454 avg_latency_ms=0.271732 qps=14674.5 qps_per_thread=3668.62
+[2025-07-01 10:13:35.367] search(): queries=10000 threads=4 total_time_ms=679.017 avg_latency_ms=0.27079 qps=14727.2 qps_per_thread=3681.79
+[2025-07-01 10:13:35.653] exclude_end()
+[2025-07-01 10:13:35.653] only_insert_phase_start()
+[2025-07-01 10:13:36.124] search(): queries=10000 threads=4 total_time_ms=756.643 avg_latency_ms=0.301759 qps=13216.3 qps_per_thread=3304.07
+[2025-07-01 10:13:36.929] search(): queries=10000 threads=4 total_time_ms=805.004 avg_latency_ms=0.321143 qps=12422.3 qps_per_thread=3105.57
+[2025-07-01 10:13:37.749] search(): queries=10000 threads=4 total_time_ms=820.235 avg_latency_ms=0.327184 qps=12191.6 qps_per_thread=3047.91
+[2025-07-01 10:13:38.572] search(): queries=10000 threads=4 total_time_ms=822.712 avg_latency_ms=0.328192 qps=12154.9 qps_per_thread=3038.73
+[2025-07-01 10:13:39.398] search(): queries=10000 threads=4 total_time_ms=826.132 avg_latency_ms=0.32957 qps=12104.6 qps_per_thread=3026.15
+[2025-07-01 10:13:40.236] search(): queries=10000 threads=4 total_time_ms=837.074 avg_latency_ms=0.333938 qps=11946.4 qps_per_thread=2986.59
+[2025-07-01 10:13:41.077] search(): queries=10000 threads=4 total_time_ms=841.835 avg_latency_ms=0.335835 qps=11878.8 qps_per_thread=2969.7
+[2025-07-01 10:13:41.927] search(): queries=10000 threads=4 total_time_ms=849.769 avg_latency_ms=0.338999 qps=11767.9 qps_per_thread=2941.98
+[2025-07-01 10:13:42.788] search(): queries=10000 threads=4 total_time_ms=860.983 avg_latency_ms=0.343462 qps=11614.6 qps_per_thread=2903.66
+[2025-07-01 10:13:43.652] search(): queries=10000 threads=4 total_time_ms=863.387 avg_latency_ms=0.344421 qps=11582.3 qps_per_thread=2895.57
+[2025-07-01 10:13:44.514] search(): queries=10000 threads=4 total_time_ms=862.42 avg_latency_ms=0.344019 qps=11595.3 qps_per_thread=2898.82
+[2025-07-01 10:13:45.383] search(): queries=10000 threads=4 total_time_ms=868.715 avg_latency_ms=0.346537 qps=11511.3 qps_per_thread=2877.81
+[2025-07-01 10:13:45.454] insert(): range=[500000,599999] threads=4 total_time_ms=9800.96 avg_latency_ms=0.390806 qps=10203.1 qps_per_thread=2550.77
+[2025-07-01 10:13:45.454] sleep_insert_delete_phase_start()
+[2025-07-01 10:13:46.133] search(): queries=10000 threads=4 total_time_ms=749.794 avg_latency_ms=0.299026 qps=13337 qps_per_thread=3334.25
+[2025-07-01 10:13:46.870] search(): queries=10000 threads=4 total_time_ms=737.5 avg_latency_ms=0.294123 qps=13559.3 qps_per_thread=3389.83
+[2025-07-01 10:13:47.607] search(): queries=10000 threads=4 total_time_ms=736.872 avg_latency_ms=0.293823 qps=13570.9 qps_per_thread=3392.72
+[2025-07-01 10:13:48.351] search(): queries=10000 threads=4 total_time_ms=743.482 avg_latency_ms=0.296513 qps=13450.2 qps_per_thread=3362.56
+[2025-07-01 10:13:49.081] search(): queries=10000 threads=4 total_time_ms=730.106 avg_latency_ms=0.291172 qps=13696.6 qps_per_thread=3424.16
+[2025-07-01 10:13:49.814] search(): queries=10000 threads=4 total_time_ms=732.56 avg_latency_ms=0.29216 qps=13650.8 qps_per_thread=3412.69
+[2025-07-01 10:13:50.544] search(): queries=10000 threads=4 total_time_ms=730.201 avg_latency_ms=0.291194 qps=13694.9 qps_per_thread=3423.71
+[2025-07-01 10:13:51.287] search(): queries=10000 threads=4 total_time_ms=742.597 avg_latency_ms=0.296121 qps=13466.3 qps_per_thread=3366.56
+[2025-07-01 10:13:52.012] search(): queries=10000 threads=4 total_time_ms=725.615 avg_latency_ms=0.289375 qps=13781.4 qps_per_thread=3445.35
+[2025-07-01 10:13:52.744] search(): queries=10000 threads=4 total_time_ms=731.532 avg_latency_ms=0.291744 qps=13669.9 qps_per_thread=3417.48
+[2025-07-01 10:13:53.479] search(): queries=10000 threads=4 total_time_ms=735.103 avg_latency_ms=0.293182 qps=13603.5 qps_per_thread=3400.88
+[2025-07-01 10:13:54.224] search(): queries=10000 threads=4 total_time_ms=744.591 avg_latency_ms=0.296961 qps=13430.2 qps_per_thread=3357.55
+[2025-07-01 10:13:54.968] search(): queries=10000 threads=4 total_time_ms=743.945 avg_latency_ms=0.29671 qps=13441.9 qps_per_thread=3360.46
+[2025-07-01 10:13:55.455] exclude_start()
+[2025-07-01 10:13:55.743] search(): queries=10000 threads=4 total_time_ms=774.9 avg_latency_ms=0.309045 qps=12904.9 qps_per_thread=3226.22
+[2025-07-01 10:13:56.555] search(): queries=10000 threads=4 total_time_ms=812.743 avg_latency_ms=0.324101 qps=12304 qps_per_thread=3076
+[2025-07-01 10:13:57.382] search(): queries=10000 threads=4 total_time_ms=826.886 avg_latency_ms=0.329775 qps=12093.6 qps_per_thread=3023.39
+[2025-07-01 10:13:58.208] search(): queries=10000 threads=4 total_time_ms=825.171 avg_latency_ms=0.329084 qps=12118.7 qps_per_thread=3029.67
+[2025-07-01 10:13:59.024] search(): queries=10000 threads=4 total_time_ms=816.032 avg_latency_ms=0.325409 qps=12254.4 qps_per_thread=3063.61
+[2025-07-01 10:13:59.820] search(): queries=10000 threads=4 total_time_ms=795.994 avg_latency_ms=0.317454 qps=12562.9 qps_per_thread=3140.73
+[2025-07-01 10:14:00.625] search(): queries=10000 threads=4 total_time_ms=805.339 avg_latency_ms=0.321183 qps=12417.1 qps_per_thread=3104.28
+[2025-07-01 10:14:01.419] search(): queries=10000 threads=4 total_time_ms=793.743 avg_latency_ms=0.316603 qps=12598.5 qps_per_thread=3149.63
+[2025-07-01 10:14:02.223] search(): queries=10000 threads=4 total_time_ms=804.29 avg_latency_ms=0.320784 qps=12433.3 qps_per_thread=3108.33
+[2025-07-01 10:14:03.024] search(): queries=10000 threads=4 total_time_ms=800.184 avg_latency_ms=0.319079 qps=12497.1 qps_per_thread=3124.28
+[2025-07-01 10:14:03.821] search(): queries=10000 threads=4 total_time_ms=796.871 avg_latency_ms=0.31775 qps=12549.1 qps_per_thread=3137.27
+[2025-07-01 10:14:04.619] search(): queries=10000 threads=4 total_time_ms=798.439 avg_latency_ms=0.318394 qps=12524.4 qps_per_thread=3131.11
+[2025-07-01 10:14:05.401] search(): queries=10000 threads=4 total_time_ms=781.781 avg_latency_ms=0.3118 qps=12791.3 qps_per_thread=3197.83
+[2025-07-01 10:14:06.200] search(): queries=10000 threads=4 total_time_ms=798.633 avg_latency_ms=0.318494 qps=12521.4 qps_per_thread=3130.35
+[2025-07-01 10:14:06.985] search(): queries=10000 threads=4 total_time_ms=785.589 avg_latency_ms=0.313296 qps=12729.3 qps_per_thread=3182.33
+[2025-07-01 10:14:07.773] search(): queries=10000 threads=4 total_time_ms=787.127 avg_latency_ms=0.313913 qps=12704.4 qps_per_thread=3176.11
+[2025-07-01 10:14:08.549] search(): queries=10000 threads=4 total_time_ms=776.315 avg_latency_ms=0.309535 qps=12881.4 qps_per_thread=3220.34
+[2025-07-01 10:14:09.332] search(): queries=10000 threads=4 total_time_ms=782.914 avg_latency_ms=0.312241 qps=12772.8 qps_per_thread=3193.2
+[2025-07-01 10:14:10.110] search(): queries=10000 threads=4 total_time_ms=778.401 avg_latency_ms=0.310405 qps=12846.9 qps_per_thread=3211.71
+[2025-07-01 10:14:10.747] delete_and_consolidate(): range=[600000,699999] duration_ms=15292
+[2025-07-01 10:14:10.838] search(): queries=10000 threads=4 total_time_ms=727.144 avg_latency_ms=0.289931 qps=13752.4 qps_per_thread=3438.11
+[2025-07-01 10:14:11.532] search(): queries=10000 threads=4 total_time_ms=694.004 avg_latency_ms=0.276743 qps=14409.1 qps_per_thread=3602.29
+[2025-07-01 10:14:12.215] search(): queries=10000 threads=4 total_time_ms=682.888 avg_latency_ms=0.272324 qps=14643.7 qps_per_thread=3660.92
+[2025-07-01 10:14:12.748] exclude_end()
+[2025-07-01 10:14:12.748] only_insert_phase_start()
+[2025-07-01 10:14:12.942] search(): queries=10000 threads=4 total_time_ms=726.862 avg_latency_ms=0.289855 qps=13757.8 qps_per_thread=3439.44
+[2025-07-01 10:14:13.754] search(): queries=10000 threads=4 total_time_ms=812.826 avg_latency_ms=0.324201 qps=12302.8 qps_per_thread=3075.69
+[2025-07-01 10:14:14.576] search(): queries=10000 threads=4 total_time_ms=821.413 avg_latency_ms=0.327653 qps=12174.1 qps_per_thread=3043.54
+[2025-07-01 10:14:15.412] search(): queries=10000 threads=4 total_time_ms=835.647 avg_latency_ms=0.333341 qps=11966.8 qps_per_thread=2991.69
+[2025-07-01 10:14:16.247] search(): queries=10000 threads=4 total_time_ms=835.345 avg_latency_ms=0.333242 qps=11971.1 qps_per_thread=2992.78
+[2025-07-01 10:14:17.082] search(): queries=10000 threads=4 total_time_ms=834.449 avg_latency_ms=0.332879 qps=11984 qps_per_thread=2995.99
+[2025-07-01 10:14:17.917] search(): queries=10000 threads=4 total_time_ms=835.676 avg_latency_ms=0.333308 qps=11966.4 qps_per_thread=2991.59
+[2025-07-01 10:14:18.757] search(): queries=10000 threads=4 total_time_ms=839.153 avg_latency_ms=0.33477 qps=11916.8 qps_per_thread=2979.2
+[2025-07-01 10:14:19.594] search(): queries=10000 threads=4 total_time_ms=836.918 avg_latency_ms=0.333884 qps=11948.6 qps_per_thread=2987.15
+[2025-07-01 10:14:20.438] search(): queries=10000 threads=4 total_time_ms=844.326 avg_latency_ms=0.336842 qps=11843.8 qps_per_thread=2960.94
+[2025-07-01 10:14:21.301] search(): queries=10000 threads=4 total_time_ms=862.603 avg_latency_ms=0.344111 qps=11592.8 qps_per_thread=2898.2
+[2025-07-01 10:14:22.041] insert(): range=[600000,699999] threads=4 total_time_ms=9292.87 avg_latency_ms=0.370494 qps=10760.9 qps_per_thread=2690.23
+[2025-07-01 10:14:22.041] sleep_insert_delete_phase_start()
+[2025-07-01 10:14:22.140] search(): queries=10000 threads=4 total_time_ms=839.489 avg_latency_ms=0.334893 qps=11912 qps_per_thread=2978
+[2025-07-01 10:14:22.879] search(): queries=10000 threads=4 total_time_ms=738.742 avg_latency_ms=0.294648 qps=13536.5 qps_per_thread=3384.13
+[2025-07-01 10:14:23.613] search(): queries=10000 threads=4 total_time_ms=734.056 avg_latency_ms=0.292766 qps=13622.9 qps_per_thread=3405.74
+[2025-07-01 10:14:24.342] search(): queries=10000 threads=4 total_time_ms=728.341 avg_latency_ms=0.290485 qps=13729.8 qps_per_thread=3432.46
+[2025-07-01 10:14:25.058] search(): queries=10000 threads=4 total_time_ms=716.559 avg_latency_ms=0.285742 qps=13955.6 qps_per_thread=3488.9
+[2025-07-01 10:14:25.779] search(): queries=10000 threads=4 total_time_ms=721.04 avg_latency_ms=0.28755 qps=13868.9 qps_per_thread=3467.21
+[2025-07-01 10:14:26.498] search(): queries=10000 threads=4 total_time_ms=718.213 avg_latency_ms=0.286438 qps=13923.4 qps_per_thread=3480.86
+[2025-07-01 10:14:27.221] search(): queries=10000 threads=4 total_time_ms=723.123 avg_latency_ms=0.288339 qps=13828.9 qps_per_thread=3457.22
+[2025-07-01 10:14:27.943] search(): queries=10000 threads=4 total_time_ms=722.005 avg_latency_ms=0.287927 qps=13850.3 qps_per_thread=3462.58
+[2025-07-01 10:14:28.686] search(): queries=10000 threads=4 total_time_ms=742.784 avg_latency_ms=0.296173 qps=13462.9 qps_per_thread=3365.72
+[2025-07-01 10:14:29.414] search(): queries=10000 threads=4 total_time_ms=728.194 avg_latency_ms=0.290421 qps=13732.6 qps_per_thread=3433.15
+[2025-07-01 10:14:30.152] search(): queries=10000 threads=4 total_time_ms=737.696 avg_latency_ms=0.294182 qps=13555.7 qps_per_thread=3388.93
+[2025-07-01 10:14:30.877] search(): queries=10000 threads=4 total_time_ms=725.239 avg_latency_ms=0.289241 qps=13788.6 qps_per_thread=3447.14
+[2025-07-01 10:14:31.611] search(): queries=10000 threads=4 total_time_ms=734.081 avg_latency_ms=0.292739 qps=13622.5 qps_per_thread=3405.62
+[2025-07-01 10:14:32.041] exclude_start()
+[2025-07-01 10:14:32.373] search(): queries=10000 threads=4 total_time_ms=761.456 avg_latency_ms=0.303696 qps=13132.7 qps_per_thread=3283.18
+[2025-07-01 10:14:33.172] search(): queries=10000 threads=4 total_time_ms=799.875 avg_latency_ms=0.319022 qps=12502 qps_per_thread=3125.49
+[2025-07-01 10:14:33.977] search(): queries=10000 threads=4 total_time_ms=804.01 avg_latency_ms=0.320649 qps=12437.7 qps_per_thread=3109.41
+[2025-07-01 10:14:34.781] search(): queries=10000 threads=4 total_time_ms=804.627 avg_latency_ms=0.320853 qps=12428.1 qps_per_thread=3107.03
+[2025-07-01 10:14:35.568] search(): queries=10000 threads=4 total_time_ms=787.129 avg_latency_ms=0.313869 qps=12704.4 qps_per_thread=3176.1
+[2025-07-01 10:14:36.369] search(): queries=10000 threads=4 total_time_ms=800.695 avg_latency_ms=0.31933 qps=12489.1 qps_per_thread=3122.29
+[2025-07-01 10:14:37.155] search(): queries=10000 threads=4 total_time_ms=785.752 avg_latency_ms=0.313389 qps=12726.7 qps_per_thread=3181.67
+[2025-07-01 10:14:37.954] search(): queries=10000 threads=4 total_time_ms=798.762 avg_latency_ms=0.318559 qps=12519.4 qps_per_thread=3129.84
+[2025-07-01 10:14:38.752] search(): queries=10000 threads=4 total_time_ms=798.097 avg_latency_ms=0.318305 qps=12529.8 qps_per_thread=3132.45
+[2025-07-01 10:14:39.538] search(): queries=10000 threads=4 total_time_ms=785.479 avg_latency_ms=0.313243 qps=12731.1 qps_per_thread=3182.77
+[2025-07-01 10:14:40.319] search(): queries=10000 threads=4 total_time_ms=781.16 avg_latency_ms=0.311555 qps=12801.5 qps_per_thread=3200.37
+[2025-07-01 10:14:41.105] search(): queries=10000 threads=4 total_time_ms=786.529 avg_latency_ms=0.313628 qps=12714.1 qps_per_thread=3178.52
+[2025-07-01 10:14:41.882] search(): queries=10000 threads=4 total_time_ms=776.837 avg_latency_ms=0.30982 qps=12872.7 qps_per_thread=3218.18
+[2025-07-01 10:14:42.659] search(): queries=10000 threads=4 total_time_ms=776.555 avg_latency_ms=0.309694 qps=12877.4 qps_per_thread=3219.35
+[2025-07-01 10:14:43.463] search(): queries=10000 threads=4 total_time_ms=804.311 avg_latency_ms=0.320695 qps=12433 qps_per_thread=3108.25
+[2025-07-01 10:14:44.245] search(): queries=10000 threads=4 total_time_ms=781.44 avg_latency_ms=0.311545 qps=12796.9 qps_per_thread=3199.22
+[2025-07-01 10:14:45.034] search(): queries=10000 threads=4 total_time_ms=789.687 avg_latency_ms=0.314899 qps=12663.2 qps_per_thread=3165.81
+[2025-07-01 10:14:45.820] search(): queries=10000 threads=4 total_time_ms=785.067 avg_latency_ms=0.313056 qps=12737.8 qps_per_thread=3184.44
+[2025-07-01 10:14:46.592] search(): queries=10000 threads=4 total_time_ms=772.421 avg_latency_ms=0.307964 qps=12946.3 qps_per_thread=3236.57
+[2025-07-01 10:14:47.355] search(): queries=10000 threads=4 total_time_ms=763.06 avg_latency_ms=0.304298 qps=13105.1 qps_per_thread=3276.28
+[2025-07-01 10:14:47.839] delete_and_consolidate(): range=[700000,799999] duration_ms=15797
+[2025-07-01 10:14:48.066] search(): queries=10000 threads=4 total_time_ms=710.82 avg_latency_ms=0.283431 qps=14068.3 qps_per_thread=3517.07
+[2025-07-01 10:14:48.743] search(): queries=10000 threads=4 total_time_ms=676.561 avg_latency_ms=0.269778 qps=14780.6 qps_per_thread=3695.16
+[2025-07-01 10:14:49.457] search(): queries=10000 threads=4 total_time_ms=714.578 avg_latency_ms=0.284939 qps=13994.3 qps_per_thread=3498.57
+[2025-07-01 10:14:49.839] exclude_end()
+[2025-07-01 10:14:49.839] only_insert_phase_start()
+[2025-07-01 10:14:50.206] search(): queries=10000 threads=4 total_time_ms=749.02 avg_latency_ms=0.298696 qps=13350.8 qps_per_thread=3337.7
+[2025-07-01 10:14:51.092] search(): queries=10000 threads=4 total_time_ms=885.378 avg_latency_ms=0.353127 qps=11294.6 qps_per_thread=2823.65
+[2025-07-01 10:14:51.942] search(): queries=10000 threads=4 total_time_ms=849.576 avg_latency_ms=0.338903 qps=11770.6 qps_per_thread=2942.64
+[2025-07-01 10:14:52.807] search(): queries=10000 threads=4 total_time_ms=865.106 avg_latency_ms=0.345044 qps=11559.3 qps_per_thread=2889.82
+[2025-07-01 10:14:53.649] search(): queries=10000 threads=4 total_time_ms=842.24 avg_latency_ms=0.335874 qps=11873.1 qps_per_thread=2968.28
+[2025-07-01 10:14:54.490] search(): queries=10000 threads=4 total_time_ms=840.562 avg_latency_ms=0.335254 qps=11896.8 qps_per_thread=2974.2
+[2025-07-01 10:14:55.336] search(): queries=10000 threads=4 total_time_ms=846.269 avg_latency_ms=0.337538 qps=11816.6 qps_per_thread=2954.14
+[2025-07-01 10:14:56.177] search(): queries=10000 threads=4 total_time_ms=841.277 avg_latency_ms=0.335591 qps=11886.7 qps_per_thread=2971.67
+[2025-07-01 10:14:57.022] search(): queries=10000 threads=4 total_time_ms=844.674 avg_latency_ms=0.336886 qps=11838.9 qps_per_thread=2959.72
+[2025-07-01 10:14:57.878] search(): queries=10000 threads=4 total_time_ms=856.249 avg_latency_ms=0.341535 qps=11678.8 qps_per_thread=2919.71
+[2025-07-01 10:14:58.861] search(): queries=10000 threads=4 total_time_ms=982.929 avg_latency_ms=0.392076 qps=10173.7 qps_per_thread=2543.42
+[2025-07-01 10:14:59.730] insert(): range=[700000,799999] threads=4 total_time_ms=9890.28 avg_latency_ms=0.394385 qps=10110.9 qps_per_thread=2527.73
+[2025-07-01 10:14:59.730] sleep_insert_delete_phase_start()
+[2025-07-01 10:14:59.793] search(): queries=10000 threads=4 total_time_ms=931.065 avg_latency_ms=0.371386 qps=10740.4 qps_per_thread=2685.1
+[2025-07-01 10:15:00.523] search(): queries=10000 threads=4 total_time_ms=729.861 avg_latency_ms=0.29105 qps=13701.2 qps_per_thread=3425.31
+[2025-07-01 10:15:01.258] search(): queries=10000 threads=4 total_time_ms=735.764 avg_latency_ms=0.293436 qps=13591.3 qps_per_thread=3397.83
+[2025-07-01 10:15:01.997] search(): queries=10000 threads=4 total_time_ms=738.158 avg_latency_ms=0.294376 qps=13547.2 qps_per_thread=3386.81
+[2025-07-01 10:15:02.734] search(): queries=10000 threads=4 total_time_ms=737.847 avg_latency_ms=0.294262 qps=13552.9 qps_per_thread=3388.24
+[2025-07-01 10:15:03.468] search(): queries=10000 threads=4 total_time_ms=733.133 avg_latency_ms=0.292355 qps=13640.1 qps_per_thread=3410.02
+[2025-07-01 10:15:04.200] search(): queries=10000 threads=4 total_time_ms=732.697 avg_latency_ms=0.292183 qps=13648.2 qps_per_thread=3412.05
+[2025-07-01 10:15:04.933] search(): queries=10000 threads=4 total_time_ms=732.11 avg_latency_ms=0.291932 qps=13659.1 qps_per_thread=3414.79
+[2025-07-01 10:15:05.683] search(): queries=10000 threads=4 total_time_ms=750.331 avg_latency_ms=0.299154 qps=13327.5 qps_per_thread=3331.86
+[2025-07-01 10:15:06.407] search(): queries=10000 threads=4 total_time_ms=723.706 avg_latency_ms=0.28859 qps=13817.8 qps_per_thread=3454.44
+[2025-07-01 10:15:07.146] search(): queries=10000 threads=4 total_time_ms=738.992 avg_latency_ms=0.294669 qps=13531.9 qps_per_thread=3382.99
+[2025-07-01 10:15:07.878] search(): queries=10000 threads=4 total_time_ms=731.701 avg_latency_ms=0.29179 qps=13666.8 qps_per_thread=3416.7
+[2025-07-01 10:15:08.612] search(): queries=10000 threads=4 total_time_ms=734.537 avg_latency_ms=0.292898 qps=13614 qps_per_thread=3403.51
+[2025-07-01 10:15:09.349] search(): queries=10000 threads=4 total_time_ms=736.375 avg_latency_ms=0.293624 qps=13580 qps_per_thread=3395.01
+[2025-07-01 10:15:09.730] exclude_start()
+[2025-07-01 10:15:10.139] search(): queries=10000 threads=4 total_time_ms=789.97 avg_latency_ms=0.315046 qps=12658.7 qps_per_thread=3164.68
+[2025-07-01 10:15:10.937] search(): queries=10000 threads=4 total_time_ms=797.976 avg_latency_ms=0.318202 qps=12531.7 qps_per_thread=3132.93
+[2025-07-01 10:15:11.739] search(): queries=10000 threads=4 total_time_ms=802.452 avg_latency_ms=0.319971 qps=12461.8 qps_per_thread=3115.45
+[2025-07-01 10:15:12.535] search(): queries=10000 threads=4 total_time_ms=795.256 avg_latency_ms=0.317153 qps=12574.6 qps_per_thread=3143.64
+[2025-07-01 10:15:13.335] search(): queries=10000 threads=4 total_time_ms=800.159 avg_latency_ms=0.319073 qps=12497.5 qps_per_thread=3124.38
+[2025-07-01 10:15:14.144] search(): queries=10000 threads=4 total_time_ms=809.233 avg_latency_ms=0.322689 qps=12357.4 qps_per_thread=3089.34
+[2025-07-01 10:15:14.941] search(): queries=10000 threads=4 total_time_ms=796.902 avg_latency_ms=0.317815 qps=12548.6 qps_per_thread=3137.15
+[2025-07-01 10:15:15.741] search(): queries=10000 threads=4 total_time_ms=799.736 avg_latency_ms=0.318924 qps=12504.1 qps_per_thread=3126.03
+[2025-07-01 10:15:16.553] search(): queries=10000 threads=4 total_time_ms=812.392 avg_latency_ms=0.323994 qps=12309.3 qps_per_thread=3077.33
+[2025-07-01 10:15:17.389] search(): queries=10000 threads=4 total_time_ms=835.622 avg_latency_ms=0.333217 qps=11967.1 qps_per_thread=2991.78
+[2025-07-01 10:15:18.200] search(): queries=10000 threads=4 total_time_ms=810.691 avg_latency_ms=0.323233 qps=12335.2 qps_per_thread=3083.79
+[2025-07-01 10:15:19.016] search(): queries=10000 threads=4 total_time_ms=815.957 avg_latency_ms=0.325317 qps=12255.6 qps_per_thread=3063.89
+[2025-07-01 10:15:19.809] search(): queries=10000 threads=4 total_time_ms=792.635 avg_latency_ms=0.316056 qps=12616.2 qps_per_thread=3154.04
+[2025-07-01 10:15:20.599] search(): queries=10000 threads=4 total_time_ms=790.182 avg_latency_ms=0.315116 qps=12655.3 qps_per_thread=3163.83
+[2025-07-01 10:15:21.390] search(): queries=10000 threads=4 total_time_ms=791.299 avg_latency_ms=0.315546 qps=12637.5 qps_per_thread=3159.36
+[2025-07-01 10:15:22.182] search(): queries=10000 threads=4 total_time_ms=791.695 avg_latency_ms=0.315746 qps=12631.1 qps_per_thread=3157.78
+[2025-07-01 10:15:22.968] search(): queries=10000 threads=4 total_time_ms=786.115 avg_latency_ms=0.313506 qps=12720.8 qps_per_thread=3180.2
+[2025-07-01 10:15:23.745] search(): queries=10000 threads=4 total_time_ms=776.925 avg_latency_ms=0.309845 qps=12871.3 qps_per_thread=3217.82
+[2025-07-01 10:15:24.520] search(): queries=10000 threads=4 total_time_ms=774.731 avg_latency_ms=0.308952 qps=12907.7 qps_per_thread=3226.93
+[2025-07-01 10:15:25.278] search(): queries=10000 threads=4 total_time_ms=757.796 avg_latency_ms=0.302216 qps=13196.2 qps_per_thread=3299.04
+[2025-07-01 10:15:25.345] delete_and_consolidate(): range=[800000,899999] duration_ms=15614
+[2025-07-01 10:15:25.973] search(): queries=10000 threads=4 total_time_ms=695.308 avg_latency_ms=0.277276 qps=14382.1 qps_per_thread=3595.53
+[2025-07-01 10:15:26.659] search(): queries=10000 threads=4 total_time_ms=685.236 avg_latency_ms=0.273243 qps=14593.5 qps_per_thread=3648.38
+[2025-07-01 10:15:27.345] search(): queries=10000 threads=4 total_time_ms=686.317 avg_latency_ms=0.273682 qps=14570.5 qps_per_thread=3642.63
+[2025-07-01 10:15:27.346] exclude_end()
+[2025-07-01 10:15:27.346] only_insert_phase_start()
+[2025-07-01 10:15:28.147] search(): queries=10000 threads=4 total_time_ms=802.107 avg_latency_ms=0.319888 qps=12467.2 qps_per_thread=3116.79
+[2025-07-01 10:15:28.974] search(): queries=10000 threads=4 total_time_ms=826.774 avg_latency_ms=0.329741 qps=12095.2 qps_per_thread=3023.8
+[2025-07-01 10:15:29.812] search(): queries=10000 threads=4 total_time_ms=838.29 avg_latency_ms=0.334365 qps=11929 qps_per_thread=2982.26
+[2025-07-01 10:15:30.645] search(): queries=10000 threads=4 total_time_ms=833.059 avg_latency_ms=0.332269 qps=12004 qps_per_thread=3000.99
+[2025-07-01 10:15:31.485] search(): queries=10000 threads=4 total_time_ms=839.085 avg_latency_ms=0.3347 qps=11917.7 qps_per_thread=2979.44
+[2025-07-01 10:15:32.327] search(): queries=10000 threads=4 total_time_ms=842.275 avg_latency_ms=0.335959 qps=11872.6 qps_per_thread=2968.15
+[2025-07-01 10:15:33.173] search(): queries=10000 threads=4 total_time_ms=846.37 avg_latency_ms=0.337551 qps=11815.2 qps_per_thread=2953.79
+[2025-07-01 10:15:34.026] search(): queries=10000 threads=4 total_time_ms=853.02 avg_latency_ms=0.340243 qps=11723.1 qps_per_thread=2930.76
+[2025-07-01 10:15:34.883] search(): queries=10000 threads=4 total_time_ms=857.015 avg_latency_ms=0.341845 qps=11668.4 qps_per_thread=2917.1
+[2025-07-01 10:15:35.742] search(): queries=10000 threads=4 total_time_ms=858.807 avg_latency_ms=0.342569 qps=11644.1 qps_per_thread=2911.01
+[2025-07-01 10:15:36.487] insert(): range=[800000,899999] threads=4 total_time_ms=9140.39 avg_latency_ms=0.364454 qps=10940.5 qps_per_thread=2735.11
+[2025-07-01 10:15:36.487] sleep_insert_delete_phase_start()
+[2025-07-01 10:15:36.590] search(): queries=10000 threads=4 total_time_ms=847.437 avg_latency_ms=0.338053 qps=11800.3 qps_per_thread=2950.07
+[2025-07-01 10:15:37.322] search(): queries=10000 threads=4 total_time_ms=732.632 avg_latency_ms=0.292165 qps=13649.4 qps_per_thread=3412.35
+[2025-07-01 10:15:38.063] search(): queries=10000 threads=4 total_time_ms=740.098 avg_latency_ms=0.295117 qps=13511.7 qps_per_thread=3377.93
+[2025-07-01 10:15:38.801] search(): queries=10000 threads=4 total_time_ms=737.856 avg_latency_ms=0.294223 qps=13552.8 qps_per_thread=3388.19
+[2025-07-01 10:15:39.538] search(): queries=10000 threads=4 total_time_ms=737.606 avg_latency_ms=0.294136 qps=13557.4 qps_per_thread=3389.34
+[2025-07-01 10:15:40.274] search(): queries=10000 threads=4 total_time_ms=735.702 avg_latency_ms=0.293378 qps=13592.5 qps_per_thread=3398.12
+[2025-07-01 10:15:41.006] search(): queries=10000 threads=4 total_time_ms=732.307 avg_latency_ms=0.292029 qps=13655.5 qps_per_thread=3413.87
+[2025-07-01 10:15:41.733] search(): queries=10000 threads=4 total_time_ms=727.17 avg_latency_ms=0.289972 qps=13751.9 qps_per_thread=3437.98
+[2025-07-01 10:15:42.468] search(): queries=10000 threads=4 total_time_ms=734.526 avg_latency_ms=0.292925 qps=13614.2 qps_per_thread=3403.56
+[2025-07-01 10:15:43.199] search(): queries=10000 threads=4 total_time_ms=730.468 avg_latency_ms=0.291292 qps=13689.9 qps_per_thread=3422.46
+[2025-07-01 10:15:43.948] search(): queries=10000 threads=4 total_time_ms=749.301 avg_latency_ms=0.298792 qps=13345.8 qps_per_thread=3336.44
+[2025-07-01 10:15:44.681] search(): queries=10000 threads=4 total_time_ms=732.813 avg_latency_ms=0.292228 qps=13646.1 qps_per_thread=3411.51
+[2025-07-01 10:15:45.414] search(): queries=10000 threads=4 total_time_ms=733.313 avg_latency_ms=0.292434 qps=13636.7 qps_per_thread=3409.18
+[2025-07-01 10:15:46.153] search(): queries=10000 threads=4 total_time_ms=738.797 avg_latency_ms=0.294586 qps=13535.5 qps_per_thread=3383.88
+[2025-07-01 10:15:46.487] dynamic_phase_end()
+[2025-07-01 10:15:46.886] search(): queries=10000 threads=4 total_time_ms=732.809 avg_latency_ms=0.292188 qps=13646.1 qps_per_thread=3411.53
+[2025-07-01 10:15:47.610] search(): queries=10000 threads=4 total_time_ms=723.686 avg_latency_ms=0.288573 qps=13818.1 qps_per_thread=3454.53
+[2025-07-01 10:15:48.338] search(): queries=10000 threads=4 total_time_ms=728.771 avg_latency_ms=0.290612 qps=13721.7 qps_per_thread=3430.43
+[2025-07-01 10:15:49.067] search(): queries=10000 threads=4 total_time_ms=728.433 avg_latency_ms=0.290461 qps=13728.1 qps_per_thread=3432.02
+[2025-07-01 10:15:49.798] search(): queries=10000 threads=4 total_time_ms=731.207 avg_latency_ms=0.291578 qps=13676 qps_per_thread=3419
+[2025-07-01 10:15:50.528] search(): queries=10000 threads=4 total_time_ms=729.57 avg_latency_ms=0.290924 qps=13706.7 qps_per_thread=3426.67
+[2025-07-01 10:15:51.260] search(): queries=10000 threads=4 total_time_ms=731.774 avg_latency_ms=0.291785 qps=13665.4 qps_per_thread=3416.36
+[2025-07-01 10:15:51.987] search(): queries=10000 threads=4 total_time_ms=727.673 avg_latency_ms=0.290168 qps=13742.4 qps_per_thread=3435.61
+[2025-07-01 10:15:52.713] search(): queries=10000 threads=4 total_time_ms=725.891 avg_latency_ms=0.28947 qps=13776.2 qps_per_thread=3444.04
+[2025-07-01 10:15:53.441] search(): queries=10000 threads=4 total_time_ms=727.075 avg_latency_ms=0.28994 qps=13753.7 qps_per_thread=3438.43
+[2025-07-01 10:15:54.178] search(): queries=10000 threads=4 total_time_ms=737.73 avg_latency_ms=0.294195 qps=13555.1 qps_per_thread=3388.77
+[2025-07-01 10:15:54.924] search(): queries=10000 threads=4 total_time_ms=745.874 avg_latency_ms=0.297435 qps=13407.1 qps_per_thread=3351.77
+[2025-07-01 10:15:55.663] search(): queries=10000 threads=4 total_time_ms=738.613 avg_latency_ms=0.294529 qps=13538.9 qps_per_thread=3384.72
+[2025-07-01 10:15:56.389] search(): queries=10000 threads=4 total_time_ms=725.455 avg_latency_ms=0.289281 qps=13784.4 qps_per_thread=3446.11
+[2025-07-01 10:15:57.115] search(): queries=10000 threads=4 total_time_ms=726.569 avg_latency_ms=0.289749 qps=13763.3 qps_per_thread=3440.83
+[2025-07-01 10:15:57.849] search(): queries=10000 threads=4 total_time_ms=733.902 avg_latency_ms=0.292667 qps=13625.8 qps_per_thread=3406.45
+[2025-07-01 10:15:58.577] search(): queries=10000 threads=4 total_time_ms=727.971 avg_latency_ms=0.290314 qps=13736.8 qps_per_thread=3434.2
+[2025-07-01 10:15:59.306] search(): queries=10000 threads=4 total_time_ms=728.786 avg_latency_ms=0.290629 qps=13721.5 qps_per_thread=3430.36
+[2025-07-01 10:16:00.033] search(): queries=10000 threads=4 total_time_ms=726.682 avg_latency_ms=0.289789 qps=13761.2 qps_per_thread=3440.29
+[2025-07-01 10:16:00.756] search(): queries=10000 threads=4 total_time_ms=723.423 avg_latency_ms=0.288474 qps=13823.2 qps_per_thread=3455.79
+[2025-07-01 10:16:01.478] search(): queries=10000 threads=4 total_time_ms=721.657 avg_latency_ms=0.287796 qps=13857 qps_per_thread=3464.25
+[2025-07-01 10:16:02.217] search(): queries=10000 threads=4 total_time_ms=739.346 avg_latency_ms=0.29481 qps=13525.5 qps_per_thread=3381.36
+[2025-07-01 10:16:02.948] search(): queries=10000 threads=4 total_time_ms=730.263 avg_latency_ms=0.291218 qps=13693.7 qps_per_thread=3423.42
+[2025-07-01 10:16:03.676] search(): queries=10000 threads=4 total_time_ms=728.702 avg_latency_ms=0.290629 qps=13723 qps_per_thread=3430.76
+[2025-07-01 10:16:04.401] search(): queries=10000 threads=4 total_time_ms=724.355 avg_latency_ms=0.288841 qps=13805.4 qps_per_thread=3451.35
+[2025-07-01 10:16:05.123] search(): queries=10000 threads=4 total_time_ms=721.904 avg_latency_ms=0.287886 qps=13852.3 qps_per_thread=3463.06
+[2025-07-01 10:16:05.851] search(): queries=10000 threads=4 total_time_ms=728.337 avg_latency_ms=0.290457 qps=13729.9 qps_per_thread=3432.48
+[2025-07-01 10:16:06.580] search(): queries=10000 threads=4 total_time_ms=728.519 avg_latency_ms=0.290548 qps=13726.5 qps_per_thread=3431.62
+[2025-07-01 10:16:07.309] search(): queries=10000 threads=4 total_time_ms=729.182 avg_latency_ms=0.290796 qps=13714 qps_per_thread=3428.5
+[2025-07-01 10:16:08.031] search(): queries=10000 threads=4 total_time_ms=721.456 avg_latency_ms=0.287717 qps=13860.9 qps_per_thread=3465.22
+[2025-07-01 10:16:08.784] search(): queries=10000 threads=4 total_time_ms=752.938 avg_latency_ms=0.300273 qps=13281.3 qps_per_thread=3320.33
+[2025-07-01 10:16:09.507] search(): queries=10000 threads=4 total_time_ms=723.717 avg_latency_ms=0.288629 qps=13817.6 qps_per_thread=3454.39
+[2025-07-01 10:16:10.255] search(): queries=10000 threads=4 total_time_ms=747.694 avg_latency_ms=0.298147 qps=13374.5 qps_per_thread=3343.62
+[2025-07-01 10:16:10.996] search(): queries=10000 threads=4 total_time_ms=741.294 avg_latency_ms=0.295633 qps=13489.9 qps_per_thread=3372.48
+[2025-07-01 10:16:11.734] search(): queries=10000 threads=4 total_time_ms=737.798 avg_latency_ms=0.294219 qps=13553.8 qps_per_thread=3388.46
+[2025-07-01 10:16:12.463] search(): queries=10000 threads=4 total_time_ms=728.641 avg_latency_ms=0.290585 qps=13724.2 qps_per_thread=3431.04
+[2025-07-01 10:16:13.198] search(): queries=10000 threads=4 total_time_ms=734.658 avg_latency_ms=0.292977 qps=13611.8 qps_per_thread=3402.94
+[2025-07-01 10:16:13.931] search(): queries=10000 threads=4 total_time_ms=732.813 avg_latency_ms=0.292239 qps=13646 qps_per_thread=3411.51
+[2025-07-01 10:16:14.664] search(): queries=10000 threads=4 total_time_ms=733.343 avg_latency_ms=0.292441 qps=13636.2 qps_per_thread=3409.04
+[2025-07-01 10:16:15.398] search(): queries=10000 threads=4 total_time_ms=733.494 avg_latency_ms=0.292489 qps=13633.4 qps_per_thread=3408.34
+[2025-07-01 10:16:16.136] search(): queries=10000 threads=4 total_time_ms=738.145 avg_latency_ms=0.294336 qps=13547.5 qps_per_thread=3386.87
+[2025-07-01 10:16:16.861] search(): queries=10000 threads=4 total_time_ms=724.728 avg_latency_ms=0.289019 qps=13798.3 qps_per_thread=3449.57
+[2025-07-01 10:16:17.590] search(): queries=10000 threads=4 total_time_ms=729.297 avg_latency_ms=0.290844 qps=13711.8 qps_per_thread=3427.96
+[2025-07-01 10:16:18.333] search(): queries=10000 threads=4 total_time_ms=742.972 avg_latency_ms=0.29629 qps=13459.5 qps_per_thread=3364.86
+[2025-07-01 10:16:19.074] search(): queries=10000 threads=4 total_time_ms=741.388 avg_latency_ms=0.295653 qps=13488.2 qps_per_thread=3372.05
+[2025-07-01 10:16:19.807] search(): queries=10000 threads=4 total_time_ms=732.2 avg_latency_ms=0.291991 qps=13657.5 qps_per_thread=3414.37
+[2025-07-01 10:16:20.538] search(): queries=10000 threads=4 total_time_ms=731.136 avg_latency_ms=0.291567 qps=13677.4 qps_per_thread=3419.34
+[2025-07-01 10:16:21.270] search(): queries=10000 threads=4 total_time_ms=731.937 avg_latency_ms=0.291884 qps=13662.4 qps_per_thread=3415.6
+[2025-07-01 10:16:22.009] search(): queries=10000 threads=4 total_time_ms=739.054 avg_latency_ms=0.294712 qps=13530.8 qps_per_thread=3382.7
+[2025-07-01 10:16:22.762] search(): queries=10000 threads=4 total_time_ms=753.069 avg_latency_ms=0.300312 qps=13279 qps_per_thread=3319.75
+[2025-07-01 10:16:23.509] search(): queries=10000 threads=4 total_time_ms=746.533 avg_latency_ms=0.297696 qps=13395.3 qps_per_thread=3348.81
+[2025-07-01 10:16:24.257] search(): queries=10000 threads=4 total_time_ms=748.513 avg_latency_ms=0.298477 qps=13359.8 qps_per_thread=3339.95
+[2025-07-01 10:16:24.988] search(): queries=10000 threads=4 total_time_ms=730.298 avg_latency_ms=0.291255 qps=13693 qps_per_thread=3423.26
+[2025-07-01 10:16:25.724] search(): queries=10000 threads=4 total_time_ms=736.264 avg_latency_ms=0.293634 qps=13582.1 qps_per_thread=3395.52
+[2025-07-01 10:16:26.455] search(): queries=10000 threads=4 total_time_ms=730.882 avg_latency_ms=0.291463 qps=13682.1 qps_per_thread=3420.53
+[2025-07-01 10:16:27.184] search(): queries=10000 threads=4 total_time_ms=729.15 avg_latency_ms=0.290794 qps=13714.6 qps_per_thread=3428.65
+[2025-07-01 10:16:27.918] search(): queries=10000 threads=4 total_time_ms=733.955 avg_latency_ms=0.292668 qps=13624.8 qps_per_thread=3406.2
+[2025-07-01 10:16:28.644] search(): queries=10000 threads=4 total_time_ms=725.714 avg_latency_ms=0.289435 qps=13779.5 qps_per_thread=3444.88
+[2025-07-01 10:16:29.372] search(): queries=10000 threads=4 total_time_ms=728.128 avg_latency_ms=0.290405 qps=13733.8 qps_per_thread=3433.46
+[2025-07-01 10:16:30.112] search(): queries=10000 threads=4 total_time_ms=740.246 avg_latency_ms=0.295223 qps=13509 qps_per_thread=3377.26
+[2025-07-01 10:16:30.843] search(): queries=10000 threads=4 total_time_ms=730.086 avg_latency_ms=0.291177 qps=13697 qps_per_thread=3424.25
+[2025-07-01 10:16:31.572] search(): queries=10000 threads=4 total_time_ms=729.008 avg_latency_ms=0.290746 qps=13717.3 qps_per_thread=3429.32
+[2025-07-01 10:16:32.304] search(): queries=10000 threads=4 total_time_ms=731.92 avg_latency_ms=0.291894 qps=13662.7 qps_per_thread=3415.67
+[2025-07-01 10:16:33.029] search(): queries=10000 threads=4 total_time_ms=725.572 avg_latency_ms=0.289335 qps=13782.2 qps_per_thread=3445.56
+[2025-07-01 10:16:33.758] search(): queries=10000 threads=4 total_time_ms=729.181 avg_latency_ms=0.290795 qps=13714 qps_per_thread=3428.5
+[2025-07-01 10:16:34.486] search(): queries=10000 threads=4 total_time_ms=727.536 avg_latency_ms=0.290149 qps=13745 qps_per_thread=3436.26
+[2025-07-01 10:16:35.234] search(): queries=10000 threads=4 total_time_ms=747.649 avg_latency_ms=0.298146 qps=13375.3 qps_per_thread=3343.82
+[2025-07-01 10:16:35.964] search(): queries=10000 threads=4 total_time_ms=730.557 avg_latency_ms=0.29133 qps=13688.2 qps_per_thread=3422.04
+[2025-07-01 10:16:36.690] search(): queries=10000 threads=4 total_time_ms=725.44 avg_latency_ms=0.289304 qps=13784.7 qps_per_thread=3446.18
+[2025-07-01 10:16:37.419] search(): queries=10000 threads=4 total_time_ms=729.277 avg_latency_ms=0.290821 qps=13712.2 qps_per_thread=3428.05
+[2025-07-01 10:16:38.161] search(): queries=10000 threads=4 total_time_ms=741.547 avg_latency_ms=0.295697 qps=13485.3 qps_per_thread=3371.33
+[2025-07-01 10:16:38.894] search(): queries=10000 threads=4 total_time_ms=733.325 avg_latency_ms=0.292427 qps=13636.5 qps_per_thread=3409.13
+[2025-07-01 10:16:39.676] search(): queries=10000 threads=4 total_time_ms=781.453 avg_latency_ms=0.311678 qps=12796.7 qps_per_thread=3199.17
+[2025-07-01 10:16:40.433] search(): queries=10000 threads=4 total_time_ms=757.312 avg_latency_ms=0.302049 qps=13204.6 qps_per_thread=3301.15
+[2025-07-01 10:16:41.200] search(): queries=10000 threads=4 total_time_ms=767.361 avg_latency_ms=0.306058 qps=13031.7 qps_per_thread=3257.92
+[2025-07-01 10:16:41.949] search(): queries=10000 threads=4 total_time_ms=748.504 avg_latency_ms=0.298517 qps=13360 qps_per_thread=3340
+[2025-07-01 10:16:42.763] search(): queries=10000 threads=4 total_time_ms=813.797 avg_latency_ms=0.324598 qps=12288.1 qps_per_thread=3072.02
+[2025-07-01 10:16:43.653] search(): queries=10000 threads=4 total_time_ms=889.694 avg_latency_ms=0.354856 qps=11239.8 qps_per_thread=2809.96
+[2025-07-01 10:16:44.512] search(): queries=10000 threads=4 total_time_ms=859.229 avg_latency_ms=0.342739 qps=11638.3 qps_per_thread=2909.59
+[2025-07-01 10:16:45.352] search(): queries=10000 threads=4 total_time_ms=840.102 avg_latency_ms=0.335061 qps=11903.3 qps_per_thread=2975.83

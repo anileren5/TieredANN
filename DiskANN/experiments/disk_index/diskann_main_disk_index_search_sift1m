@@ -1,0 +1,82 @@
+Search parameters: #threads: 28,  beamwidth: 2.
+Reading (with alignment) bin file ./data/sift/sift_query.bin ...Metadata: #pts = 10000, #dims = 128, aligned_dim = 128... allocating aligned memory of 5120000 bytes... done. Copying data to mem_aligned buffer... done.
+Opened: ./data/sift/sift_groundtruth.bin, size: 4000008, cache_size: 4000008
+Reading truthset file ./data/sift/sift_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+L2: Using AVX2 distance computation DistanceL2Float
+L2: Using AVX2 distance computation DistanceL2Float
+Reading bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_compressed.bin ...
+Opening bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_compressed.bin... 
+Metadata: #pts = 1000000, #dims = 3...
+done.
+Reading bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_pivots.bin ...
+Opening bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_pivots.bin... 
+Metadata: #pts = 4, #dims = 1...
+done.
+Offsets: 4096 135176 135696 135720
+Reading bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_pivots.bin ...
+Opening bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_pivots.bin... 
+Metadata: #pts = 256, #dims = 128...
+done.
+Reading bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_pivots.bin ...
+Opening bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_pivots.bin... 
+Metadata: #pts = 128, #dims = 1...
+done.
+Reading bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_pivots.bin ...
+Opening bin file ./index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ0_pq_pivots.bin... 
+Metadata: #pts = 4, #dims = 1...
+done.
+Loaded PQ Pivots: #ctrs: 256, #dims: 128, #chunks: 3
+Loaded PQ centroids and in-memory compressed vectors. #points: 1000000 #dim: 128 #aligned_dim: 128 #chunks: 3
+Disk-Index File Meta-data: # nodes per sector: 5, max node len (bytes): 772, max node degree: 64
+Setting up thread-specific contexts for nthreads: 28
+allocating ctx: 0x7aba4bbc9000 to thread-id:134940547971008
+allocating ctx: 0x7aba4b6c4000 to thread-id:134940381400000
+allocating ctx: 0x7aba4b6b3000 to thread-id:134940389796672
+allocating ctx: 0x7aba4b6a2000 to thread-id:134940297433280
+allocating ctx: 0x7aba4b691000 to thread-id:134940289036608
+allocating ctx: 0x7aba4a9ef000 to thread-id:134940364606656
+allocating ctx: 0x7aba4a9de000 to thread-id:134940347813312
+allocating ctx: 0x7aba4a9cd000 to thread-id:134940356209984
+allocating ctx: 0x7aba4a9bc000 to thread-id:134940339416640
+allocating ctx: 0x7aba4a9ab000 to thread-id:134940263846592
+allocating ctx: 0x7aba4a99a000 to thread-id:134940331019968
+allocating ctx: 0x7aba4a989000 to thread-id:134940373003328
+allocating ctx: 0x7aba4a978000 to thread-id:134940247053248
+allocating ctx: 0x7aba4a967000 to thread-id:134940305829952
+allocating ctx: 0x7aba4a956000 to thread-id:134940314226624
+allocating ctx: 0x7aba4a945000 to thread-id:134940280639936
+allocating ctx: 0x7aba4a934000 to thread-id:134940196673216
+allocating ctx: 0x7aba4a923000 to thread-id:134940255449920
+allocating ctx: 0x7aba4a912000 to thread-id:134940179871680
+allocating ctx: 0x7aba4a901000 to thread-id:134940171470912
+allocating ctx: 0x7aba4a8f0000 to thread-id:134940272243264
+allocating ctx: 0x7aba46fef000 to thread-id:134940230259904
+allocating ctx: 0x7aba46fde000 to thread-id:134940213466560
+allocating ctx: 0x7aba46fcd000 to thread-id:134940322623296
+allocating ctx: 0x7aba46fbc000 to thread-id:134940188272448
+allocating ctx: 0x7aba46fab000 to thread-id:134940221863232
+allocating ctx: 0x7aba46f9a000 to thread-id:134940205069888
+allocating ctx: 0x7aba46f89000 to thread-id:134940238656576
+Loading centroid data from medoids vector data of 1 medoid(s)
+done..
+Caching 10000 nodes around medoid(s)
+Caching 10000...
+Level: 1.. #nodes: 1, #nodes thus far: 1
+Level: 2.. #nodes: 64, #nodes thus far: 65
+Level: 3.. #nodes: 3428, #nodes thus far: 3493
+Level: 4. #nodes: 6507, #nodes thus far: 10000
+done
+Loading the cache list into memory....done.
+     L   Beamwidth             QPS    Mean Latency    99.9 Latency        Mean IOs    Mean IO (us)         CPU (s)      Recall@100
+===================================================================================================================================
+   128           2         4015.61         6806.11        10134.00          129.92         5801.63          644.46           18.13
+   256           2         2051.01        13370.89        22228.00          256.15        11497.53         1214.17           28.04
+   512           2         1006.41        27287.67        36012.00          509.74        23385.86         2605.53           41.02
+  1024           2          522.97        52664.67        63007.00         1017.80        45472.85         4784.69           55.93
+  2048           2          256.90       107725.95       138990.00         2034.64        92268.24        10572.58           71.06
+  4096           2          128.94       215064.60       242591.00         4068.78       181744.62        23617.96           84.00
+  8192           2           63.96       434117.61       485517.00         8137.06       355788.75        59061.63           92.79
+Done searching. Now saving results 
+Clearing scratch
+basic_ios::clear: iostream error

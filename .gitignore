@@ -1,0 +1,12 @@
+build
+
+DiskANN/data
+DiskANN/plot
+DiskANN/index
+DiskANN/results
+DiskANN/.vscode
+
+Greator/data
+Greator/index
+Greator/results
+Greator/.vscode

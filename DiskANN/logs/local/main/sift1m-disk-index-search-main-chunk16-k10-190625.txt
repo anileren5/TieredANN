@@ -1,0 +1,85 @@
+eren@eren:~/Desktop/summer@EPFL/DiskANN$ ./build/apps/search_disk_index --data_type float --dist_fn l2 --index_path_prefix index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16 --query_file data/sift/sift_query.bin  --gt_file data/sift/sift_groundtruth_10.bin -K 10 -L 128 256 512 1024 2048 4096 8192  --result_path result/sift/ --num_nodes_to_cache 10000
+Search parameters: #threads: 28,  beamwidth: 2.
+Reading (with alignment) bin file data/sift/sift_query.bin ...Metadata: #pts = 10000, #dims = 128, aligned_dim = 128... allocating aligned memory of 5120000 bytes... done. Copying data to mem_aligned buffer... done.
+Opened: data/sift/sift_groundtruth_10.bin, size: 400008, cache_size: 400008
+Reading truthset file data/sift/sift_groundtruth_10.bin ...
+Metadata: #pts = 10000, #dims = 10... 
+L2: Using AVX2 distance computation DistanceL2Float
+L2: Using AVX2 distance computation DistanceL2Float
+Reading bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_compressed.bin ...
+Opening bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_compressed.bin... 
+Metadata: #pts = 1000000, #dims = 3...
+done.
+Reading bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_pivots.bin ...
+Opening bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_pivots.bin... 
+Metadata: #pts = 4, #dims = 1...
+done.
+Offsets: 4096 135176 135696 135720
+Reading bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_pivots.bin ...
+Opening bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_pivots.bin... 
+Metadata: #pts = 256, #dims = 128...
+done.
+Reading bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_pivots.bin ...
+Opening bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_pivots.bin... 
+Metadata: #pts = 128, #dims = 1...
+done.
+Reading bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_pivots.bin ...
+Opening bin file index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_pq_pivots.bin... 
+Metadata: #pts = 4, #dims = 1...
+done.
+Loaded PQ Pivots: #ctrs: 256, #dims: 128, #chunks: 3
+Loaded PQ centroids and in-memory compressed vectors. #points: 1000000 #dim: 128 #aligned_dim: 128 #chunks: 3
+Disk-Index File Meta-data: # nodes per sector: 5, max node len (bytes): 772, max node degree: 64
+Opened file : index/sift/disk_index_sift_learn_R64_L128_A1.2_PQ16_disk.index
+Setting up thread-specific contexts for nthreads: 28
+allocating ctx: 0x7f894211a000 to thread-id:140227477383104
+allocating ctx: 0x7f8940f8f000 to thread-id:140227316264000
+allocating ctx: 0x7f8940f7e000 to thread-id:140227207107264
+allocating ctx: 0x7f8940f6d000 to thread-id:140227333057344
+allocating ctx: 0x7f8940f5c000 to thread-id:140227324660672
+allocating ctx: 0x7f8940f4b000 to thread-id:140227274280640
+allocating ctx: 0x7f8940f3a000 to thread-id:140227240693952
+allocating ctx: 0x7f8940f29000 to thread-id:140227307867328
+allocating ctx: 0x7f8940f18000 to thread-id:140227181917248
+allocating ctx: 0x7f8940f07000 to thread-id:140227198710592
+allocating ctx: 0x7f8940ef6000 to thread-id:140227190313920
+allocating ctx: 0x7f893d5ef000 to thread-id:140227291073984
+allocating ctx: 0x7f893d5de000 to thread-id:140227139933888
+allocating ctx: 0x7f893d5cd000 to thread-id:140227173520576
+allocating ctx: 0x7f893d5bc000 to thread-id:140227148330560
+allocating ctx: 0x7f893d5ab000 to thread-id:140227123132352
+allocating ctx: 0x7f893d59a000 to thread-id:140227156727232
+allocating ctx: 0x7f893d589000 to thread-id:140227114731584
+allocating ctx: 0x7f893d578000 to thread-id:140227265883968
+allocating ctx: 0x7f893d567000 to thread-id:140227232297280
+allocating ctx: 0x7f893d556000 to thread-id:140227249090624
+allocating ctx: 0x7f893d545000 to thread-id:140227131533120
+allocating ctx: 0x7f893d534000 to thread-id:140227282677312
+allocating ctx: 0x7f893d523000 to thread-id:140227299470656
+allocating ctx: 0x7f893d512000 to thread-id:140227215503936
+allocating ctx: 0x7f893d501000 to thread-id:140227165123904
+allocating ctx: 0x7f893d4f0000 to thread-id:140227257487296
+allocating ctx: 0x7f893d4df000 to thread-id:140227223900608
+Loading centroid data from medoids vector data of 1 medoid(s)
+done..
+Caching 10000 nodes around medoid(s)
+Caching 10000...
+Level: 1.. #nodes: 1, #nodes thus far: 1
+Level: 2.. #nodes: 64, #nodes thus far: 65
+Level: 3.. #nodes: 3577, #nodes thus far: 3642
+Level: 4. #nodes: 6358, #nodes thus far: 10000
+done
+Loading the cache list into memory....done.
+     L   Beamwidth             QPS    Mean Latency    99.9 Latency        Mean IOs    Mean IO (us)         CPU (s)       Recall@10
+===================================================================================================================================
+   128           2         3984.37         6846.48         8450.00          129.78         5856.47          628.91           33.33
+   256           2         2047.71        13379.69        18324.00          256.05        11538.91         1182.63           46.17
+   512           2         1035.93        26526.36        31323.00          509.67        23060.59         2208.70           60.26
+  1024           2          509.23        54016.86        61941.00         1017.71        46445.69         5044.15           73.66
+  2048           2          256.89       107719.21       121060.00         2034.42        92088.65        10689.65           84.83
+  4096           2          126.98       218177.28       241508.00         4068.11       183536.49        24626.22           92.99
+  8192           2           64.52       430350.42       483476.00         8135.42       354893.68        56330.58           97.30
+Done searching. Now saving results 
+Clearing scratch
+basic_ios::clear: iostream error
+Index search failed.

@@ -1,0 +1,168 @@
+
+
+======================================================================
+ Experiment Settings
+======================================================================
+data_type: float                                                      
+data_path: data/sift/clustered_sift_base.bin                          
+query_path: data/sift/sift_query.bin                                  
+chunks_groundtruth_path: data/sift/clustered_sift_chunk_groundtruths/sift_chunk
+R: 32                                                                 
+L: 128                                                                
+K: 100                                                                
+alpha: 1.20                                                           
+insert_threads: 32                                                    
+consolidate_threads: 32                                               
+build_threads: 32                                                     
+search_threads: 32                                                    
+======================================================================
+
+L2: Using AVX2 distance computation DistanceL2Float
+Reading (with alignment) bin file data/sift/clustered_sift_base.bin ...Metadata: #pts = 1000000, #dims = 128, aligned_dim = 128... allocating aligned memory of 512000000 bytes... done. Copying data to mem_aligned buffer... done.
+Index start points set: #1
+built using [0,145026]
+Reading (with alignment) bin file data/sift/sift_query.bin ...Metadata: #pts = 10000, #dims = 128, aligned_dim = 128... allocating aligned memory of 5120000 bytes... done. Copying data to mem_aligned buffer... done.
+search(): 10000 queries using 32 threads
+  Total time:     201.268 ms
+  Avg latency:    0.638666 ms/query
+  QPS:            49685
+  QPS/thread:     1552.66
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk1_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk1_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 92.0249%
+deleted and consolidated [0,145026] in 1464 ms
+insert(): inserted [145027,275319] using 32 threads
+  Total time:     3674.43 ms
+  Avg latency:    0.898811 ms/point
+  QPS:            35459.4
+  QPS/thread:     1108.11
+search(): 10000 queries using 32 threads
+  Total time:     299.339 ms
+  Avg latency:    0.945417 ms/query
+  QPS:            33406.9
+  QPS/thread:     1043.97
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk2_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk2_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 93.8755%
+deleted and consolidated [145027,275319] in 2681 ms
+insert(): inserted [275320,365262] using 32 threads
+  Total time:     2991.41 ms
+  Avg latency:    1.06083 ms/point
+  QPS:            30067.1
+  QPS/thread:     939.598
+search(): 10000 queries using 32 threads
+  Total time:     163.692 ms
+  Avg latency:    0.518346 ms/query
+  QPS:            61090.4
+  QPS/thread:     1909.07
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk3_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk3_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 87.366%
+deleted and consolidated [275320,365262] in 1152 ms
+insert(): inserted [365263,471396] using 32 threads
+  Total time:     2748.77 ms
+  Avg latency:    0.825724 ms/point
+  QPS:            38611.4
+  QPS/thread:     1206.61
+search(): 10000 queries using 32 threads
+  Total time:     183.017 ms
+  Avg latency:    0.580286 ms/query
+  QPS:            54639.8
+  QPS/thread:     1707.49
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk4_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk4_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 97.512%
+insert(): inserted [471397,544974] using 32 threads
+  Total time:     1989.94 ms
+  Avg latency:    0.862167 ms/point
+  QPS:            36975.1
+  QPS/thread:     1155.47
+deleted and consolidated [365263,471396] in 2089 ms
+search(): 10000 queries using 32 threads
+  Total time:     118.957 ms
+  Avg latency:    0.374832 ms/query
+  QPS:            84063.8
+  QPS/thread:     2626.99
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk5_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk5_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 92.2179%
+deleted and consolidated [471397,544974] in 2507 ms
+insert(): inserted [544975,705754] using 32 threads
+  Total time:     4380 ms
+  Avg latency:    0.868846 ms/point
+  QPS:            36707.7
+  QPS/thread:     1147.12
+search(): 10000 queries using 32 threads
+  Total time:     205.402 ms
+  Avg latency:    0.652208 ms/query
+  QPS:            48684.9
+  QPS/thread:     1521.4
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk6_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk6_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 93.3533%
+deleted and consolidated [544975,705754] in 1899 ms
+insert(): inserted [705755,804585] using 32 threads
+  Total time:     2376.72 ms
+  Avg latency:    0.766449 ms/point
+  QPS:            41583
+  QPS/thread:     1299.47
+search(): 10000 queries using 32 threads
+  Total time:     179.019 ms
+  Avg latency:    0.567204 ms/query
+  QPS:            55860
+  QPS/thread:     1745.63
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk7_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk7_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 92.6147%
+deleted and consolidated [705755,804585] in 1944 ms
+insert(): inserted [804586,871834] using 32 threads
+  Total time:     1965.05 ms
+  Avg latency:    0.931466 ms/point
+  QPS:            34222.6
+  QPS/thread:     1069.46
+search(): 10000 queries using 32 threads
+  Total time:     137.818 ms
+  Avg latency:    0.435515 ms/query
+  QPS:            72559.5
+  QPS/thread:     2267.48
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk8_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk8_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 88.7597%
+insert(): inserted [871835,913866] using 32 threads
+  Total time:     924.62 ms
+  Avg latency:    0.700602 ms/point
+  QPS:            45458.7
+  QPS/thread:     1420.58
+deleted and consolidated [804586,871834] in 1068 ms
+search(): 10000 queries using 32 threads
+  Total time:     97.0896 ms
+  Avg latency:    0.305885 ms/query
+  QPS:            102998
+  QPS/thread:     3218.68
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk9_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk9_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 92.5265%
+deleted and consolidated [871835,913866] in 1175 ms
+insert(): inserted [913867,999999] using 32 threads
+  Total time:     2178.72 ms
+  Avg latency:    0.805989 ms/point
+  QPS:            39533.8
+  QPS/thread:     1235.43
+search(): 10000 queries using 32 threads
+  Total time:     175.881 ms
+  Avg latency:    0.556664 ms/query
+  QPS:            56856.7
+  QPS/thread:     1776.77
+Opened: data/sift/clustered_sift_chunk_groundtruths/sift_chunk10_groundtruth.bin, size: 8000008, cache_size: 8000008
+Reading truthset file data/sift/clustered_sift_chunk_groundtruths/sift_chunk10_groundtruth.bin ...
+Metadata: #pts = 10000, #dims = 100... 
+100Recall@100: 97.9758%
