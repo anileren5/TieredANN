@@ -9,27 +9,17 @@
 #include <set>
 #include <string.h>
 #include <time.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "aux_utils.h"
 #include "index.h"
-#include "math_utils.h"
 #include "memory_mapper.h"
 #include "partition_and_pq.h"
 #include "timer.h"
 #include "utils.h"
-
-#ifndef _WINDOWS
 #include "linux_aligned_file_reader.h"
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#else
-#ifdef USE_BING_INFRA
-#include "bing_aligned_file_reader.h"
-#else
-#include "windows_aligned_file_reader.h"
-#endif
-#endif
 
 #define WARMUP true
 
