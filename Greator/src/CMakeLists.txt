@@ -13,7 +13,7 @@ add_library(greator STATIC ${CPP_SOURCES})
 # Include dirs
 target_include_directories(greator
     PUBLIC
-        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/include/greator
         /usr/include/mkl
         ${BOOST_ROOT}
 )

@@ -3,10 +3,10 @@
 
 #include <omp.h>
 
-#include "aux_utils.h"
-#include "index.h"
-#include "partition_and_pq.h"
-#include "utils.h"
+#include "greator/aux_utils.h"
+#include "greator/index.h"
+#include "greator/partition_and_pq.h"
+#include "greator/utils.h"
 
 template <typename T>
 bool build_index(const char *dataFilePath, const char *indexFilePath,

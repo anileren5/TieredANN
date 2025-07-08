@@ -13,13 +13,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "aux_utils.h"
-#include "index.h"
-#include "memory_mapper.h"
-#include "partition_and_pq.h"
-#include "timer.h"
-#include "utils.h"
-#include "linux_aligned_file_reader.h"
+#include "greator/aux_utils.h"
+#include "greator/index.h"
+#include "greator/memory_mapper.h"
+#include "greator/partition_and_pq.h"
+#include "greator/timer.h"
+#include "greator/utils.h"
+#include "greator/linux_aligned_file_reader.h"
 
 #define WARMUP true
 
