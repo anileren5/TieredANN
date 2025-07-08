@@ -23,6 +23,7 @@ function(add_tests)
         target_include_directories(${exec_name}
             PRIVATE
                 ${PROJECT_SOURCE_DIR}/Greator/include
+                ${PROJECT_SOURCE_DIR}/DiskANN/include
         )
     endforeach()
 endfunction()

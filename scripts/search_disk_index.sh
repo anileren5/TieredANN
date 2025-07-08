@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.." || exit 1
 
 # Configuration
 data_type="float"
-dataset="siftsmall"
+dataset="sift"
 single_file_index=0
 tags_enabled=0
 num_nodes_to_cache=500

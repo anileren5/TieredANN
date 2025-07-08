@@ -21,6 +21,8 @@
 #include "greator/utils.h"
 #include "greator/linux_aligned_file_reader.h"
 
+#include "diskann/logger.h"
+
 #define WARMUP true
 
 void print_stats(std::string category, std::vector<float> percentiles,
@@ -332,6 +334,8 @@ int main(int argc, char **argv) {
         << std::endl;
     exit(-1);
   }
+
+  diskann::cout << "DiskANN Logger is in use." << std::endl;
 
   greator::cout << "Attach  debugger and press a key" << std::endl;
   /*  char x;

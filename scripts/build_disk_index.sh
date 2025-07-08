@@ -7,7 +7,7 @@ set -e
 cd "$(dirname "$0")/.." || exit 1
 
 # Configuration parameters
-dataset="siftsmall"
+dataset="sift"
 data_type="float"
 R=64
 L=128
