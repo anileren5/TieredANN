@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(outer_project LANGUAGES CXX)
+project(tieredann LANGUAGES CXX)
 
 set(CMAKE_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
