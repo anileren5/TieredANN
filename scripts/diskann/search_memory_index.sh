@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Change to project root
-cd "$(dirname "$0")/.." || exit 1
+cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
 DATASET="sift"

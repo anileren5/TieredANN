@@ -4,7 +4,7 @@
 set -e
 
 # Change to the project root directory (one level above the script's location)
-cd "$(dirname "$0")/.." || exit 1
+cd "$(dirname "$0")/../.." || exit 1
 
 # Configuration parameters
 dataset="siftsmall"

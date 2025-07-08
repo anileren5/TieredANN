@@ -7,7 +7,7 @@
 # Example plots are in the plots folder; example logs are in the experiments folder.
 
 # Change to project root
-cd "$(dirname "$0")/.." || exit 1
+cd "$(dirname "$0")/../.." || exit 1
 
 # ====== Parameters ======
 dataset="sift"
