@@ -1,6 +1,9 @@
 set(TEST_EXECUTABLES
     build_disk_index build_disk_index.cpp
     search_disk_index search_disk_index.cpp
+    search_memory_index search_memory_index.cpp
+    batch_delete_reinsert_memory_index batch_delete_reinsert_memory_index.cpp
+    concurrent_insert_delete_memory_index concurrent_insert_delete_memory_index.cpp
 )
 
 function(add_tests)
@@ -17,8 +20,10 @@ function(add_tests)
         target_link_libraries(${exec_name}
             PRIVATE
                 greator
+                diskann
                 TBB::tbb
                 OpenMP::OpenMP_CXX
+                Boost::program_options
         )
         target_include_directories(${exec_name}
             PRIVATE
