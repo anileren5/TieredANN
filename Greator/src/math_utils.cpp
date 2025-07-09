@@ -104,14 +104,14 @@ void compute_closest_centers_in_block(
   } else {
 #pragma omp parallel for schedule(static, 8192)
     for (int64_t i = 0; i < (_s64)num_points; i++) {
-      std::priority_queue<PivotContainer> top_k_queue;
+      std::priority_queue<greator::PivotContainer> top_k_queue;
       float *current = dist_matrix + (i * num_centers);
       for (size_t j = 0; j < num_centers; j++) {
-        PivotContainer this_piv(j, current[j]);
+        greator::PivotContainer this_piv(j, current[j]);
         top_k_queue.push(this_piv);
       }
       for (size_t j = 0; j < k; j++) {
-        PivotContainer this_piv = top_k_queue.top();
+        greator::PivotContainer this_piv = top_k_queue.top();
         center_index[i * k + j] = (uint32_t)this_piv.piv_id;
         top_k_queue.pop();
       }

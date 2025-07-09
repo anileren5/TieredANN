@@ -6,6 +6,9 @@
 
 #include "aligned_file_reader.h"
 
+
+namespace greator {
+
 class LinuxAlignedFileReader : public AlignedFileReader {
 private:
   uint64_t file_sz;
@@ -41,3 +44,4 @@ public:
 };
 
 #endif
+}

@@ -56,8 +56,8 @@ bool cpuHasAvx2Support() {
 bool AvxSupportedCPU = cpuHasAvxSupport();
 bool Avx2SupportedCPU = cpuHasAvx2Support();
 #else
-bool Avx2SupportedCPU = true;
-bool AvxSupportedCPU = false;
+bool greator::Avx2SupportedCPU = true;
+bool greator::AvxSupportedCPU = false;
 #endif
 
 namespace greator {

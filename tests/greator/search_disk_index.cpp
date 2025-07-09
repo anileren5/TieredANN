@@ -80,7 +80,7 @@ template <typename T> int search_disk_index(int argc, char **argv) {
   greator::load_aligned_bin<T>(query_bin, query, query_num, query_dim,
                                query_aligned_dim);
 
-  if (file_exists(truthset_bin)) {
+  if (greator::file_exists(truthset_bin)) {
     greator::load_truthset(truthset_bin, gt_ids, gt_dists, gt_num, gt_dim,
                            &tags);
     if (gt_num != query_num) {
@@ -91,7 +91,7 @@ template <typename T> int search_disk_index(int argc, char **argv) {
     calc_recall_flag = true;
   }
 
-  std::shared_ptr<AlignedFileReader> reader = nullptr;
+  std::shared_ptr<greator::AlignedFileReader> reader = nullptr;
 #ifdef _WINDOWS
 #ifndef USE_BING_INFRA
   reader.reset(new WindowsAlignedFileReader());
@@ -99,7 +99,7 @@ template <typename T> int search_disk_index(int argc, char **argv) {
   reader.reset(new diskann::BingAlignedFileReader());
 #endif
 #else
-  reader.reset(new LinuxAlignedFileReader());
+  reader.reset(new greator::LinuxAlignedFileReader());
 //  reader.reset(new diskann::MemAlignedFileReader());
 #endif
 
@@ -140,7 +140,7 @@ template <typename T> int search_disk_index(int argc, char **argv) {
   uint64_t warmup_num = 0, warmup_dim = 0, warmup_aligned_dim = 0;
   T *warmup = nullptr;
   if (WARMUP) {
-    if (file_exists(warmup_query_file)) {
+    if (greator::file_exists(warmup_query_file)) {
       greator::load_aligned_bin<T>(warmup_query_file, warmup, warmup_num,
                                    warmup_dim, warmup_aligned_dim);
     } else {

@@ -13,7 +13,7 @@ namespace {
 typedef struct io_event io_event_t;
 typedef struct iocb iocb_t;
 void execute_write_io(io_context_t ctx, int fd,
-                      std::vector<AlignedRead> &read_reqs,
+                      std::vector<greator::AlignedRead> &read_reqs,
                       uint64_t n_retries = 0) {
   // break-up requests into chunks of size MAX_EVENTS each
   uint64_t n_iters = ROUND_UP(read_reqs.size(), MAX_EVENTS) / MAX_EVENTS;
@@ -64,7 +64,7 @@ void execute_write_io(io_context_t ctx, int fd,
     }
   }
 }
-void execute_io(io_context_t ctx, int fd, std::vector<AlignedRead> &read_reqs,
+void execute_io(io_context_t ctx, int fd, std::vector<greator::AlignedRead> &read_reqs,
                 uint64_t n_retries = 0) {
 #ifdef DEBUG
   for (auto &req : read_reqs) {
@@ -127,9 +127,9 @@ void execute_io(io_context_t ctx, int fd, std::vector<AlignedRead> &read_reqs,
 }
 } // namespace
 
-LinuxAlignedFileReader::LinuxAlignedFileReader() { this->file_desc = -1; }
+greator::LinuxAlignedFileReader::LinuxAlignedFileReader() { this->file_desc = -1; }
 
-LinuxAlignedFileReader::~LinuxAlignedFileReader() {
+greator::LinuxAlignedFileReader::~LinuxAlignedFileReader() {
   int64_t ret;
   // check to make sure file_desc is closed
   ret = ::fcntl(this->file_desc, F_GETFD);
@@ -147,7 +147,7 @@ LinuxAlignedFileReader::~LinuxAlignedFileReader() {
   }
 }
 
-io_context_t &LinuxAlignedFileReader::get_ctx() {
+io_context_t &greator::LinuxAlignedFileReader::get_ctx() {
   std::unique_lock<std::mutex> lk(ctx_mut);
   // perform checks only in DEBUG mode
   if (ctx_map.find(std::this_thread::get_id()) == ctx_map.end()) {
@@ -158,7 +158,7 @@ io_context_t &LinuxAlignedFileReader::get_ctx() {
   }
 }
 
-void LinuxAlignedFileReader::register_thread() {
+void greator::LinuxAlignedFileReader::register_thread() {
   auto my_id = std::this_thread::get_id();
   std::unique_lock<std::mutex> lk(ctx_mut);
   if (ctx_map.find(my_id) != ctx_map.end()) {
@@ -178,7 +178,7 @@ void LinuxAlignedFileReader::register_thread() {
   lk.unlock();
 }
 
-void LinuxAlignedFileReader::deregister_thread() {
+void greator::LinuxAlignedFileReader::deregister_thread() {
   auto my_id = std::this_thread::get_id();
   std::unique_lock<std::mutex> lk(ctx_mut);
   assert(ctx_map.find(my_id) != ctx_map.end());
@@ -193,7 +193,7 @@ void LinuxAlignedFileReader::deregister_thread() {
   lk.unlock();
 }
 
-void LinuxAlignedFileReader::deregister_all_threads() {
+void greator::LinuxAlignedFileReader::deregister_all_threads() {
   std::unique_lock<std::mutex> lk(ctx_mut);
 
   for (auto &iter : ctx_map) {
@@ -207,7 +207,7 @@ void LinuxAlignedFileReader::deregister_all_threads() {
   lk.unlock();
 }
 
-void LinuxAlignedFileReader::open(const std::string &fname,
+void greator::LinuxAlignedFileReader::open(const std::string &fname,
                                   bool enable_writes = false,
                                   bool enable_create = false) {
   int flags = O_DIRECT | O_LARGEFILE;
@@ -225,7 +225,7 @@ void LinuxAlignedFileReader::open(const std::string &fname,
   //  std::cerr << "Opened file : " << fname << std::endl;
 }
 
-void LinuxAlignedFileReader::close() {
+void greator::LinuxAlignedFileReader::close() {
   //  int64_t ret;
 
   // check to make sure file_desc is closed
@@ -236,7 +236,7 @@ void LinuxAlignedFileReader::close() {
   //  assert(ret != -1);
 }
 
-void LinuxAlignedFileReader::read(std::vector<AlignedRead> &read_reqs,
+void greator::LinuxAlignedFileReader::read(std::vector<AlignedRead> &read_reqs,
                                   io_context_t &ctx, bool async) {
   assert(this->file_desc != -1);
   execute_io(ctx, this->file_desc, read_reqs);
@@ -245,7 +245,7 @@ void LinuxAlignedFileReader::read(std::vector<AlignedRead> &read_reqs,
   }
 }
 
-void LinuxAlignedFileReader::sequential_write(AlignedRead &write_req,
+void greator::LinuxAlignedFileReader::sequential_write(AlignedRead &write_req,
                                               IOContext &ctx) {
   assert(this->file_desc != -1);
   // check inputs
@@ -283,7 +283,7 @@ void LinuxAlignedFileReader::sequential_write(AlignedRead &write_req,
   }
 }
 
-void LinuxAlignedFileReader::write(std::vector<AlignedRead> &write_reqs,
+void greator::LinuxAlignedFileReader::write(std::vector<AlignedRead> &write_reqs,
                                    IOContext &ctx) {
   assert(this->file_desc != -1);
   execute_write_io(ctx, this->file_desc, write_reqs);

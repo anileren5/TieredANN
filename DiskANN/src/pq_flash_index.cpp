@@ -102,7 +102,7 @@ template <typename T, typename LabelT> PQFlashIndex<T, LabelT>::~PQFlashIndex()
 template <typename T, typename LabelT> inline uint64_t PQFlashIndex<T, LabelT>::get_node_sector(uint64_t node_id)
 {
     return 1 + (_nnodes_per_sector > 0 ? node_id / _nnodes_per_sector
-                                       : node_id * DIV_ROUND_UP(_max_node_len, defaults::SECTOR_LEN));
+                                       : node_id * DIV_ROUND_UP(_max_node_len, SECTOR_LEN));
 }
 
 template <typename T, typename LabelT>
@@ -149,8 +149,8 @@ std::vector<bool> PQFlashIndex<T, LabelT>::read_nodes(const std::vector<uint32_t
     std::vector<bool> retval(node_ids.size(), true);
 
     char *buf = nullptr;
-    auto num_sectors = _nnodes_per_sector > 0 ? 1 : DIV_ROUND_UP(_max_node_len, defaults::SECTOR_LEN);
-    alloc_aligned((void **)&buf, node_ids.size() * num_sectors * defaults::SECTOR_LEN, defaults::SECTOR_LEN);
+    auto num_sectors = _nnodes_per_sector > 0 ? 1 : DIV_ROUND_UP(_max_node_len, SECTOR_LEN);
+    alloc_aligned((void **)&buf, node_ids.size() * num_sectors * SECTOR_LEN, SECTOR_LEN);
 
     // create read requests
     for (size_t i = 0; i < node_ids.size(); ++i)
@@ -158,9 +158,9 @@ std::vector<bool> PQFlashIndex<T, LabelT>::read_nodes(const std::vector<uint32_t
         auto node_id = node_ids[i];
 
         AlignedRead read;
-        read.len = num_sectors * defaults::SECTOR_LEN;
-        read.buf = buf + i * num_sectors * defaults::SECTOR_LEN;
-        read.offset = get_node_sector(node_id) * defaults::SECTOR_LEN;
+        read.len = num_sectors * SECTOR_LEN;
+        read.buf = buf + i * num_sectors * SECTOR_LEN;
+        read.offset = get_node_sector(node_id) * SECTOR_LEN;
         read_reqs.push_back(read);
     }
 
@@ -1272,9 +1272,9 @@ void PQFlashIndex<T, LabelT>::cached_beam_search(const T *query1, const uint64_t
                                                  QueryStats *stats)
 {
 
-    uint64_t num_sector_per_nodes = DIV_ROUND_UP(_max_node_len, defaults::SECTOR_LEN);
-    if (beam_width > num_sector_per_nodes * defaults::MAX_N_SECTOR_READS)
-        throw ANNException("Beamwidth can not be higher than defaults::MAX_N_SECTOR_READS", -1, __FUNCSIG__, __FILE__,
+    uint64_t num_sector_per_nodes = DIV_ROUND_UP(_max_node_len, SECTOR_LEN);
+    if (beam_width > num_sector_per_nodes * MAX_N_SECTOR_READS)
+        throw ANNException("Beamwidth can not be higher than MAX_N_SECTOR_READS", -1, __FUNCSIG__, __FILE__,
                            __LINE__);
 
     ScratchStoreManager<SSDThreadData<T>> manager(this->_thread_data);
@@ -1332,7 +1332,7 @@ void PQFlashIndex<T, LabelT>::cached_beam_search(const T *query1, const uint64_t
     char *sector_scratch = query_scratch->sector_scratch;
     uint64_t &sector_scratch_idx = query_scratch->sector_idx;
     const uint64_t num_sectors_per_node =
-        _nnodes_per_sector > 0 ? 1 : DIV_ROUND_UP(_max_node_len, defaults::SECTOR_LEN);
+        _nnodes_per_sector > 0 ? 1 : DIV_ROUND_UP(_max_node_len, SECTOR_LEN);
 
     // query <-> PQ chunk centers distances
     _pq_table.preprocess_query(query_rotated); // center the query and rotate if
@@ -1457,11 +1457,11 @@ void PQFlashIndex<T, LabelT>::cached_beam_search(const T *query1, const uint64_t
                 auto id = frontier[i];
                 std::pair<uint32_t, char *> fnhood;
                 fnhood.first = id;
-                fnhood.second = sector_scratch + num_sectors_per_node * sector_scratch_idx * defaults::SECTOR_LEN;
+                fnhood.second = sector_scratch + num_sectors_per_node * sector_scratch_idx * SECTOR_LEN;
                 sector_scratch_idx++;
                 frontier_nhoods.push_back(fnhood);
-                frontier_read_reqs.emplace_back(get_node_sector((size_t)id) * defaults::SECTOR_LEN,
-                                                num_sectors_per_node * defaults::SECTOR_LEN, fnhood.second);
+                frontier_read_reqs.emplace_back(get_node_sector((size_t)id) * SECTOR_LEN,
+                                                num_sectors_per_node * SECTOR_LEN, fnhood.second);
                 if (stats != nullptr)
                 {
                     stats->n_4k++;
@@ -1631,8 +1631,8 @@ void PQFlashIndex<T, LabelT>::cached_beam_search(const T *query1, const uint64_t
         for (size_t i = 0; i < full_retset.size(); ++i)
         {
             // MULTISECTORFIX
-            vec_read_reqs.emplace_back(VECTOR_SECTOR_NO(((size_t)full_retset[i].id)) * defaults::SECTOR_LEN,
-                                       defaults::SECTOR_LEN, sector_scratch + i * defaults::SECTOR_LEN);
+            vec_read_reqs.emplace_back(VECTOR_SECTOR_NO(((size_t)full_retset[i].id)) * SECTOR_LEN,
+                                       SECTOR_LEN, sector_scratch + i * SECTOR_LEN);
 
             if (stats != nullptr)
             {
@@ -1656,7 +1656,7 @@ void PQFlashIndex<T, LabelT>::cached_beam_search(const T *query1, const uint64_t
         {
             auto id = full_retset[i].id;
             // MULTISECTORFIX
-            auto location = (sector_scratch + i * defaults::SECTOR_LEN) + VECTOR_SECTOR_OFFSET(id);
+            auto location = (sector_scratch + i * SECTOR_LEN) + VECTOR_SECTOR_OFFSET(id);
             full_retset[i].distance = _dist_cmp->compare(aligned_query_T, (T *)location, (uint32_t)this->_data_dim);
         }
 

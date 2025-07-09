@@ -41,6 +41,8 @@
 // For fresh index, keep it at 1m instead of 5m.
 #define MAX_BLOCK_SIZE 1000000
 
+using namespace greator;
+
 template <typename T>
 void gen_random_slice(const std::string base_file,
                       const std::string output_prefix, double sampling_rate,

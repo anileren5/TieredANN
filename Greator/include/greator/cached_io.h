@@ -12,6 +12,9 @@
 #include "utils.h"
 
 // sequential cached reads
+
+namespace greator{
+
 class cached_ifstream {
 public:
   cached_ifstream() {}
@@ -188,3 +191,4 @@ private:
   // file size
   uint64_t fsize = 0;
 };
+}

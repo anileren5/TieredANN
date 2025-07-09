@@ -57,6 +57,8 @@ struct IOContext {
 #include <mutex>
 #include <thread>
 
+namespace greator {
+
 // NOTE :: all 3 fields must be 512-aligned
 struct AlignedRead {
   uint64_t offset; // where to read from
@@ -104,3 +106,5 @@ public:
                     bool async = false) = 0;
   virtual void write(std::vector<AlignedRead> &read_reqs, IOContext &ctx) = 0;
 };
+
+}

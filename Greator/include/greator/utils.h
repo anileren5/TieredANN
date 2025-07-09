@@ -65,6 +65,8 @@ typedef int16_t _s16;
 typedef uint8_t _u8;
 typedef int8_t _s8;
 
+namespace greator {
+
 inline bool file_exists(const std::string &name, bool dirCheck = false) {
   int val;
 #ifndef _WINDOWS
@@ -96,6 +98,8 @@ inline bool file_exists(const std::string &name, bool dirCheck = false) {
     return dirCheck ? buffer.st_mode & S_IFDIR : true;
   }
 }
+
+
 
 inline std::string getTempFilePath(const std::string &workingDir,
                                    const std::string &suffix) {
@@ -180,6 +184,8 @@ inline int delete_file(const std::string &fileName) {
   } else {
     return 0;
   }
+}
+
 }
 
 namespace greator {
@@ -646,6 +652,8 @@ DISKANN_DLLEXPORT void normalize_data_file(const std::string &inFileName,
 template <typename T> Distance<T> *get_distance_function(Metric m);
 } // namespace diskann
 
+namespace greator {
+
 struct PivotContainer {
   PivotContainer() = default;
 
@@ -691,6 +699,7 @@ greator::Distance<T> *get_distance_function(greator::Metric m);
 extern bool AvxSupportedCPU;
 extern bool Avx2SupportedCPU;
 
+
 #ifdef _WINDOWS
 #include <Psapi.h>
 #include <intrin.h>
@@ -735,7 +744,12 @@ inline void printProcessMemory(const char *message) {
 }
 #else
 
+
+
 // need to check and change this
 inline bool avx2Supported() { return true; }
 inline void printProcessMemory(const char *) {}
+
+
 #endif
+}
