@@ -1,14 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-#include <omp.h>
-
 #include "greator/aux_utils.h"
-#include "greator/index.h"
-#include "greator/partition_and_pq.h"
 #include "greator/utils.h"
-
-#include "diskann/logger.h"
 
 template <typename T>
 bool build_index(const char *dataFilePath, const char *indexFilePath,
@@ -33,8 +27,6 @@ int main(int argc, char **argv) {
                          std::string(argv[7]) + " " + std::string(argv[8]);
     std::string dist_metric(argv[9]);
     bool single_file_index = std::atoi(argv[10]) != 0;
-
-    diskann::cout << "DiskANN Logger is in use." << std::endl;
 
     greator::Metric m =
         dist_metric == "cosine" ? greator::Metric::COSINE : greator::Metric::L2;

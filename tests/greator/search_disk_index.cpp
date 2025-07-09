@@ -1,27 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-#include <atomic>
-#include <cstring>
 #include <iomanip>
 #include <omp.h>
-#include <pq_flash_index.h>
-#include <set>
-#include <string.h>
-#include <time.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
+#include "greator/pq_flash_index.h"
 #include "greator/aux_utils.h"
-#include "greator/index.h"
-#include "greator/memory_mapper.h"
-#include "greator/partition_and_pq.h"
-#include "greator/timer.h"
-#include "greator/utils.h"
 #include "greator/linux_aligned_file_reader.h"
-
-#include "diskann/logger.h"
 
 #define WARMUP true
 
@@ -334,8 +319,6 @@ int main(int argc, char **argv) {
         << std::endl;
     exit(-1);
   }
-
-  diskann::cout << "DiskANN Logger is in use." << std::endl;
 
   greator::cout << "Attach  debugger and press a key" << std::endl;
   /*  char x;

@@ -1,20 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-#include <numeric>
 #include <omp.h>
-#include <string.h>
-#include <time.h>
-#include <timer.h>
 #include <boost/program_options.hpp>
 #include <future>
 
-#include "diskann/index.h"
-#include "diskann/utils.h"
-#include "diskann/filter_utils.h"
-#include "diskann/program_options_utils.hpp"
 #include "diskann/index_factory.h"
-#include "diskann/memory_mapper.h"
 
 namespace po = boost::program_options;
 
