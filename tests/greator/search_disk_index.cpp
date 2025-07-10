@@ -92,16 +92,7 @@ template <typename T> int search_disk_index(int argc, char **argv) {
   }
 
   std::shared_ptr<greator::AlignedFileReader> reader = nullptr;
-#ifdef _WINDOWS
-#ifndef USE_BING_INFRA
-  reader.reset(new WindowsAlignedFileReader());
-#else
-  reader.reset(new diskann::BingAlignedFileReader());
-#endif
-#else
   reader.reset(new greator::LinuxAlignedFileReader());
-//  reader.reset(new diskann::MemAlignedFileReader());
-#endif
 
   std::unique_ptr<greator::PQFlashIndex<T>> _pFlashIndex(
       new greator::PQFlashIndex<T>(m, reader, single_file_index,
