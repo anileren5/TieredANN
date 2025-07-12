@@ -237,7 +237,7 @@ private:
   std::string _disk_index_file;
   std::vector<std::pair<_u32, _u32>> node_visit_counter;
 
-  std::shared_ptr<AlignedFileReader> &reader;
+  std::shared_ptr<AlignedFileReader> reader;
 
   // PQ data
   // n_chunks = # of chunks ndims is split into
