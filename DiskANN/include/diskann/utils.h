@@ -806,6 +806,29 @@ inline void load_aligned_bin(MemoryMappedFiles &files, const std::string &bin_fi
 #endif
 
 template <typename T>
+inline void load_vector_by_index(const std::string &bin_file, T* data, uint32_t dim, size_t i) {
+    std::ifstream reader;
+    reader.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
+    try {
+        // Open the binary file
+        reader.open(bin_file, std::ios::binary);
+
+        // Calculate the offset: 2 * sizeof(float) (for metadata) + i * dim * sizeof(T)
+        size_t offset = 2 * sizeof(float) + i * dim * sizeof(T);
+
+        // Move the file pointer to the calculated offset
+        reader.seekg(offset, std::ios::beg);
+
+        // Read the vector data into the provided memory
+        reader.read(reinterpret_cast<char*>(data), dim * sizeof(T));
+    } catch (const std::exception& e) {
+        throw std::runtime_error("Error reading vector by index: " + std::string(e.what()));
+    }
+}
+
+
+template <typename T>
 inline void load_aligned_bin(const std::string &bin_file, T *&data, size_t &npts, size_t &dim, size_t &rounded_dim)
 {
     std::ifstream reader;

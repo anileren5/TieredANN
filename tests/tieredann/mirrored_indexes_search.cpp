@@ -13,7 +13,11 @@
 // DiskANN (Memory index) headers
 #include "diskann/index_factory.h"
 
-#define N_SEARCH_ITER 1
+// TieredANN headers
+#include "tieredann/insert_thread_pool.h"
+#include "tieredann/delete_consolidate_thread_pool.h"
+
+#define N_SEARCH_ITER 10
 
 namespace po = boost::program_options;
 
@@ -139,7 +143,7 @@ void calculate_recall(const uint32_t K, TagT*& groundtruth_ids, std::vector<TagT
 }
 
 template <typename T, typename TagT = uint32_t>
-void memory_index_search(diskann::AbstractIndex &index, const T* query, size_t query_num, uint32_t query_aligned_dim, uint32_t K, uint32_t L, uint32_t search_threads, std::vector<uint32_t>& query_result_tags, std::vector<T *>& res) {
+void memory_index_search(std::unique_ptr<diskann::AbstractIndex>& index, const T* query, size_t query_num, uint32_t query_aligned_dim, uint32_t K, uint32_t L, uint32_t search_threads, std::vector<uint32_t>& query_result_tags, std::vector<T *>& res) {
     std::vector<double> latencies_ms(query_num, 0.0);
     auto global_start = std::chrono::high_resolution_clock::now();
 
@@ -147,7 +151,7 @@ void memory_index_search(diskann::AbstractIndex &index, const T* query, size_t q
     for (size_t i = 0; i < query_num; i++) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        index.search_with_tags(query + i * query_aligned_dim,
+        index->search_with_tags(query + i * query_aligned_dim,
                                K, L,
                                query_result_tags.data() + i * K,
                                nullptr, res);
@@ -178,12 +182,28 @@ void memory_index_search(diskann::AbstractIndex &index, const T* query, size_t q
 }
 
 template <typename T, typename TagT = uint32_t>
-void memory_index_build(diskann::AbstractIndex &index, size_t start, size_t end, int32_t thread_count, T *data, size_t aligned_dim) {
+void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index,
+                               std::vector<TagT> to_be_inserted,
+                               const std::string& data_path,
+                               const size_t dim) {
+    T* vector = nullptr;
+    diskann::alloc_aligned((void**)&vector, dim * sizeof(T), 8 * sizeof(T));
+
+    for (auto i : to_be_inserted) {
+        diskann::load_vector_by_index(data_path, vector, dim, i);
+        index->insert_point(vector, 1 + i);
+    }
+
+    diskann::aligned_free(vector);
+}
+
+template <typename T, typename TagT = uint32_t>
+void memory_index_build(std::unique_ptr<diskann::AbstractIndex>& index, size_t start, size_t end, int32_t thread_count, T *data, size_t aligned_dim) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     #pragma omp parallel for num_threads(thread_count) schedule(dynamic)
     for (int64_t j = start; j < (int64_t)end; j++) {
-        index.insert_point(data + j * aligned_dim, 1 + static_cast<TagT>(j)); // If indexes are added directly (without + 1), it fails. I don't know why.
+        index->insert_point(data + j * aligned_dim, 1 + static_cast<TagT>(j)); // If indexes are added directly (without + 1), it fails. I don't know why.
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -214,7 +234,7 @@ void disk_index_build(const char *dataFilePath, const char *indexFilePath, const
 }
 
 template <typename T, typename TagT = uint32_t>
-void disk_index_search(std::unique_ptr<greator::PQFlashIndex<T>>& index, const T* query, size_t query_num, uint32_t query_aligned_dim, uint32_t K, uint32_t L, uint32_t search_threads, std::vector<uint32_t>& query_result_tags, uint32_t beamwidth) {
+void disk_index_search(std::unique_ptr<greator::PQFlashIndex<T>>& disk_index, diskann::AbstractIndex& memory_index, const T* query, size_t query_num, uint32_t query_aligned_dim, uint32_t K, uint32_t L, uint32_t search_threads, std::vector<uint32_t>& query_result_tags, uint32_t beamwidth, const std::string& data_path, const size_t& dim) {
     std::vector<float> query_result_dists(K * query_num);
     greator::QueryStats *stats = new greator::QueryStats[query_num];
 
@@ -225,7 +245,7 @@ void disk_index_search(std::unique_ptr<greator::PQFlashIndex<T>>& index, const T
     for (size_t i = 0; i < query_num; i++) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        index->cached_beam_search(
+        disk_index->cached_beam_search(
             query + (i * query_aligned_dim),
             (uint64_t) K, (uint64_t) L,
             query_result_tags.data() + (i * K),
@@ -271,12 +291,15 @@ bool isHitDummy(double hit_rate) {
 }
 
 template <typename T, typename TagT = uint32_t>
-void hybrid_search(double hit_rate, diskann::AbstractIndex &memory_index, std::unique_ptr<greator::PQFlashIndex<T>>& disk_index, const T* query, size_t query_num, uint32_t query_aligned_dim, uint32_t K, uint32_t L, uint32_t search_threads, std::vector<uint32_t>& query_result_tags, std::vector<T *>& res, uint32_t beamwidth) {
+void hybrid_search(double hit_rate, std::unique_ptr<diskann::AbstractIndex>& memory_index, std::unique_ptr<greator::PQFlashIndex<T>>& disk_index, const T* query, size_t query_num, uint32_t query_aligned_dim, uint32_t K, uint32_t L, uint32_t search_threads, std::vector<uint32_t>& query_result_tags, std::vector<T *>& res, uint32_t beamwidth, const std::string& data_path, const size_t& dim) {
     std::vector<float> query_result_dists(K * query_num);
     greator::QueryStats *stats = new greator::QueryStats[query_num];
 
     std::vector<double> latencies_ms(query_num, 0.0);
     auto global_start = std::chrono::high_resolution_clock::now();
+
+    auto task = memory_index_insert_sync<T, TagT>;  // function pointer
+    tieredann::InsertThreadPool<T> pool(4, task); // pass it to the pool   
 
     #pragma omp parallel for num_threads((int32_t)search_threads) schedule(dynamic)
     for (size_t i = 0; i < query_num; i++) {
@@ -284,7 +307,7 @@ void hybrid_search(double hit_rate, diskann::AbstractIndex &memory_index, std::u
         if (isHitDummy(hit_rate)) {
             auto start = std::chrono::high_resolution_clock::now();
         
-            memory_index.search_with_tags(query + i * query_aligned_dim,
+            memory_index->search_with_tags(query + i * query_aligned_dim,
                                    K, L,
                                    query_result_tags.data() + i * K,
                                    nullptr, res);
@@ -301,6 +324,13 @@ void hybrid_search(double hit_rate, diskann::AbstractIndex &memory_index, std::u
                 query_result_dists.data() + (i * K),
                 (uint64_t)beamwidth, stats + i
             );
+
+            // Create a copy of query_result_tags for the current query
+            std::vector<uint32_t> tags_to_insert(query_result_tags.begin() + (i * K), query_result_tags.begin() + ((i + 1) * K));
+
+            // Insert the tags asynchronously into the memory index
+            pool.submit(memory_index, tags_to_insert, data_path, dim);
+
             auto end = std::chrono::high_resolution_clock::now();
             latencies_ms[i] = std::chrono::duration<double, std::milli>(end - start).count();
             for (size_t j = 0; j < K; j++) (query_result_tags.data() + (i * K))[j] += 1;
@@ -325,6 +355,7 @@ void hybrid_search(double hit_rate, diskann::AbstractIndex &memory_index, std::u
               << " avg_latency_ms=" << avg_latency_ms
               << " qps=" << qps
               << " qps_per_thread=" << qps_per_thread
+              << " #vectors in memory index=" << memory_index->get_number_of_active_vectors<TagT>()
               << std::endl;
 
 }
@@ -335,7 +366,6 @@ void experiment(
     const std::string& data_path,
     const std::string& query_path,
     const std::string& groundtruth_path,
-    const std::string& resulsts_prefix,
     const std::string& disk_index_prefix,
     uint32_t R, uint32_t L, uint32_t K,
     uint32_t B, uint32_t M,
@@ -395,14 +425,9 @@ void experiment(
                                                         .build();
 
     diskann::IndexFactory memory_index_factory = diskann::IndexFactory(memory_index_config);
-    auto memory_index = memory_index_factory.create_instance();
+    std::unique_ptr<diskann::AbstractIndex> memory_index = memory_index_factory.create_instance();
 
     memory_index->set_start_points_at_random(static_cast<T>(0));
-
-    // Use all the points to build the index
-    memory_index_build<T, TagT>(*memory_index, 0, num_points, search_threads, data, aligned_dim);
-
-    delete[] data;
 
     // Load queries
     size_t query_num, query_dim, query_aligned_dim;
@@ -413,21 +438,9 @@ void experiment(
     std::vector<T *> res = std::vector<T *>();
 
     // Allocate the space to store result of the queries
-    std::vector<TagT> query_result_tags;
-    query_result_tags.resize(query_num * K);
-
-    // Perform search in memory index
-    std::future<void> memory_search_task;   
-
-    memory_search_task = std::async(std::launch::async,
-        [&memory_index, query, query_num, query_aligned_dim, K, L, search_threads, &query_result_tags, &res, &groundtruth_ids, groundtruth_dim]() {
-            for (size_t i = 0; i < N_SEARCH_ITER; i++) {
-                memory_index_search<T, TagT>(*memory_index, query, query_num, query_aligned_dim, K, L, search_threads, query_result_tags, res);
-                calculate_recall<T>(K, groundtruth_ids, query_result_tags, query_num, groundtruth_dim);
-            }
-        });
-
-    memory_search_task.wait();
+    std::vector<TagT> memory_query_result_tags, disk_query_result_tags;
+    memory_query_result_tags.resize(query_num * K);
+    disk_query_result_tags.resize(query_num * K);
 
     // Build disk index
     if (disk_index_already_built == 0) {
@@ -441,27 +454,14 @@ void experiment(
     std::unique_ptr<greator::PQFlashIndex<T>> disk_index(new greator::PQFlashIndex<T>(greator::Metric::L2, reader, single_file_index, false));
     disk_index->load(disk_index_prefix.c_str(), build_threads);
 
-    // Perform search on disk index
-    std::future<void> disk_search_task;   
-
-    disk_search_task = std::async(std::launch::async,
-        [&disk_index, query, query_num, query_aligned_dim, K, L, search_threads, &query_result_tags, &res, beamwidth, &groundtruth_ids, groundtruth_dim]() {
-            for (size_t i = 0; i < N_SEARCH_ITER; i++) {
-                disk_index_search(disk_index, query, query_num, query_aligned_dim, K, L, search_threads, query_result_tags, beamwidth);
-                calculate_recall<T>(K, groundtruth_ids, query_result_tags, query_num, groundtruth_dim);
-            }
-        });
-
-    disk_search_task.wait();
-
     // Perform hybrid search: Route queries to memory index and disk index with 50% probability for each.
     std::future<void> hybrid_search_task;   
 
     hybrid_search_task = std::async(std::launch::async,
-        [&memory_index, &disk_index, query, query_num, query_aligned_dim, K, L, search_threads, &query_result_tags, &res, beamwidth, &groundtruth_ids, groundtruth_dim, hit_rate]() {
+        [&memory_index, &disk_index, query, query_num, query_aligned_dim, K, L, search_threads, &memory_query_result_tags, &disk_query_result_tags, &res, beamwidth, &groundtruth_ids, groundtruth_dim, hit_rate, &data_path, &dim]() {
             for (size_t i = 0; i < N_SEARCH_ITER; i++) {
-                hybrid_search(hit_rate, *memory_index, disk_index, query, query_num, query_aligned_dim, K, L, search_threads, query_result_tags, res, beamwidth);
-                calculate_recall<T>(K, groundtruth_ids, query_result_tags, query_num, groundtruth_dim);
+                hybrid_search(hit_rate, memory_index, disk_index, query, query_num, query_aligned_dim, K, L, search_threads, disk_query_result_tags, res, beamwidth, data_path, dim);
+                calculate_recall<T>(K, groundtruth_ids, disk_query_result_tags, query_num, groundtruth_dim);
             }
         });
 
@@ -547,7 +547,7 @@ int main(int argc, char **argv) {
 
     // Run the experiment
     experiment(
-        data_type, data_path, query_path, groundtruth_path, results_prefix, disk_index_prefix,
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix,
         R, L, K, B, M,
         alpha, hit_rate,
         insert_threads, consolidate_threads, build_threads, search_threads,

@@ -24,13 +24,15 @@ foreach(i RANGE 0 ${max_index} 2)
         PRIVATE
             greator
             diskann
+            tieredann
             TBB::tbb
             OpenMP::OpenMP_CXX
             Boost::program_options
-    )
+)
 
     target_include_directories(${exec_name}
         PRIVATE
+            ${PROJECT_SOURCE_DIR}/include
             ${PROJECT_SOURCE_DIR}/Greator/include
             ${PROJECT_SOURCE_DIR}/DiskANN/include
     )

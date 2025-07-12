@@ -27,7 +27,7 @@ RESULTS_PREFIX="./results/${DATASET}/${DATASET}"
 DISK_INDEX_PREFIX="./index/${DATASET}/${DATASET}"
 TAGS_ENABLED=0
 DISK_INDEX_ALREADY_BUILT=1
-HIT_RATE=0.7
+HIT_RATE=0.90
 
 # Run the test with all parameters
 ./build/tests/mirrored_indexes_search \

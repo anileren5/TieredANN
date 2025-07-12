@@ -95,6 +95,16 @@ class AbstractIndex
 
     template <typename tag_type> void get_active_tags(tsl::robin_set<tag_type> &active_tags);
 
+    template <typename tag_type> 
+    size_t get_number_of_active_vectors()
+    {
+        tsl::robin_set<tag_type> active_tags;
+        auto any_active_tags = TagRobinSet(active_tags);
+        this->_get_active_tags(any_active_tags);
+        return active_tags.size();
+    
+    }
+    
     template <typename data_type> void set_start_points_at_random(data_type radius, uint32_t random_seed = 0);
 
     virtual consolidation_report consolidate_deletes(const IndexWriteParameters &parameters) = 0;
