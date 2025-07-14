@@ -17,20 +17,14 @@ M=8
 ALPHA=1.2
 SEARCH_THREADS=32
 BUILD_THREADS=8
-INSERT_THREADS=8
 CONSOLIDATE_THREADS=8
-DISTANCE_METRIC="l2"
-SINGLE_FILE_INDEX=0
-NUM_NODES_TO_CACHE=500
-BEAMWIDTH=2
-RESULTS_PREFIX="./results/${DATASET}/${DATASET}"
 DISK_INDEX_PREFIX="./index/${DATASET}/${DATASET}"
-TAGS_ENABLED=0
 DISK_INDEX_ALREADY_BUILT=1
 HIT_RATE=0.90
+BEAMWIDTH=2
 
 # Run the test with all parameters
-./build/tests/mirrored_indexes_search \
+./build/tests/tiered_index_search \
   --data_type "$DATA_TYPE" \
   --data_path "$DATA_PATH" \
   --query_path "$QUERY_PATH" \
@@ -43,14 +37,8 @@ HIT_RATE=0.90
   --alpha "$ALPHA" \
   --search_threads "$SEARCH_THREADS" \
   --build_threads "$BUILD_THREADS" \
-  --insert_threads "$INSERT_THREADS" \
   --consolidate_threads "$CONSOLIDATE_THREADS" \
-  --distance_metric "$DISTANCE_METRIC" \
-  --single_file_index "$SINGLE_FILE_INDEX" \
   --disk_index_already_built "$DISK_INDEX_ALREADY_BUILT" \
-  --num_nodes_to_cache "$NUM_NODES_TO_CACHE" \
   --beamwidth "$BEAMWIDTH" \
   --hit_rate "$HIT_RATE" \
-  --results_prefix "$RESULTS_PREFIX" \
   --disk_index_prefix "$DISK_INDEX_PREFIX" \
-  --tags_enabled "$TAGS_ENABLED"

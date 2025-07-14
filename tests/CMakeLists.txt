@@ -5,7 +5,7 @@ set(TEST_EXECUTABLES
     search_memory_index diskann/search_memory_index.cpp
     batch_delete_reinsert_memory_index diskann/batch_delete_reinsert_memory_index.cpp
     concurrent_insert_delete_memory_index diskann/concurrent_insert_delete_memory_index.cpp
-    mirrored_indexes_search tieredann/mirrored_indexes_search.cpp
+    tiered_index_search tieredann/tiered_index_search.cpp
 )
 
 # Compute length of the list
