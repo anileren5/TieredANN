@@ -198,6 +198,12 @@ public:
 
   // deflates `vec` into PQ ids
   DISKANN_DLLEXPORT std::vector<_u8> deflate_vector(const T *vec);
+  
+  // inflates PQ coordinates back to reconstructed vector
+  DISKANN_DLLEXPORT std::vector<T> inflate_vector(const std::vector<_u8> &pq_coords);
+  
+  // inflates PQ coordinates for multiple vectors by their tags/IDs
+  DISKANN_DLLEXPORT std::vector<std::vector<T>> inflate_vectors_by_tags(const std::vector<TagT> &tags);
   std::pair<_u8 *, _u32> get_pq_config() {
     return std::make_pair(this->data, (uint32_t)this->n_chunks);
   }

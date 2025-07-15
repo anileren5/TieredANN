@@ -10,6 +10,7 @@
 // TieredANN headers
 #include "percentile_stats.h"
 #include <cstdint>
+#include <chrono>
 #include "tieredann/insert_thread_pool.h"
 
 namespace tieredann {
@@ -26,18 +27,37 @@ namespace tieredann {
             size_t num_points;
             uint32_t search_threads;
             double hit_rate;
+            bool use_reconstructed_vectors;
             std::unique_ptr<tieredann::InsertThreadPool<T, TagT>> insert_pool;
 
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
-                T* vector = nullptr;
-                diskann::alloc_aligned((void**)&vector, dim * sizeof(T), 8 * sizeof(T));
-
-                for (auto i : to_be_inserted) {
-                    diskann::load_vector_by_index(data_path, vector, dim, i);
-                    index->insert_point(vector, 1 + i);
+                // Allocate buffer for all vectors
+                std::vector<T*> vectors;
+                vectors.reserve(to_be_inserted.size());
+                for (size_t i = 0; i < to_be_inserted.size(); ++i) {
+                    T* vector = nullptr;
+                    diskann::alloc_aligned((void**)&vector, dim * sizeof(T), 8 * sizeof(T));
+                    diskann::load_vector_by_index(data_path, vector, dim, to_be_inserted[i]);
+                    vectors.push_back(vector);
                 }
+                // Insert all vectors
+                for (size_t i = 0; i < to_be_inserted.size(); ++i) {
+                    index->insert_point(vectors[i], 1 + to_be_inserted[i]);
+                }
+                // Free all allocated vectors
+                for (auto v : vectors) {
+                    diskann::aligned_free(v);
+                }
+            }
 
-                diskann::aligned_free(vector);
+            void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim) {
+                // Get reconstructed PQ vectors for the tags
+                std::vector<std::vector<T>> reconstructed_vectors = this->disk_index->inflate_vectors_by_tags(to_be_inserted);
+                
+                for (size_t i = 0; i < to_be_inserted.size(); i++) {
+                    const auto& reconstructed_vec = reconstructed_vectors[i];
+                    index->insert_point(reconstructed_vec.data(), 1 + to_be_inserted[i]);
+                }
             }
 
             bool isHit(double hit_rate) {
@@ -55,11 +75,13 @@ namespace tieredann {
                         uint32_t consolidate_threads,
                         uint32_t build_threads,
                         uint32_t search_threads,
-                        int disk_index_already_built):
+                        int disk_index_already_built,
+                        bool use_reconstructed_vectors):
                         data_path(data_path),
                         disk_index_prefix(disk_index_prefix),
                         search_threads(search_threads),
-                        hit_rate(hit_rate)
+                        hit_rate(hit_rate),
+                        use_reconstructed_vectors(use_reconstructed_vectors)
             {
                 // Set random seed
                 srand(42);
@@ -115,10 +137,17 @@ namespace tieredann {
                 std::cout << "TieredIndex disk index built successfully!" << std::endl;
 
                 // Initialize insert thread pool for async insertions
-                auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
-                    this->memory_index_insert_sync(index, to_be_inserted, data_path, dim);
-                };
-                insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(4, task);
+                if (use_reconstructed_vectors) {
+                    auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
+                        this->memory_index_insert_reconstructed_sync(index, to_be_inserted, dim);
+                    };
+                    insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(4, task);
+                } else {
+                    auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
+                        this->memory_index_insert_sync(index, to_be_inserted, data_path, dim);
+                    };
+                    insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(4, task);
+                }
 
                 std::cout << "TieredIndex built successfully!" << std::endl;
             }
@@ -132,10 +161,25 @@ namespace tieredann {
                 else {
                     this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
-                    // Insert asynchronously using a thread pool
                     insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim);
                     for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
                 }
+            }
+
+            // Get reconstructed PQ vectors for search results
+            std::vector<std::vector<T>> get_reconstructed_pq_vectors(const uint32_t* query_result_tags_ptr, uint32_t K) {
+                std::vector<TagT> tags(query_result_tags_ptr, query_result_tags_ptr + K);
+                return this->disk_index->inflate_vectors_by_tags(tags);
+            }
+
+            // Manually insert reconstructed PQ vectors for specific tags
+            void insert_reconstructed_vectors(const std::vector<TagT>& tags) {
+                memory_index_insert_reconstructed_sync(memory_index, tags, dim);
+            }
+
+            // Check if using reconstructed vectors for insertion
+            bool is_using_reconstructed_vectors() const {
+                return use_reconstructed_vectors;
             }
 
             size_t get_number_of_vectors_in_memory_index() const {

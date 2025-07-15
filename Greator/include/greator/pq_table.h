@@ -370,5 +370,18 @@ void deflate_vec(const float *fp_vec, _u8 *out_pq_vec) {
     }
   }
 }
+
+// pq_vec: [nchunks] - PQ coordinates
+// out_vec: [ndims] - reconstructed vector
+void inflate_vector(const _u8 *pq_vec, float *out_vec) {
+  // For each chunk, use the PQ coordinate to get the corresponding centroid
+  // and add it back to the output vector
+  for (_u32 c = 0; c < n_chunks; c++) {
+    for (_u64 d = chunk_offsets[c]; d < chunk_offsets[c + 1]; d++) {
+      const float *centers_dim_vec = tables_T + (256 * d);
+      out_vec[rearrangement[d]] = centers_dim_vec[pq_vec[c]] + centroid[rearrangement[d]];
+    }
+  }
+}
 }; // namespace diskann
 } // namespace diskann

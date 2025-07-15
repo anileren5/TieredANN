@@ -110,14 +110,15 @@ void experiment(
     uint32_t build_threads,
     uint32_t search_threads,
     int disk_index_already_built,
-    uint32_t beamwidth
+    uint32_t beamwidth, 
+    int use_reconstructed_vectors
 ) {
    // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
        data_path, disk_index_prefix,
        R, L, B, M, alpha, hit_rate,
        consolidate_threads, build_threads, search_threads,
-       disk_index_already_built
+       disk_index_already_built, (bool)use_reconstructed_vectors
    );
 
     // Load groundtruth ids for the results
@@ -152,7 +153,7 @@ int main(int argc, char **argv) {
     uint32_t R, L, K, B, M;
     uint32_t build_threads, consolidate_threads, search_threads, beamwidth;
     float alpha;
-    int single_file_index, disk_index_already_built;
+    int single_file_index, disk_index_already_built, use_reconstructed_vectors;
     double hit_rate;
 
     po::options_description desc;
@@ -180,6 +181,7 @@ int main(int argc, char **argv) {
             ("search_threads", po::value<uint32_t>(&search_threads)->required(), "Threads for searching")
             ("alpha", po::value<float>(&alpha)->required(), "Alpha parameter")
             ("hit_rate", po::value<double>(&hit_rate)->required(), "Hit rate for hybrid search")
+            ("use_reconstructed_vectors", po::value<int>(&use_reconstructed_vectors)->default_value(true), "Use reconstructed vectors for insertion to memory index")
             ("disk_index_already_built", po::value<int>(&disk_index_already_built)->default_value(1), "Disk index already built (0/1)")
             ("beamwidth", po::value<uint32_t>(&beamwidth)->default_value(2), "Beamwidth");
 
@@ -205,6 +207,6 @@ int main(int argc, char **argv) {
         alpha, hit_rate,
         consolidate_threads, build_threads, search_threads,
         disk_index_already_built,
-        beamwidth
+        beamwidth, use_reconstructed_vectors
     );
 }

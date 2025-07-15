@@ -1809,6 +1809,75 @@ std::vector<_u8> PQFlashIndex<float>::deflate_vector(const float *vec) {
 }
 
 template <typename T, typename TagT>
+std::vector<T> PQFlashIndex<T, TagT>::inflate_vector(const std::vector<_u8> &pq_coords) {
+  std::vector<T> reconstructed_vec(this->data_dim);
+  std::vector<float> float_vec(this->data_dim);
+  
+  // Use the PQ table to inflate the vector
+  this->pq_table.inflate_vector(pq_coords.data(), float_vec.data());
+  
+  // Convert back to the original type
+  for (uint32_t i = 0; i < this->data_dim; i++) {
+    reconstructed_vec[i] = (T)float_vec[i];
+  }
+  
+  return reconstructed_vec;
+}
+
+template <>
+std::vector<float> PQFlashIndex<float>::inflate_vector(const std::vector<_u8> &pq_coords) {
+  std::vector<float> reconstructed_vec(this->data_dim);
+  this->pq_table.inflate_vector(pq_coords.data(), reconstructed_vec.data());
+  return reconstructed_vec;
+}
+
+template <typename T, typename TagT>
+std::vector<std::vector<T>> PQFlashIndex<T, TagT>::inflate_vectors_by_tags(const std::vector<TagT> &tags) {
+  std::vector<std::vector<T>> reconstructed_vectors;
+  reconstructed_vectors.reserve(tags.size());
+  
+  for (const auto &tag : tags) {
+    // Get the PQ coordinates for this tag
+    const _u8 *pq_coords = this->data + (tag * this->n_chunks);
+    
+    // Reconstruct the vector
+    std::vector<T> reconstructed_vec(this->data_dim);
+    std::vector<float> float_vec(this->data_dim);
+    
+    // Use the PQ table to inflate the vector
+    this->pq_table.inflate_vector(pq_coords, float_vec.data());
+    
+    // Convert back to the original type
+    for (uint32_t i = 0; i < this->data_dim; i++) {
+      reconstructed_vec[i] = (T)float_vec[i];
+    }
+    
+    reconstructed_vectors.push_back(std::move(reconstructed_vec));
+  }
+  
+  return reconstructed_vectors;
+}
+
+template <>
+std::vector<std::vector<float>> PQFlashIndex<float>::inflate_vectors_by_tags(const std::vector<uint32_t> &tags) {
+  std::vector<std::vector<float>> reconstructed_vectors;
+  reconstructed_vectors.reserve(tags.size());
+  
+  for (const auto &tag : tags) {
+    // Get the PQ coordinates for this tag
+    const _u8 *pq_coords = this->data + (tag * this->n_chunks);
+    
+    // Reconstruct the vector
+    std::vector<float> reconstructed_vec(this->data_dim);
+    this->pq_table.inflate_vector(pq_coords, reconstructed_vec.data());
+    
+    reconstructed_vectors.push_back(std::move(reconstructed_vec));
+  }
+  
+  return reconstructed_vectors;
+}
+
+template <typename T, typename TagT>
 void PQFlashIndex<T, TagT>::reload_index(
     const std::string &disk_index_file,
     const std::string &pq_compressed_vectors, const std::string &tags_file) {
