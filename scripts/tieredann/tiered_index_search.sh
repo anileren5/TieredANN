@@ -22,7 +22,7 @@ DISK_INDEX_PREFIX="./index/${DATASET}/${DATASET}"
 DISK_INDEX_ALREADY_BUILT=1
 HIT_RATE=0.90
 BEAMWIDTH=2
-USE_RECONSTRUCTED_VECTORS=0
+USE_RECONSTRUCTED_VECTORS=1
 
 # Run the test with all parameters
 ./build/tests/tiered_index_search \

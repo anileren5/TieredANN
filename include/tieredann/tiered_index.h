@@ -166,22 +166,6 @@ namespace tieredann {
                 }
             }
 
-            // Get reconstructed PQ vectors for search results
-            std::vector<std::vector<T>> get_reconstructed_pq_vectors(const uint32_t* query_result_tags_ptr, uint32_t K) {
-                std::vector<TagT> tags(query_result_tags_ptr, query_result_tags_ptr + K);
-                return this->disk_index->inflate_vectors_by_tags(tags);
-            }
-
-            // Manually insert reconstructed PQ vectors for specific tags
-            void insert_reconstructed_vectors(const std::vector<TagT>& tags) {
-                memory_index_insert_reconstructed_sync(memory_index, tags, dim);
-            }
-
-            // Check if using reconstructed vectors for insertion
-            bool is_using_reconstructed_vectors() const {
-                return use_reconstructed_vectors;
-            }
-
             size_t get_number_of_vectors_in_memory_index() const {
                 return this->memory_index->template get_number_of_active_vectors<TagT>();
             }
