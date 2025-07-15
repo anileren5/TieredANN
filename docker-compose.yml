@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  tieredann:
+    container_name: tieredann
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    entrypoint: bash
+    stdin_open: true
+    tty: true

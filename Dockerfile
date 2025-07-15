@@ -10,9 +10,4 @@ RUN apt update && \
         clang-format libboost-dev libboost-program-options-dev \
         libmkl-full-dev libcpprest-dev python3.10
 
-# Create /app directory and copy all contents there
-WORKDIR /app
-COPY . .
-
-# Set working directory for following commands
 WORKDIR /app
