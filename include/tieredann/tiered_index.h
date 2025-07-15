@@ -10,8 +10,9 @@
 // TieredANN headers
 #include "percentile_stats.h"
 #include <cstdint>
-#include <chrono>
 #include "tieredann/insert_thread_pool.h"
+#include <unordered_map>
+#include <mutex>
 
 namespace tieredann {
 
@@ -26,10 +27,12 @@ namespace tieredann {
             size_t dim, aligned_dim;
             size_t num_points;
             uint32_t search_threads;
-            double hit_rate;
             bool use_reconstructed_vectors;
             std::unique_ptr<tieredann::InsertThreadPool<T, TagT>> insert_pool;
-
+            std::unordered_map<uint32_t, double> theta_map;
+            std::mutex theta_map_mutex;
+            double p, deviation_factor;
+            
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
                 // Allocate buffer for all vectors
                 std::vector<T*> vectors;
@@ -40,10 +43,12 @@ namespace tieredann {
                     diskann::load_vector_by_index(data_path, vector, dim, to_be_inserted[i]);
                     vectors.push_back(vector);
                 }
+
                 // Insert all vectors
                 for (size_t i = 0; i < to_be_inserted.size(); ++i) {
                     index->insert_point(vectors[i], 1 + to_be_inserted[i]);
                 }
+                
                 // Free all allocated vectors
                 for (auto v : vectors) {
                     diskann::aligned_free(v);
@@ -53,15 +58,18 @@ namespace tieredann {
             void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim) {
                 // Get reconstructed PQ vectors for the tags
                 std::vector<std::vector<T>> reconstructed_vectors = this->disk_index->inflate_vectors_by_tags(to_be_inserted);
-                
                 for (size_t i = 0; i < to_be_inserted.size(); i++) {
                     const auto& reconstructed_vec = reconstructed_vectors[i];
                     index->insert_point(reconstructed_vec.data(), 1 + to_be_inserted[i]);
                 }
             }
 
-            bool isHit(double hit_rate) {
-                return static_cast<double>(rand()) / RAND_MAX < hit_rate;
+            bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
+                std::lock_guard<std::mutex> lock(theta_map_mutex);
+                if (distances[K - 1] == 0 || distances[K - 1] > (1 + deviation_factor)*theta_map[K]) {
+                    return false;
+                }
+                return true;
             }
 
         
@@ -71,17 +79,20 @@ namespace tieredann {
                         uint32_t R, uint32_t L,
                         uint32_t B, uint32_t M,
                         float alpha,
-                        double hit_rate,
                         uint32_t consolidate_threads,
                         uint32_t build_threads,
                         uint32_t search_threads,
                         int disk_index_already_built,
-                        bool use_reconstructed_vectors):
+                        bool use_reconstructed_vectors,
+                        double p,
+                        double deviation_factor, 
+                        uint32_t n_theta_estimation_queries):
                         data_path(data_path),
                         disk_index_prefix(disk_index_prefix),
                         search_threads(search_threads),
-                        hit_rate(hit_rate),
-                        use_reconstructed_vectors(use_reconstructed_vectors)
+                        use_reconstructed_vectors(use_reconstructed_vectors),
+                        p(p),
+                        deviation_factor(deviation_factor)
             {
                 // Set random seed
                 srand(42);
@@ -150,19 +161,59 @@ namespace tieredann {
                 }
 
                 std::cout << "TieredIndex built successfully!" << std::endl;
+
+                // Calculate an estimation of theta from the disk index
+                std::unordered_map<uint32_t, double> theta_sums = {
+                    {1, 0.0}, {5, 0.0}, {10, 0.0}, {50, 0.0}, {100, 0.0}
+                };
+                for (size_t i = 0; i < n_theta_estimation_queries; i++) {
+                    // Generate a random query by taking a weighted average of two random vectors from the disk index
+                    std::vector<T> query(this->dim);
+                    std::vector<T> query_2(this->dim);
+                    diskann::load_vector_by_index(data_path, query.data(), this->dim, rand() % this->num_points);
+                    diskann::load_vector_by_index(data_path, query_2.data(), this->dim, rand() % this->num_points);
+                    double random_weight = (double)rand() / RAND_MAX * 0.2;
+                    for (size_t j = 0; j < this->dim; j++) {
+                        query[j] = random_weight * query[j] + (1 - random_weight) * query_2[j];
+                    }
+
+                    // Search the disk index
+                    std::vector<TagT> query_result_tags(100);
+                    std::vector<T> query_result_dists(100);
+                    greator::QueryStats* stats = new greator::QueryStats;
+                    this->disk_index->cached_beam_search(query.data(), 100, L, query_result_tags.data(), query_result_dists.data(), 2, stats);
+
+                    // Accumulate thetas for different K
+                    theta_sums[1]   += query_result_dists[0];
+                    theta_sums[5]   += query_result_dists[4];
+                    theta_sums[10]  += query_result_dists[9];
+                    theta_sums[50]  += query_result_dists[49];
+                    theta_sums[100] += query_result_dists[99];
+                }
+                // Compute averages and store in theta_map
+                for (auto& kv : theta_sums) {
+                    theta_map[kv.first] = kv.second / n_theta_estimation_queries;
+                }
+                std::cout << "Training for theta map completed!" << std::endl;
             }
 
 
-            void search(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
-                if (this->isHit(hit_rate)) {
-                    auto start = std::chrono::high_resolution_clock::now();
-                    this->memory_index->search_with_tags(query_ptr, K, L, query_result_tags_ptr, query_result_dists_ptr, res);
-                } 
+            bool search(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
+                // Search in memory index
+                this->memory_index->search_with_tags(query_ptr, K, L, query_result_tags_ptr, query_result_dists_ptr, res);
+                if (this->isHit(query_ptr, K, L, query_result_dists_ptr)) {
+                    return true; // Return true if the query is hit in the memory index
+                }
                 else {
                     this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                     insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim);
                     for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
+                    {
+                        std::lock_guard<std::mutex> lock(theta_map_mutex);
+                        theta_map[K] = p * query_result_dists_ptr[K - 1] + (1 - p) * theta_map[K];
+                    }
+                    return false; // Return false if the query is missed in the memory index
                 }
             }
 

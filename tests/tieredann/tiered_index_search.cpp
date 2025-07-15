@@ -2,12 +2,12 @@
 #include <cstddef>
 #include <omp.h>
 #include <boost/program_options.hpp>
-#include <future>
+#include <atomic>
 
 // TieredANN headers
 #include "tieredann/tiered_index.h"
 
-#define N_SEARCH_ITER 50
+#define N_SEARCH_ITER 100
 
 namespace po = boost::program_options;
 
@@ -45,10 +45,11 @@ void hybrid_search(
     std::vector<double> latencies_ms(query_num, 0.0);
     auto global_start = std::chrono::high_resolution_clock::now();
 
+    std::atomic<size_t> hit_count{0};
     #pragma omp parallel for num_threads((int32_t)search_threads) schedule(dynamic)
     for (size_t i = 0; i < query_num; i++) {
         auto start = std::chrono::high_resolution_clock::now();
-        tiered_index.search(
+        bool hit = tiered_index.search(
             query + i * query_aligned_dim,
             K,
             L,
@@ -58,9 +59,13 @@ void hybrid_search(
             query_result_dists.data() + i * K,
             stats + i
         );
+        if (hit) hit_count.fetch_add(1, std::memory_order_relaxed);
         auto end = std::chrono::high_resolution_clock::now();
         latencies_ms[i] = std::chrono::duration<double, std::milli>(end - start).count();
     }
+    // Print final hit ratio
+    double final_ratio = static_cast<double>(hit_count.load(std::memory_order_relaxed)) / query_num;
+    std::cout << "[TieredIndex] Hit ratio: " << final_ratio << " (" << hit_count << "/" << query_num << ")" << std::endl;
 
     auto global_end = std::chrono::high_resolution_clock::now();
     double total_time_ms = std::chrono::duration<double, std::milli>(global_end - global_start).count();
@@ -92,6 +97,7 @@ void hybrid_search(
               << " #memory_vectors=" << tiered_index.get_number_of_vectors_in_memory_index()
               << " tail_latency_ms(p90,p95,p99)=" << p90 << ", " << p95 << ", " << p99
               << std::endl;
+
     delete[] stats;
 }
 
@@ -105,21 +111,24 @@ void experiment(
     uint32_t R, uint32_t L, uint32_t K,
     uint32_t B, uint32_t M,
     float alpha,
-    double hit_rate,
     uint32_t consolidate_threads,
     uint32_t build_threads,
     uint32_t search_threads,
     int disk_index_already_built,
     uint32_t beamwidth, 
-    int use_reconstructed_vectors
+    int use_reconstructed_vectors,
+    double p,
+    double deviation_factor,
+    uint32_t n_theta_estimation_queries
 ) {
    // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
        data_path, disk_index_prefix,
-       R, L, B, M, alpha, hit_rate,
+       R, L, B, M, alpha, 
        consolidate_threads, build_threads, search_threads,
-       disk_index_already_built, (bool)use_reconstructed_vectors
-   );
+       disk_index_already_built, (bool)use_reconstructed_vectors,
+       p, deviation_factor, n_theta_estimation_queries
+    );
 
     // Load groundtruth ids for the results
     TagT *groundtruth_ids = nullptr;
@@ -155,6 +164,8 @@ int main(int argc, char **argv) {
     float alpha;
     int single_file_index, disk_index_already_built, use_reconstructed_vectors;
     double hit_rate;
+    double p, deviation_factor;
+    uint32_t n_theta_estimation_queries;
 
     po::options_description desc;
 
@@ -170,7 +181,6 @@ int main(int argc, char **argv) {
             ("query_path", po::value<std::string>(&query_path)->required(), "Path to query")
             ("groundtruth_path", po::value<std::string>(&groundtruth_path)->required(), "Path to groundtruth")
             ("disk_index_prefix", po::value<std::string>(&disk_index_prefix)->required(), "Prefix to index")
-
             ("R", po::value<uint32_t>(&R)->required(), "Value of R")
             ("L", po::value<uint32_t>(&L)->required(), "Value of L")
             ("K", po::value<uint32_t>(&K)->required(), "Value of K")
@@ -180,10 +190,13 @@ int main(int argc, char **argv) {
             ("consolidate_threads", po::value<uint32_t>(&consolidate_threads)->required(), "Threads for consolidation")
             ("search_threads", po::value<uint32_t>(&search_threads)->required(), "Threads for searching")
             ("alpha", po::value<float>(&alpha)->required(), "Alpha parameter")
-            ("hit_rate", po::value<double>(&hit_rate)->required(), "Hit rate for hybrid search")
             ("use_reconstructed_vectors", po::value<int>(&use_reconstructed_vectors)->default_value(true), "Use reconstructed vectors for insertion to memory index")
             ("disk_index_already_built", po::value<int>(&disk_index_already_built)->default_value(1), "Disk index already built (0/1)")
-            ("beamwidth", po::value<uint32_t>(&beamwidth)->default_value(2), "Beamwidth");
+            ("beamwidth", po::value<uint32_t>(&beamwidth)->default_value(2), "Beamwidth")
+            ("p", po::value<double>(&p)->default_value(0.75), "Value of p")
+            ("deviation_factor", po::value<double>(&deviation_factor)->default_value(0.05), "Value of deviation factor")
+            ("n_theta_estimation_queries", po::value<uint32_t>(&n_theta_estimation_queries)->default_value(1000), "Number of theta estimation queries");
+
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -203,10 +216,10 @@ int main(int argc, char **argv) {
     // Run the experiment
     experiment(
         data_type, data_path, query_path, groundtruth_path, disk_index_prefix,
-        R, L, K, B, M,
-        alpha, hit_rate,
+        R, L, K, B, M, alpha, 
         consolidate_threads, build_threads, search_threads,
         disk_index_already_built,
-        beamwidth, use_reconstructed_vectors
+        beamwidth, use_reconstructed_vectors,
+        p, deviation_factor, n_theta_estimation_queries
     );
 }

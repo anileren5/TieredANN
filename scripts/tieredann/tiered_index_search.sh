@@ -11,7 +11,7 @@ QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 R=32
 L=128
-K=100
+K=10
 B=8
 M=8
 ALPHA=1.2
@@ -20,9 +20,11 @@ BUILD_THREADS=8
 CONSOLIDATE_THREADS=8
 DISK_INDEX_PREFIX="./index/${DATASET}/${DATASET}"
 DISK_INDEX_ALREADY_BUILT=1
-HIT_RATE=0.90
 BEAMWIDTH=2
 USE_RECONSTRUCTED_VECTORS=1
+N_THETA_ESTIMATION_QUERIES=1000
+P=0.75
+DEVIATION_FACTOR=0.05
 
 # Run the test with all parameters
 ./build/tests/tiered_index_search \
@@ -41,6 +43,8 @@ USE_RECONSTRUCTED_VECTORS=1
   --consolidate_threads "$CONSOLIDATE_THREADS" \
   --disk_index_already_built "$DISK_INDEX_ALREADY_BUILT" \
   --beamwidth "$BEAMWIDTH" \
-  --hit_rate "$HIT_RATE" \
   --disk_index_prefix "$DISK_INDEX_PREFIX" \
   --use_reconstructed_vectors "$USE_RECONSTRUCTED_VECTORS" \
+  --p "$P" \
+  --deviation_factor "$DEVIATION_FACTOR" \
+  --n_theta_estimation_queries "$N_THETA_ESTIMATION_QUERIES" \
