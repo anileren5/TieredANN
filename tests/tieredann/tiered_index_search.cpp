@@ -214,6 +214,29 @@ int main(int argc, char **argv) {
     }
 
     // Run the experiment
+    std::cout << "===== Program Parameters =====" << std::endl;
+    std::cout << "data_type: " << data_type << std::endl;
+    std::cout << "data_path: " << data_path << std::endl;
+    std::cout << "query_path: " << query_path << std::endl;
+    std::cout << "groundtruth_path: " << groundtruth_path << std::endl;
+    std::cout << "disk_index_prefix: " << disk_index_prefix << std::endl;
+    std::cout << "R: " << R << std::endl;
+    std::cout << "L: " << L << std::endl;
+    std::cout << "K: " << K << std::endl;
+    std::cout << "B: " << B << std::endl;
+    std::cout << "M: " << M << std::endl;
+    std::cout << "build_threads: " << build_threads << std::endl;
+    std::cout << "consolidate_threads: " << consolidate_threads << std::endl;
+    std::cout << "search_threads: " << search_threads << std::endl;
+    std::cout << "alpha: " << alpha << std::endl;
+    std::cout << "use_reconstructed_vectors: " << use_reconstructed_vectors << std::endl;
+    std::cout << "disk_index_already_built: " << disk_index_already_built << std::endl;
+    std::cout << "beamwidth: " << beamwidth << std::endl;
+    std::cout << "p: " << p << std::endl;
+    std::cout << "deviation_factor: " << deviation_factor << std::endl;
+    std::cout << "n_theta_estimation_queries: " << n_theta_estimation_queries << std::endl;
+    std::cout << "==============================" << std::endl << std::endl;
+
     experiment(
         data_type, data_path, query_path, groundtruth_path, disk_index_prefix,
         R, L, K, B, M, alpha, 

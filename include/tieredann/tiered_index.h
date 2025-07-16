@@ -98,10 +98,7 @@ namespace tieredann {
                         use_reconstructed_vectors(use_reconstructed_vectors),
                         p(p),
                         deviation_factor(deviation_factor)
-            {
-                // Set random seed
-                srand(42);
-                
+            {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
                 aligned_dim = ROUND_UP(dim, 8);
