@@ -13,6 +13,7 @@
 #include "tieredann/insert_thread_pool.h"
 #include <unordered_map>
 #include <mutex>
+#include <atomic>
 
 namespace tieredann {
 
@@ -32,41 +33,45 @@ namespace tieredann {
             std::unordered_map<uint32_t, double> theta_map;
             std::mutex theta_map_mutex;
             double p, deviation_factor;
+            std::atomic<size_t> num_points_in_memory_index{0};
             
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
-                // Allocate buffer for all vectors
                 std::vector<T*> vectors;
                 vectors.reserve(to_be_inserted.size());
+                size_t successful_inserts = 0;
                 for (size_t i = 0; i < to_be_inserted.size(); ++i) {
                     T* vector = nullptr;
                     diskann::alloc_aligned((void**)&vector, dim * sizeof(T), 8 * sizeof(T));
                     diskann::load_vector_by_index(data_path, vector, dim, to_be_inserted[i]);
                     vectors.push_back(vector);
                 }
-
-                // Insert all vectors
                 for (size_t i = 0; i < to_be_inserted.size(); ++i) {
-                    index->insert_point(vectors[i], 1 + to_be_inserted[i]);
+                    int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
+                    if (ret == 0) ++successful_inserts;
                 }
-                
-                // Free all allocated vectors
+                num_points_in_memory_index.fetch_add(successful_inserts, std::memory_order_relaxed);
                 for (auto v : vectors) {
                     diskann::aligned_free(v);
                 }
             }
 
             void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim) {
-                // Get reconstructed PQ vectors for the tags
                 std::vector<std::vector<T>> reconstructed_vectors = this->disk_index->inflate_vectors_by_tags(to_be_inserted);
+                size_t successful_inserts = 0;
                 for (size_t i = 0; i < to_be_inserted.size(); i++) {
                     const auto& reconstructed_vec = reconstructed_vectors[i];
-                    index->insert_point(reconstructed_vec.data(), 1 + to_be_inserted[i]);
+                    int ret = index->insert_point(reconstructed_vec.data(), 1 + to_be_inserted[i]);
+                    if (ret == 0) ++successful_inserts;
                 }
+                num_points_in_memory_index.fetch_add(successful_inserts, std::memory_order_relaxed);
             }
 
             bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
                 std::lock_guard<std::mutex> lock(theta_map_mutex);
-                if (distances[K - 1] == 0 || distances[K - 1] > (1 + deviation_factor)*theta_map[K]) {
+                if (this->get_number_of_vectors_in_memory_index() < K){
+                    return false;
+                }                
+                else if (distances[K - 1] > (1 + deviation_factor)*theta_map[K]) {
                     return false;
                 }
                 return true;
@@ -218,7 +223,7 @@ namespace tieredann {
             }
 
             size_t get_number_of_vectors_in_memory_index() const {
-                return this->memory_index->template get_number_of_active_vectors<TagT>();
+                return num_points_in_memory_index.load(std::memory_order_relaxed);
             }
     };
 }
