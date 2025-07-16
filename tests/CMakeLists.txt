@@ -6,6 +6,7 @@ set(TEST_EXECUTABLES
     batch_delete_reinsert_memory_index diskann/batch_delete_reinsert_memory_index.cpp
     concurrent_insert_delete_memory_index diskann/concurrent_insert_delete_memory_index.cpp
     tiered_index_search tieredann/tiered_index_search.cpp
+    disk_index_search tieredann/disk_index_search.cpp
 )
 
 # Compute length of the list
