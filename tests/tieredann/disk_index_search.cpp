@@ -10,8 +10,6 @@
 // TieredANN headers (for Greator disk index and DiskANN utils)
 #include "tieredann/tiered_index.h"
 
-#define N_SEARCH_ITER 100
-
 namespace po = boost::program_options;
 
 template <typename T, typename TagT = uint32_t>
@@ -106,7 +104,8 @@ void experiment(
     uint32_t build_threads,
     uint32_t search_threads,
     int disk_index_already_built,
-    uint32_t beamwidth
+    uint32_t beamwidth,
+    int n_search_iter
 ) {
     // Build disk index
     if (disk_index_already_built == 0) {
@@ -137,7 +136,7 @@ void experiment(
     // Allocate the space to store result of the queries
     std::vector<TagT> query_result_tags(query_num * K);
 
-    for (size_t i = 0; i < N_SEARCH_ITER; i++) {
+    for (int i = 0; i < n_search_iter; i++) {
         disk_search(disk_index, query, query_num, query_aligned_dim, K, L, search_threads, query_result_tags, res, beamwidth, data_path);
         calculate_recall<T, TagT>(K, groundtruth_ids, query_result_tags, query_num, groundtruth_dim); 
         query_result_tags.clear();
@@ -151,6 +150,7 @@ int main(int argc, char **argv) {
     std::string data_type, data_path, query_path, groundtruth_path, disk_index_prefix;
     uint32_t R, L, K, B, M, build_threads, search_threads, beamwidth;
     int disk_index_already_built;
+    int n_search_iter;
 
     po::options_description desc("Allowed options");
     try {
@@ -169,7 +169,8 @@ int main(int argc, char **argv) {
             ("build_threads", po::value<uint32_t>(&build_threads)->required(), "Threads for building")
             ("search_threads", po::value<uint32_t>(&search_threads)->required(), "Threads for searching")
             ("beamwidth", po::value<uint32_t>(&beamwidth)->default_value(2), "Beamwidth")
-            ("disk_index_already_built", po::value<int>(&disk_index_already_built)->default_value(1), "Disk index already built (0/1)");
+            ("disk_index_already_built", po::value<int>(&disk_index_already_built)->default_value(1), "Disk index already built (0/1)")
+            ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -198,10 +199,11 @@ int main(int argc, char **argv) {
     std::cout << "search_threads: " << search_threads << std::endl;
     std::cout << "beamwidth: " << beamwidth << std::endl;
     std::cout << "disk_index_already_built: " << disk_index_already_built << std::endl;
+    std::cout << "n_search_iter: " << n_search_iter << std::endl;
     std::cout << "==============================" << std::endl << std::endl;
 
     experiment(
         data_type, data_path, query_path, groundtruth_path, disk_index_prefix,
-        R, L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth
+        R, L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_search_iter
     );
 }

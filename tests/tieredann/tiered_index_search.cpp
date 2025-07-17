@@ -7,8 +7,6 @@
 // TieredANN headers
 #include "tieredann/tiered_index.h"
 
-#define N_SEARCH_ITER 100
-
 namespace po = boost::program_options;
 
 template <typename T, typename TagT = uint32_t>
@@ -119,7 +117,8 @@ void experiment(
     int use_reconstructed_vectors,
     double p,
     double deviation_factor,
-    uint32_t n_theta_estimation_queries
+    uint32_t n_theta_estimation_queries,
+    int n_search_iter
 ) {
    // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
@@ -147,7 +146,7 @@ void experiment(
     // Allocate the space to store result of the queries
     std::vector<TagT> query_result_tags(query_num * K);
 
-    for (size_t i = 0; i < N_SEARCH_ITER; i++) {
+    for (int i = 0; i < n_search_iter; i++) {
         hybrid_search(tiered_index, query, query_num, query_aligned_dim, K, L, search_threads, query_result_tags, res, beamwidth, data_path);
         calculate_recall<T, TagT>(K, groundtruth_ids, query_result_tags, query_num, groundtruth_dim); 
         query_result_tags.clear();
@@ -166,6 +165,7 @@ int main(int argc, char **argv) {
     double hit_rate;
     double p, deviation_factor;
     uint32_t n_theta_estimation_queries;
+    int n_search_iter;
 
     po::options_description desc;
 
@@ -195,7 +195,8 @@ int main(int argc, char **argv) {
             ("beamwidth", po::value<uint32_t>(&beamwidth)->default_value(2), "Beamwidth")
             ("p", po::value<double>(&p)->default_value(0.75), "Value of p")
             ("deviation_factor", po::value<double>(&deviation_factor)->default_value(0.05), "Value of deviation factor")
-            ("n_theta_estimation_queries", po::value<uint32_t>(&n_theta_estimation_queries)->default_value(1000), "Number of theta estimation queries");
+            ("n_theta_estimation_queries", po::value<uint32_t>(&n_theta_estimation_queries)->default_value(1000), "Number of theta estimation queries")
+            ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations");
 
 
         po::variables_map vm;
@@ -235,6 +236,7 @@ int main(int argc, char **argv) {
     std::cout << "p: " << p << std::endl;
     std::cout << "deviation_factor: " << deviation_factor << std::endl;
     std::cout << "n_theta_estimation_queries: " << n_theta_estimation_queries << std::endl;
+    std::cout << "n_search_iter: " << n_search_iter << std::endl;
     std::cout << "==============================" << std::endl << std::endl;
 
     experiment(
@@ -243,6 +245,6 @@ int main(int argc, char **argv) {
         consolidate_threads, build_threads, search_threads,
         disk_index_already_built,
         beamwidth, use_reconstructed_vectors,
-        p, deviation_factor, n_theta_estimation_queries
+        p, deviation_factor, n_theta_estimation_queries, n_search_iter
     );
 }

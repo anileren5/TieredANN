@@ -7,11 +7,11 @@ cd "$(dirname "$0")/../.." || exit 1
 DATASET="sift"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
-QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
-GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
+QUERY_PATH="data/$DATASET/query/${DATASET}_query.bin"
+GROUNDTRUTH_PATH="./data/$DATASET/groundtruth/${DATASET}_groundtruth.bin"
 R=32
 L=128
-K=10
+K=100
 B=8
 M=8
 ALPHA=1.2
@@ -21,10 +21,11 @@ CONSOLIDATE_THREADS=8
 DISK_INDEX_PREFIX="./index/${DATASET}/${DATASET}"
 DISK_INDEX_ALREADY_BUILT=1
 BEAMWIDTH=2
-USE_RECONSTRUCTED_VECTORS=1
+USE_RECONSTRUCTED_VECTORS=0
 N_THETA_ESTIMATION_QUERIES=1000
-P=0.75
-DEVIATION_FACTOR=0.05
+P=0.90
+DEVIATION_FACTOR=-0.10
+N_SEARCH_ITER=50
 
 # Run the test with all parameters
 ./build/tests/tiered_index_search \
@@ -48,3 +49,4 @@ DEVIATION_FACTOR=0.05
   --p "$P" \
   --deviation_factor "$DEVIATION_FACTOR" \
   --n_theta_estimation_queries "$N_THETA_ESTIMATION_QUERIES" \
+  --n_search_iter "$N_SEARCH_ITER"
