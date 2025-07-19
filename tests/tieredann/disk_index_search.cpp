@@ -121,6 +121,13 @@ void experiment(
     std::unique_ptr<greator::PQFlashIndex<T>> disk_index(new greator::PQFlashIndex<T>(greator::Metric::L2, reader, false, false));
     disk_index->load(disk_index_prefix.c_str(), build_threads);
 
+    // Cache vectors near the centroid of the disk index.
+    std::vector<uint32_t> node_list;
+    disk_index->cache_bfs_levels(500, node_list);
+    disk_index->load_cache_list(node_list);
+    node_list.clear();
+    node_list.shrink_to_fit();
+
     // Load groundtruth ids for the results
     TagT *groundtruth_ids = nullptr;
     float *groundtruth_dists = nullptr;

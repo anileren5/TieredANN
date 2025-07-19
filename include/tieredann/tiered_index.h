@@ -147,6 +147,13 @@ namespace tieredann {
                 disk_index = std::move(temp_disk_index);
                 disk_index->load(disk_index_prefix.c_str(), build_threads);
                 
+                // Cache vectors near the centroid of the disk index.
+                std::vector<uint32_t> node_list;
+                disk_index->cache_bfs_levels(500, node_list);
+                disk_index->load_cache_list(node_list);
+                node_list.clear();
+                node_list.shrink_to_fit();
+
                 std::cout << "TieredIndex disk index built successfully!" << std::endl;
 
                 // Initialize insert thread pool for async insertions
