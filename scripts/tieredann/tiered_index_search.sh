@@ -4,12 +4,12 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="sift"
+DATASET="siftsmall"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
-QUERY_PATH="data/$DATASET/query/${DATASET}_query.bin"
-GROUNDTRUTH_PATH="./data/$DATASET/groundtruth/${DATASET}_groundtruth.bin"
-R=32
+QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
+GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
+R=64
 L=128
 K=100
 B=8
@@ -26,6 +26,7 @@ N_THETA_ESTIMATION_QUERIES=1000
 P=0.90
 DEVIATION_FACTOR=-0.10
 N_SEARCH_ITER=50
+SECTOR_LEN=4096
 
 # Run the test with all parameters
 ./build/tests/tiered_index_search \
@@ -49,4 +50,5 @@ N_SEARCH_ITER=50
   --p "$P" \
   --deviation_factor "$DEVIATION_FACTOR" \
   --n_theta_estimation_queries "$N_THETA_ESTIMATION_QUERIES" \
-  --n_search_iter "$N_SEARCH_ITER"
+  --n_search_iter "$N_SEARCH_ITER" \
+  --sector_len "$SECTOR_LEN"

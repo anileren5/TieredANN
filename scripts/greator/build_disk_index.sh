@@ -16,6 +16,7 @@ M=8
 T=16
 similarity="l2"
 single_file_index=0
+sector_len=4096
 
 # Input and output paths
 base_file="./data/${dataset}/${dataset}_base.bin"
@@ -26,4 +27,14 @@ index_prefix="${index_dir}/${dataset}"
 mkdir -p "$index_dir"
 
 # Run the build_disk_index command with all parameters
-./build/tests/build_disk_index "$data_type" "$base_file" "$index_prefix" "$R" "$L" "$B" "$M" "$T" "$similarity" "$single_file_index"
+./build/tests/build_disk_index "$data_type" \
+  --data_file "$base_file" \
+  --index_prefix_path "$index_prefix" \
+  --R "$R" \
+  --L "$L" \
+  --B "$B" \
+  --M "$M" \
+  --T "$T" \
+  --dist_metric "$similarity" \
+  --single_file_index "$single_file_index" \
+  --sector_len "$sector_len"

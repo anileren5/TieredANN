@@ -20,22 +20,23 @@ K=100
 results_prefix="./results/${dataset}/${dataset}"
 similarity="l2"
 Ls=(128 256 512 1024)
+sector_len=4096
 
 # Create results directory if it doesn't exist
 mkdir -p "$(dirname "$results_prefix")"
 
 # Run the search
-./build/tests/search_disk_index \
-  "$data_type" \
-  "./index/${dataset}/${dataset}" \
-  "$single_file_index" \
-  "$tags_enabled" \
-  "$num_nodes_to_cache" \
-  "$num_threads" \
-  "$beamwidth" \
-  "$query_file" \
-  "$truth_file" \
-  "$K" \
-  "$results_prefix" \
-  "$similarity" \
-  "${Ls[@]}"
+./build/tests/search_disk_index "$data_type" \
+  --index_prefix_path "./index/${dataset}/${dataset}" \
+  --single_file_index "$single_file_index" \
+  --tags "$tags_enabled" \
+  --num_nodes_to_cache "$num_nodes_to_cache" \
+  --num_threads "$num_threads" \
+  --beamwidth "$beamwidth" \
+  --query_bin "$query_file" \
+  --truthset_bin "$truth_file" \
+  --recall_at "$K" \
+  --result_output_prefix "$results_prefix" \
+  --dist_metric "$similarity" \
+  --sector_len "$sector_len" \
+  --L_values "${Ls[@]}"

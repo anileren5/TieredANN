@@ -7,6 +7,7 @@
 #include "greator/pq_flash_index.h"
 #include "greator/aux_utils.h"
 #include "greator/linux_aligned_file_reader.h"
+#include <boost/program_options.hpp>
 
 #define WARMUP true
 
@@ -33,19 +34,39 @@ template <typename T> int search_disk_index(int argc, char **argv) {
   size_t query_num, query_dim, query_aligned_dim, gt_num, gt_dim;
   std::vector<_u64> Lvec;
 
-  int index = 2;
-  std::string index_prefix_path(argv[index++]);
+  // Parse command line arguments using boost::program_options
+  namespace po = boost::program_options;
+  po::options_description desc("Allowed options");
+  
+  std::string index_prefix_path, query_bin, truthset_bin, result_output_prefix, dist_metric;
+  bool single_file_index, tags_flag;
+  _u64 num_nodes_to_cache, recall_at;
+  _u32 num_threads, beamwidth;
+  uint32_t sector_len = 4096; // Default value
+  
+  desc.add_options()
+    ("index_prefix_path", po::value<std::string>(&index_prefix_path)->required(), "Index prefix path")
+    ("single_file_index", po::value<bool>(&single_file_index)->required(), "Single file index (0/1)")
+    ("tags", po::value<bool>(&tags_flag)->required(), "Tags flag (0/1)")
+    ("num_nodes_to_cache", po::value<_u64>(&num_nodes_to_cache)->required(), "Number of nodes to cache")
+    ("num_threads", po::value<_u32>(&num_threads)->required(), "Number of threads")
+    ("beamwidth", po::value<_u32>(&beamwidth)->required(), "Beamwidth")
+    ("query_bin", po::value<std::string>(&query_bin)->required(), "Query file")
+    ("truthset_bin", po::value<std::string>(&truthset_bin)->required(), "Truthset file")
+    ("recall_at", po::value<_u64>(&recall_at)->required(), "Recall at K")
+    ("result_output_prefix", po::value<std::string>(&result_output_prefix)->required(), "Result output prefix")
+    ("dist_metric", po::value<std::string>(&dist_metric)->required(), "Distance metric")
+    ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes")
+    ("L_values", po::value<std::vector<_u64>>()->multitoken(), "L values for search");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  // Set the global SECTOR_LEN variable
+  set_sector_len(sector_len);
+
   std::string warmup_query_file = index_prefix_path + "_sample_data.bin";
-  bool single_file_index = std::atoi(argv[index++]) != 0;
-  bool tags_flag = std::atoi(argv[index++]) != 0;
-  _u64 num_nodes_to_cache = std::atoi(argv[index++]);
-  _u32 num_threads = std::atoi(argv[index++]);
-  _u32 beamwidth = std::atoi(argv[index++]);
-  std::string query_bin(argv[index++]);
-  std::string truthset_bin(argv[index++]);
-  _u64 recall_at = std::atoi(argv[index++]);
-  std::string result_output_prefix(argv[index++]);
-  std::string dist_metric(argv[index++]);
 
   greator::Metric m =
       dist_metric == "cosine" ? greator::Metric::COSINE : greator::Metric::L2;
@@ -58,10 +79,13 @@ template <typename T> int search_disk_index(int argc, char **argv) {
 
   bool calc_recall_flag = false;
 
-  for (int ctr = index; ctr < argc; ctr++) {
-    _u64 curL = std::atoi(argv[ctr]);
-    if (curL >= recall_at)
-      Lvec.push_back(curL);
+  // Parse L values from command line arguments
+  if (vm.count("L_values")) {
+    std::vector<_u64> l_values = vm["L_values"].as<std::vector<_u64>>();
+    for (_u64 curL : l_values) {
+      if (curL >= recall_at)
+        Lvec.push_back(curL);
+    }
   }
 
   if (Lvec.size() == 0) {
@@ -297,21 +321,20 @@ template <typename T> int search_disk_index(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 14) {
+  if (argc < 2) {
     greator::cout
         << "Usage: " << argv[0]
-        << " <index_type (float/int8/uint8)>  <index_prefix_path>"
-           " <single_file_index(0/1)> <tags(0/1) "
-           " <num_nodes_to_cache>  <num_threads>  <beamwidth (use 0 to "
-           "optimize internally)> "
-           " <query_file.bin>  <truthset.bin (use \"null\" for none)> "
-           " <K>  <result_output_prefix> <similarity (cosine/l2)> "
-           " <L1>  [L2] etc.  See README for more information on parameters."
+        << " <index_type (float/int8/uint8)> --index_prefix_path <path>"
+           " --single_file_index <0/1> --tags <0/1> "
+           " --num_nodes_to_cache <num> --num_threads <num> --beamwidth <num> "
+           " --query_bin <file> --truthset_bin <file> "
+           " --recall_at <K> --result_output_prefix <prefix> --dist_metric <cosine/l2> "
+           " --sector_len <bytes> --L_values <L1> <L2> ..."
         << std::endl;
     exit(-1);
   }
 
-  greator::cout << "Attach  debugger and press a key" << std::endl;
+  greator::cout << "Attach debugger and press a key" << std::endl;
   /*  char x;
     std::cin >> x;
     */

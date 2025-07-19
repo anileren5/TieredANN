@@ -21,11 +21,22 @@
 #include "v2/lock.h"
 
 #define MAX_N_CMPS 16384
-#define SECTOR_LEN 4096
+// SECTOR_LEN is now a global variable with default value 4096
+// It used to be a macro with default value 4096, but we now use a global variable because if the dimension
+// of vectors goes beyond about 950, a single vector will not fit in a single sector. This has been observed for
+// vectors in GIST dataset with 960 dimensions. Also, this value should be a multiple of 4096 otherwise thread contexts
+// causes segfaults probably caused by alignment problems. Also, make sure that you have enough memory if you change this value
+// to something greater than 4096.
+// NOTE: The set_sector_len() function includes an assertion to ensure SECTOR_LEN is a multiple of 4096.
+extern uint32_t SECTOR_LEN;
 #define MAX_N_SECTOR_READS 128
 #define MAX_PQ_CHUNKS 100
 
+// Function to set SECTOR_LEN at runtime
+void set_sector_len(uint32_t sector_len);
+
 namespace greator {
+
 template <typename T> struct QueryScratch {
   T *coord_scratch = nullptr; // MUST BE AT LEAST [MAX_N_CMPS * data_dim]
   _u64 coord_idx = 0;         // index of next [data_dim] scratch to use

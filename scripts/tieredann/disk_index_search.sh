@@ -4,12 +4,12 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="sift"
+DATASET="siftsmall"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
-QUERY_PATH="data/$DATASET/query/${DATASET}_query.bin"
-GROUNDTRUTH_PATH="./data/$DATASET/groundtruth/${DATASET}_groundtruth.bin"
-R=32
+QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
+GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
+R=64
 L=128
 K=100
 B=8
@@ -20,6 +20,7 @@ DISK_INDEX_PREFIX="./index/${DATASET}/${DATASET}"
 DISK_INDEX_ALREADY_BUILT=1
 BEAMWIDTH=2
 N_SEARCH_ITER=50 
+SECTOR_LEN=4096
 
 # Run the test with only the required parameters
 ./build/tests/disk_index_search \
@@ -37,4 +38,5 @@ N_SEARCH_ITER=50
   --disk_index_already_built "$DISK_INDEX_ALREADY_BUILT" \
   --beamwidth "$BEAMWIDTH" \
   --disk_index_prefix "$DISK_INDEX_PREFIX" \
-  --n_search_iter "$N_SEARCH_ITER"
+  --n_search_iter "$N_SEARCH_ITER" \
+  --sector_len "$SECTOR_LEN"

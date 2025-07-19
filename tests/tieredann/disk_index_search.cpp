@@ -9,6 +9,8 @@
 
 // TieredANN headers (for Greator disk index and DiskANN utils)
 #include "tieredann/tiered_index.h"
+// Include for SECTOR_LEN setting
+#include "greator/pq_flash_index.h"
 
 namespace po = boost::program_options;
 
@@ -151,6 +153,7 @@ int main(int argc, char **argv) {
     uint32_t R, L, K, B, M, build_threads, search_threads, beamwidth;
     int disk_index_already_built;
     int n_search_iter;
+    uint32_t sector_len = 4096; // Default value
 
     po::options_description desc("Allowed options");
     try {
@@ -170,7 +173,8 @@ int main(int argc, char **argv) {
             ("search_threads", po::value<uint32_t>(&search_threads)->required(), "Threads for searching")
             ("beamwidth", po::value<uint32_t>(&beamwidth)->default_value(2), "Beamwidth")
             ("disk_index_already_built", po::value<int>(&disk_index_already_built)->default_value(1), "Disk index already built (0/1)")
-            ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations");
+            ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations")
+            ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -200,8 +204,12 @@ int main(int argc, char **argv) {
     std::cout << "beamwidth: " << beamwidth << std::endl;
     std::cout << "disk_index_already_built: " << disk_index_already_built << std::endl;
     std::cout << "n_search_iter: " << n_search_iter << std::endl;
+    std::cout << "sector_len: " << sector_len << std::endl;
     std::cout << "==============================" << std::endl << std::endl;
 
+    // Set the global SECTOR_LEN variable
+    set_sector_len(sector_len);
+    
     experiment(
         data_type, data_path, query_path, groundtruth_path, disk_index_prefix,
         R, L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_search_iter

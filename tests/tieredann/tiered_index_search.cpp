@@ -6,6 +6,8 @@
 
 // TieredANN headers
 #include "tieredann/tiered_index.h"
+// Include for SECTOR_LEN setting
+#include "greator/pq_flash_index.h"
 
 namespace po = boost::program_options;
 
@@ -166,6 +168,7 @@ int main(int argc, char **argv) {
     double p, deviation_factor;
     uint32_t n_theta_estimation_queries;
     int n_search_iter;
+    uint32_t sector_len = 4096; // Default value
 
     po::options_description desc;
 
@@ -196,7 +199,8 @@ int main(int argc, char **argv) {
             ("p", po::value<double>(&p)->default_value(0.75), "Value of p")
             ("deviation_factor", po::value<double>(&deviation_factor)->default_value(0.05), "Value of deviation factor")
             ("n_theta_estimation_queries", po::value<uint32_t>(&n_theta_estimation_queries)->default_value(1000), "Number of theta estimation queries")
-            ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations");
+            ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations")
+            ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes");
 
 
         po::variables_map vm;
@@ -214,6 +218,9 @@ int main(int argc, char **argv) {
         return -1;
     }
 
+    // Set the global SECTOR_LEN variable
+    set_sector_len(sector_len);
+    
     // Run the experiment
     std::cout << "===== Program Parameters =====" << std::endl;
     std::cout << "data_type: " << data_type << std::endl;
@@ -237,6 +244,7 @@ int main(int argc, char **argv) {
     std::cout << "deviation_factor: " << deviation_factor << std::endl;
     std::cout << "n_theta_estimation_queries: " << n_theta_estimation_queries << std::endl;
     std::cout << "n_search_iter: " << n_search_iter << std::endl;
+    std::cout << "sector_len: " << sector_len << std::endl;
     std::cout << "==============================" << std::endl << std::endl;
 
     experiment(
