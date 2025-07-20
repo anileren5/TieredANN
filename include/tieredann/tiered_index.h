@@ -41,7 +41,7 @@ namespace tieredann {
                 size_t successful_inserts = 0;
                 for (size_t i = 0; i < to_be_inserted.size(); ++i) {
                     T* vector = nullptr;
-                    diskann::alloc_aligned((void**)&vector, dim * sizeof(T), 8 * sizeof(T));
+                    diskann::alloc_aligned((void**)&vector, aligned_dim * sizeof(T), 8 * sizeof(T));
                     diskann::load_vector_by_index(data_path, vector, dim, to_be_inserted[i]);
                     vectors.push_back(vector);
                 }
