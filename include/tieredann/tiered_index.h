@@ -34,6 +34,8 @@ namespace tieredann {
             std::mutex theta_map_mutex;
             double p, deviation_factor;
             std::atomic<size_t> num_points_in_memory_index{0};
+            uint32_t memory_L;  // L value for memory index search
+            uint32_t disk_L;    // L value for disk index search
             
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
                 std::vector<T*> vectors;
@@ -81,7 +83,7 @@ namespace tieredann {
         public:
             TieredIndex(const std::string& data_path,
                         const std::string& disk_index_prefix,
-                        uint32_t R, uint32_t L,
+                        uint32_t R, uint32_t memory_L, uint32_t disk_L,
                         uint32_t B, uint32_t M,
                         float alpha,
                         uint32_t consolidate_threads,
@@ -97,19 +99,21 @@ namespace tieredann {
                         search_threads(search_threads),
                         use_reconstructed_vectors(use_reconstructed_vectors),
                         p(p),
-                        deviation_factor(deviation_factor)
+                        deviation_factor(deviation_factor),
+                        memory_L(memory_L),
+                        disk_L(disk_L)
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
                 aligned_dim = ROUND_UP(dim, 8);
 
                 // Build memory index
-                diskann::IndexWriteParameters memory_index_write_params = diskann::IndexWriteParametersBuilder(L, R)
+                diskann::IndexWriteParameters memory_index_write_params = diskann::IndexWriteParametersBuilder(memory_L, R)
                                                                     .with_alpha(alpha)
                                                                     .with_num_threads(consolidate_threads)
                                                                     .build();
 
-                diskann::IndexSearchParams memory_index_search_params = diskann::IndexSearchParams(L, search_threads);
+                diskann::IndexSearchParams memory_index_search_params = diskann::IndexSearchParams(memory_L, search_threads);
 
                 diskann::IndexConfig memory_index_config = diskann::IndexConfigBuilder()
                                                             .with_metric(diskann::L2)
@@ -136,7 +140,7 @@ namespace tieredann {
 
                 // Build disk index
                 if (disk_index_already_built == 0) {
-                    std::string disk_index_params = std::to_string(R) + " " + std::to_string(L) + " " + std::to_string(B) + " " + std::to_string(M) + " " + std::to_string(build_threads);
+                    std::string disk_index_params = std::to_string(R) + " " + std::to_string(disk_L) + " " + std::to_string(B) + " " + std::to_string(M) + " " + std::to_string(build_threads);
                     greator::build_disk_index<T>(data_path.c_str(), disk_index_prefix.c_str(), disk_index_params.c_str(), greator::Metric::L2, false);
                 }
 
@@ -190,7 +194,7 @@ namespace tieredann {
                     std::vector<TagT> query_result_tags(100);
                     std::vector<float> query_result_dists(100);
                     greator::QueryStats* stats = new greator::QueryStats;
-                    this->disk_index->cached_beam_search(query.data(), 100, L, query_result_tags.data(), query_result_dists.data(), 2, stats);
+                    this->disk_index->cached_beam_search(query.data(), 100, disk_L, query_result_tags.data(), query_result_dists.data(), 2, stats);
 
                     // Accumulate thetas for different K
                     theta_sums[1]   += query_result_dists[0];
@@ -209,12 +213,12 @@ namespace tieredann {
 
             bool search(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
                 // Search in memory index
-                this->memory_index->search_with_tags(query_ptr, K, L, query_result_tags_ptr, query_result_dists_ptr, res);
-                if (this->isHit(query_ptr, K, L, query_result_dists_ptr)) {
+                this->memory_index->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                if (this->isHit(query_ptr, K, memory_L, query_result_dists_ptr)) {
                     return true; // Return true if the query is hit in the memory index
                 }
                 else {
-                    this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
+                    this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                     insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim);
                     for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;

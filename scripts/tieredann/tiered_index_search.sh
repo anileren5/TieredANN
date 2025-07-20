@@ -4,13 +4,14 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="siftsmall"
-DATA_TYPE="float"
+DATASET="spacev_1m"
+DATA_TYPE="int8"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 R=64
-L=128
+MEMORY_L=256
+DISK_L=256
 K=100
 B=8
 M=8
@@ -24,7 +25,7 @@ BEAMWIDTH=2
 USE_RECONSTRUCTED_VECTORS=0
 N_THETA_ESTIMATION_QUERIES=1000
 P=0.90
-DEVIATION_FACTOR=-0.10
+DEVIATION_FACTOR=0.00
 N_SEARCH_ITER=50
 SECTOR_LEN=4096
 
@@ -35,7 +36,8 @@ SECTOR_LEN=4096
   --query_path "$QUERY_PATH" \
   --groundtruth_path "$GROUNDTRUTH_PATH" \
   --R "$R" \
-  --L "$L" \
+  --memory_L "$MEMORY_L" \
+  --disk_L "$DISK_L" \
   --K "$K" \
   --B "$B" \
   --M "$M" \

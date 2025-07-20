@@ -108,7 +108,7 @@ void experiment(
     const std::string& query_path,
     const std::string& groundtruth_path,
     const std::string& disk_index_prefix,
-    uint32_t R, uint32_t L, uint32_t K,
+    uint32_t R, uint32_t memory_L, uint32_t disk_L, uint32_t K,
     uint32_t B, uint32_t M,
     float alpha,
     uint32_t consolidate_threads,
@@ -125,7 +125,7 @@ void experiment(
    // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
        data_path, disk_index_prefix,
-       R, L, B, M, alpha, 
+       R, memory_L, disk_L, B, M, alpha, 
        consolidate_threads, build_threads, search_threads,
        disk_index_already_built, (bool)use_reconstructed_vectors,
        p, deviation_factor, n_theta_estimation_queries
@@ -149,7 +149,7 @@ void experiment(
     std::vector<TagT> query_result_tags(query_num * K);
 
     for (int i = 0; i < n_search_iter; i++) {
-        hybrid_search(tiered_index, query, query_num, query_aligned_dim, K, L, search_threads, query_result_tags, res, beamwidth, data_path);
+        hybrid_search(tiered_index, query, query_num, query_aligned_dim, K, memory_L, search_threads, query_result_tags, res, beamwidth, data_path);
         calculate_recall<T, TagT>(K, groundtruth_ids, query_result_tags, query_num, groundtruth_dim); 
         query_result_tags.clear();
     }
@@ -160,7 +160,7 @@ void experiment(
 
 int main(int argc, char **argv) {
     std::string data_type, data_path, query_path, groundtruth_path, disk_index_prefix;
-    uint32_t R, L, K, B, M;
+    uint32_t R, memory_L, disk_L, K, B, M;
     uint32_t build_threads, consolidate_threads, search_threads, beamwidth;
     float alpha;
     int single_file_index, disk_index_already_built, use_reconstructed_vectors;
@@ -185,7 +185,8 @@ int main(int argc, char **argv) {
             ("groundtruth_path", po::value<std::string>(&groundtruth_path)->required(), "Path to groundtruth")
             ("disk_index_prefix", po::value<std::string>(&disk_index_prefix)->required(), "Prefix to index")
             ("R", po::value<uint32_t>(&R)->required(), "Value of R")
-            ("L", po::value<uint32_t>(&L)->required(), "Value of L")
+            ("memory_L", po::value<uint32_t>(&memory_L)->required(), "Value of memory L")
+            ("disk_L", po::value<uint32_t>(&disk_L)->required(), "Value of disk L")
             ("K", po::value<uint32_t>(&K)->required(), "Value of K")
             ("B", po::value<uint32_t>(&B)->default_value(8), "Value of B")
             ("M", po::value<uint32_t>(&M)->default_value(8), "Value of M")
@@ -229,7 +230,8 @@ int main(int argc, char **argv) {
     std::cout << "groundtruth_path: " << groundtruth_path << std::endl;
     std::cout << "disk_index_prefix: " << disk_index_prefix << std::endl;
     std::cout << "R: " << R << std::endl;
-    std::cout << "L: " << L << std::endl;
+    std::cout << "memory_L: " << memory_L << std::endl;
+    std::cout << "disk_L: " << disk_L << std::endl;
     std::cout << "K: " << K << std::endl;
     std::cout << "B: " << B << std::endl;
     std::cout << "M: " << M << std::endl;
@@ -248,11 +250,11 @@ int main(int argc, char **argv) {
     std::cout << "==============================" << std::endl << std::endl;
 
     if (data_type == "float") {
-        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
+        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
     } else if (data_type == "int8") {
-        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
+        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
     } else if (data_type == "uint8") {
-        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
+        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }
