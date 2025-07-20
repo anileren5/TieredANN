@@ -33,7 +33,37 @@ void calculate_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_
 }
 
 template <typename T, typename TagT = uint32_t>
-void hybrid_search(
+void calculate_hit_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, 
+                         const std::vector<bool>& hit_results, size_t query_num, size_t groundtruth_dim) {
+    double total_recall = 0.0;
+    size_t hit_count = 0;
+
+    for (int32_t i = 0; i < query_num; i++) {
+        if (hit_results[i]) {  // Only calculate recall for cache hits
+            std::set<uint32_t> groundtruth_closest_neighbors;
+            std::set<uint32_t> calculated_closest_neighbors;
+            for (int32_t j = 0; j < K; j++) {
+                calculated_closest_neighbors.insert(*(query_result_tags.data() + i * K + j));
+                groundtruth_closest_neighbors.insert(*(groundtruth_ids + i * groundtruth_dim + j));
+            }
+            uint32_t matching_neighbors = 0;
+            for (uint32_t x : calculated_closest_neighbors) if (groundtruth_closest_neighbors.count(x - 1)) matching_neighbors++;
+            double recall = matching_neighbors / (double)K;
+            total_recall += recall;
+            hit_count++;
+        }
+    }
+    
+    if (hit_count > 0) {
+        double average_recall = total_recall / hit_count;
+        std::cout << K << "Recall@" << K << " (cache hits only): " << average_recall * 100 << "% (" << hit_count << " hits)" << std::endl;
+    } else {
+        std::cout << K << "Recall@" << K << " (cache hits only): N/A (no hits)" << std::endl;
+    }
+}
+
+template <typename T, typename TagT = uint32_t>
+std::vector<bool> hybrid_search(
     tieredann::TieredIndex<T>& tiered_index,
     const T* query, size_t query_num, uint32_t query_aligned_dim,
     uint32_t K, uint32_t L, uint32_t search_threads,
@@ -43,6 +73,7 @@ void hybrid_search(
     std::vector<float> query_result_dists(K * query_num);
     greator::QueryStats* stats = new greator::QueryStats[query_num];
     std::vector<double> latencies_ms(query_num, 0.0);
+    std::vector<bool> hit_results(query_num, false);
     auto global_start = std::chrono::high_resolution_clock::now();
 
     std::atomic<size_t> hit_count{0};
@@ -59,10 +90,23 @@ void hybrid_search(
             query_result_dists.data() + i * K,
             stats + i
         );
+        hit_results[i] = hit;
         if (hit) hit_count.fetch_add(1, std::memory_order_relaxed);
         auto end = std::chrono::high_resolution_clock::now();
         latencies_ms[i] = std::chrono::duration<double, std::milli>(end - start).count();
     }
+    
+    // Calculate average hit latency
+    double total_hit_latency_ms = 0.0;
+    size_t actual_hit_count = 0;
+    for (size_t i = 0; i < query_num; i++) {
+        if (hit_results[i]) {
+            total_hit_latency_ms += latencies_ms[i];
+            actual_hit_count++;
+        }
+    }
+    double avg_hit_latency_ms = (actual_hit_count > 0) ? total_hit_latency_ms / actual_hit_count : 0.0;
+    
     // Print final hit ratio
     double final_ratio = static_cast<double>(hit_count.load(std::memory_order_relaxed)) / query_num;
     std::cout << "[TieredIndex] Hit ratio: " << final_ratio << " (" << hit_count << "/" << query_num << ")" << std::endl;
@@ -88,10 +132,9 @@ void hybrid_search(
     double p95 = get_percentile(0.95);
     double p99 = get_percentile(0.99);
 
-    std::cout << "queries=" << query_num
-              << " threads=" << search_threads
-              << " total_time_ms=" << total_time_ms
+    std::cout << " threads=" << search_threads
               << " avg_latency_ms=" << avg_latency_ms
+              << " avg_hit_latency_ms=" << avg_hit_latency_ms
               << " qps=" << qps
               << " qps_per_thread=" << qps_per_thread
               << " #memory_vectors=" << tiered_index.get_number_of_vectors_in_memory_index()
@@ -99,6 +142,7 @@ void hybrid_search(
               << std::endl;
 
     delete[] stats;
+    return hit_results;
 }
 
 template <typename T = float, typename TagT = uint32_t>
@@ -149,8 +193,9 @@ void experiment(
     std::vector<TagT> query_result_tags(query_num * K);
 
     for (int i = 0; i < n_search_iter; i++) {
-        hybrid_search(tiered_index, query, query_num, query_aligned_dim, K, memory_L, search_threads, query_result_tags, res, beamwidth, data_path);
+        std::vector<bool> hit_results = hybrid_search(tiered_index, query, query_num, query_aligned_dim, K, memory_L, search_threads, query_result_tags, res, beamwidth, data_path);
         calculate_recall<T, TagT>(K, groundtruth_ids, query_result_tags, query_num, groundtruth_dim); 
+        calculate_hit_recall<T, TagT>(K, groundtruth_ids, query_result_tags, hit_results, query_num, groundtruth_dim);
         query_result_tags.clear();
     }
 
