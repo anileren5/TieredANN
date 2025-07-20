@@ -247,12 +247,15 @@ int main(int argc, char **argv) {
     std::cout << "sector_len: " << sector_len << std::endl;
     std::cout << "==============================" << std::endl << std::endl;
 
-    experiment(
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix,
-        R, L, K, B, M, alpha, 
-        consolidate_threads, build_threads, search_threads,
-        disk_index_already_built,
-        beamwidth, use_reconstructed_vectors,
-        p, deviation_factor, n_theta_estimation_queries, n_search_iter
-    );
+    if (data_type == "float") {
+        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
+    } else if (data_type == "int8") {
+        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
+    } else if (data_type == "uint8") {
+        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter);
+    } else {
+        std::cerr << "Unsupported data type: " << data_type << std::endl;
+    }
+
+    return 0;
 }

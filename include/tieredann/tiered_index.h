@@ -21,7 +21,7 @@ namespace tieredann {
     class TieredIndex {
         
         private:
-            std::unique_ptr<greator::PQFlashIndex<float>> disk_index;
+            std::unique_ptr<greator::PQFlashIndex<T, TagT>> disk_index;
             std::unique_ptr<diskann::AbstractIndex> memory_index;
             std::string data_path;
             std::string disk_index_prefix;
@@ -188,7 +188,7 @@ namespace tieredann {
 
                     // Search the disk index
                     std::vector<TagT> query_result_tags(100);
-                    std::vector<T> query_result_dists(100);
+                    std::vector<float> query_result_dists(100);
                     greator::QueryStats* stats = new greator::QueryStats;
                     this->disk_index->cached_beam_search(query.data(), 100, L, query_result_tags.data(), query_result_dists.data(), 2, stats);
 

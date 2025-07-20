@@ -217,8 +217,15 @@ int main(int argc, char **argv) {
     // Set the global SECTOR_LEN variable
     set_sector_len(sector_len);
     
-    experiment(
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix,
-        R, L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_search_iter
-    );
+    if (data_type == "float") {
+        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_search_iter);
+    } else if (data_type == "int8") {
+        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_search_iter);
+    } else if (data_type == "uint8") {
+        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_search_iter);
+    } else {
+        std::cerr << "Unsupported data type: " << data_type << std::endl;
+    }
+
+    return 0;
 }
