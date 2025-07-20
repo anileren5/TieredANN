@@ -16,7 +16,7 @@ namespace tieredann {
 template <typename T, typename TagT = uint32_t>
 class InsertThreadPool {
 public:
-    using TaskFn = std::function<void(std::unique_ptr<diskann::AbstractIndex>&, std::vector<TagT>, std::string, size_t)>;
+    using TaskFn = std::function<void(std::unique_ptr<diskann::AbstractIndex>&, std::vector<TagT>, std::string, size_t, uint32_t, float)>;
 
     InsertThreadPool(size_t thread_count, TaskFn task_fn);
     ~InsertThreadPool();
@@ -27,7 +27,9 @@ public:
     void submit(std::unique_ptr<diskann::AbstractIndex>& index,
                 std::vector<TagT> to_be_inserted,
                 const std::string& data_path,
-                size_t dim);
+                size_t dim,
+                uint32_t K = 0,
+                float query_distance = 0.0f);
 
 private:
     std::vector<std::thread> workers;

@@ -28,6 +28,7 @@ P=0.90
 DEVIATION_FACTOR=0.00
 N_SEARCH_ITER=50
 SECTOR_LEN=4096
+EAGER_THETA_UPDATE=true
 
 # Run the test with all parameters
 ./build/tests/tiered_index_search \
@@ -53,4 +54,5 @@ SECTOR_LEN=4096
   --deviation_factor "$DEVIATION_FACTOR" \
   --n_theta_estimation_queries "$N_THETA_ESTIMATION_QUERIES" \
   --n_search_iter "$N_SEARCH_ITER" \
-  --sector_len "$SECTOR_LEN"
+  --sector_len "$SECTOR_LEN" \
+  --eager_theta_update "$EAGER_THETA_UPDATE"

@@ -28,11 +28,13 @@ template <typename T, typename TagT>
 void InsertThreadPool<T, TagT>::submit(std::unique_ptr<diskann::AbstractIndex>& index,
                                        std::vector<TagT> to_be_inserted,
                                        const std::string& data_path,
-                                       size_t dim) {
+                                       size_t dim,
+                                       uint32_t K,
+                                       float query_distance) {
     {
         std::unique_lock<std::mutex> lock(mtx);
         tasks.emplace([=, &index]() mutable {
-            task_function(index, std::move(to_be_inserted), data_path, dim);
+            task_function(index, std::move(to_be_inserted), data_path, dim, K, query_distance);
         });
     }
     cv.notify_one();

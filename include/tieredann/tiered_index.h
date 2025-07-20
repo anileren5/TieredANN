@@ -36,8 +36,9 @@ namespace tieredann {
             std::atomic<size_t> num_points_in_memory_index{0};
             uint32_t memory_L;  // L value for memory index search
             uint32_t disk_L;    // L value for disk index search
+            bool eager_theta_update;  // Whether to update theta immediately or defer
             
-            void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
+            void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
                 std::vector<T*> vectors;
                 vectors.reserve(to_be_inserted.size());
                 size_t successful_inserts = 0;
@@ -55,9 +56,15 @@ namespace tieredann {
                 for (auto v : vectors) {
                     diskann::aligned_free(v);
                 }
+                
+                // Update theta at the end if eager_theta_update is false and we have the necessary parameters
+                if (!eager_theta_update && K > 0) {
+                    std::lock_guard<std::mutex> lock(theta_map_mutex);
+                    theta_map[K] = p * query_distance + (1 - p) * theta_map[K];
+                }
             }
 
-            void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim) {
+            void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
                 std::vector<std::vector<T>> reconstructed_vectors = this->disk_index->inflate_vectors_by_tags(to_be_inserted);
                 size_t successful_inserts = 0;
                 for (size_t i = 0; i < to_be_inserted.size(); i++) {
@@ -66,6 +73,12 @@ namespace tieredann {
                     if (ret == 0) ++successful_inserts;
                 }
                 num_points_in_memory_index.fetch_add(successful_inserts, std::memory_order_relaxed);
+                
+                // Update theta at the end if eager_theta_update is false and we have the necessary parameters
+                if (!eager_theta_update && K > 0) {
+                    std::lock_guard<std::mutex> lock(theta_map_mutex);
+                    theta_map[K] = p * query_distance + (1 - p) * theta_map[K];
+                }
             }
 
             bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
@@ -93,7 +106,8 @@ namespace tieredann {
                         bool use_reconstructed_vectors,
                         double p,
                         double deviation_factor, 
-                        uint32_t n_theta_estimation_queries):
+                        uint32_t n_theta_estimation_queries,
+                        bool eager_theta_update = false):
                         data_path(data_path),
                         disk_index_prefix(disk_index_prefix),
                         search_threads(search_threads),
@@ -101,7 +115,8 @@ namespace tieredann {
                         p(p),
                         deviation_factor(deviation_factor),
                         memory_L(memory_L),
-                        disk_L(disk_L)
+                        disk_L(disk_L),
+                        eager_theta_update(eager_theta_update)
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
@@ -162,13 +177,13 @@ namespace tieredann {
 
                 // Initialize insert thread pool for async insertions
                 if (use_reconstructed_vectors) {
-                    auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
-                        this->memory_index_insert_reconstructed_sync(index, to_be_inserted, dim);
+                    auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K, float query_distance) {
+                        this->memory_index_insert_reconstructed_sync(index, to_be_inserted, dim, K, query_distance);
                     };
                     insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(4, task);
                 } else {
-                    auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim) {
-                        this->memory_index_insert_sync(index, to_be_inserted, data_path, dim);
+                    auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K, float query_distance) {
+                        this->memory_index_insert_sync(index, to_be_inserted, data_path, dim, K, query_distance);
                     };
                     insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(4, task);
                 }
@@ -220,9 +235,18 @@ namespace tieredann {
                 else {
                     this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
-                    insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim);
+                    
+                    // Pass theta update parameters if eager_theta_update is false
+                    if (eager_theta_update) {
+                        insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim);
+                    } else {
+                        insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
+                    }
+                    
                     for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
-                    {
+                    
+                    // Update theta immediately if eager_theta_update is true
+                    if (eager_theta_update) {
                         std::lock_guard<std::mutex> lock(theta_map_mutex);
                         theta_map[K] = p * query_result_dists_ptr[K - 1] + (1 - p) * theta_map[K];
                     }
