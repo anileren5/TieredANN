@@ -31,6 +31,7 @@ add_compile_options(
 find_package(TBB REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(Boost COMPONENTS program_options)
+find_package(spdlog REQUIRED)
 find_path(EIGEN3_INCLUDE_DIR NAMES Eigen/Dense PATHS /usr/include/eigen3 /usr/local/include/eigen3)
 if(NOT EIGEN3_INCLUDE_DIR)
     message(FATAL_ERROR "Could not find Eigen3. Please install libeigen3-dev or set EIGEN3_INCLUDE_DIR.")

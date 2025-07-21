@@ -4,14 +4,14 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="text_to_image_1m"
-DATA_TYPE="float"
+DATASET="spacev_1m"
+DATA_TYPE="int8"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 R=64
-MEMORY_L=128
-DISK_L=128
+MEMORY_L=256
+DISK_L=256
 K=100
 B=8
 M=8
@@ -26,7 +26,7 @@ USE_RECONSTRUCTED_VECTORS=0
 N_THETA_ESTIMATION_QUERIES=1000
 P=0.90
 DEVIATION_FACTOR=0.00
-N_SEARCH_ITER=50
+N_SEARCH_ITER=30
 SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)

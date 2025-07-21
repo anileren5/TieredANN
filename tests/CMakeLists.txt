@@ -30,6 +30,7 @@ foreach(i RANGE 0 ${max_index} 2)
             TBB::tbb
             OpenMP::OpenMP_CXX
             Boost::program_options
+            spdlog::spdlog
 )
 
     target_include_directories(${exec_name}

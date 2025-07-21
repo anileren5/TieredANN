@@ -3,6 +3,10 @@
 #include <omp.h>
 #include <boost/program_options.hpp>
 #include <atomic>
+#include <iomanip>
+#include <chrono>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 // TieredANN headers
 #include "tieredann/tiered_index.h"
@@ -29,7 +33,7 @@ void calculate_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_
     }
     double average_recall = total_recall / (query_num);
 
-    std::cout << K << "Recall@" << K << ": " << average_recall * 100 << "%" << std::endl;
+    spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": {}, \"type\": \"all\"}}", K, average_recall);
 }
 
 template <typename T, typename TagT = uint32_t>
@@ -56,9 +60,9 @@ void calculate_hit_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& qu
     
     if (hit_count > 0) {
         double average_recall = total_recall / hit_count;
-        std::cout << K << "Recall@" << K << " (cache hits only): " << average_recall * 100 << "% (" << hit_count << " hits)" << std::endl;
+        spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": {}, \"type\": \"cache_hits\", \"hit_count\": {}}}", K, average_recall, hit_count);
     } else {
-        std::cout << K << "Recall@" << K << " (cache hits only): N/A (no hits)" << std::endl;
+        spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": null, \"type\": \"cache_hits\", \"hit_count\": 0}}", K);
     }
 }
 
@@ -109,7 +113,7 @@ std::vector<bool> hybrid_search(
     
     // Print final hit ratio
     double final_ratio = static_cast<double>(hit_count.load(std::memory_order_relaxed)) / query_num;
-    std::cout << "[TieredIndex] Hit ratio: " << final_ratio << " (" << hit_count << "/" << query_num << ")" << std::endl;
+    spdlog::info("{{\"event\": \"hit_ratio\", \"hit_ratio\": {}, \"hits\": {}, \"total\": {}}}", final_ratio, hit_count, query_num);
 
     auto global_end = std::chrono::high_resolution_clock::now();
     double total_time_ms = std::chrono::duration<double, std::milli>(global_end - global_start).count();
@@ -132,14 +136,15 @@ std::vector<bool> hybrid_search(
     double p95 = get_percentile(0.95);
     double p99 = get_percentile(0.99);
 
-    std::cout << " threads=" << search_threads
-              << " avg_latency_ms=" << avg_latency_ms
-              << " avg_hit_latency_ms=" << avg_hit_latency_ms
-              << " qps=" << qps
-              << " qps_per_thread=" << qps_per_thread
-              << " #memory_vectors=" << tiered_index.get_number_of_vectors_in_memory_index()
-              << " tail_latency_ms(p90,p95,p99)=" << p90 << ", " << p95 << ", " << p99
-              << std::endl;
+    spdlog::info("{{\"event\": \"latency\", "
+              "\"threads\": {}, "
+              "\"avg_latency_ms\": {}, "
+              "\"avg_hit_latency_ms\": {}, "
+              "\"qps\": {}, "
+              "\"qps_per_thread\": {}, "
+              "\"memory_vectors\": {}, "
+              "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}}}",
+              search_threads, avg_latency_ms, avg_hit_latency_ms, qps, qps_per_thread, tiered_index.get_number_of_vectors_in_memory_index(), p90, p95, p99);
 
     delete[] stats;
     return hit_results;
@@ -166,8 +171,8 @@ void experiment(
     uint32_t n_theta_estimation_queries,
     int n_search_iter,
     bool use_regional_theta,
-    size_t pca_dim,
-    size_t buckets_per_dim
+    uint32_t pca_dim,
+    uint32_t buckets_per_dim
 ) {
    // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
@@ -221,8 +226,7 @@ int main(int argc, char **argv) {
     int n_search_iter;
     uint32_t sector_len = 4096; // Default value
     bool use_regional_theta = true;
-    size_t pca_dim = 16;
-    size_t buckets_per_dim = 4;
+    uint32_t pca_dim, buckets_per_dim;
 
     po::options_description desc;
 
@@ -256,9 +260,9 @@ int main(int argc, char **argv) {
             ("n_theta_estimation_queries", po::value<uint32_t>(&n_theta_estimation_queries)->default_value(1000), "Number of theta estimation queries")
             ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations")
             ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes")
-            ("pca_dim", po::value<size_t>(&pca_dim)->default_value(16), "Number of PCA dimensions for region partitioning")
-            ("buckets_per_dim", po::value<size_t>(&buckets_per_dim)->default_value(4), "Number of buckets per PCA dimension")
-            ("use_regional_theta", po::value<bool>(&use_regional_theta)->default_value(true), "Use regional theta (true) or global theta (false)");
+            ("use_regional_theta", po::value<bool>(&use_regional_theta)->default_value(true), "Use regional theta (true) or global theta (false)")
+            ("pca_dim", po::value<uint32_t>(&pca_dim)->required(), "Value of PCA dimension")
+            ("buckets_per_dim", po::value<uint32_t>(&buckets_per_dim)->required(), "Value of buckets per dimension");
 
 
         po::variables_map vm;
@@ -279,35 +283,41 @@ int main(int argc, char **argv) {
     // Set the global SECTOR_LEN variable
     set_sector_len(sector_len);
     
+    // Set up spdlog global logger
+    auto logger = spdlog::stdout_color_mt("console");
+    spdlog::set_pattern("%v"); // Only print the message (JSON)
+    
     // Run the experiment
-    std::cout << "===== Program Parameters =====" << std::endl;
-    std::cout << "data_type: " << data_type << std::endl;
-    std::cout << "data_path: " << data_path << std::endl;
-    std::cout << "query_path: " << query_path << std::endl;
-    std::cout << "groundtruth_path: " << groundtruth_path << std::endl;
-    std::cout << "disk_index_prefix: " << disk_index_prefix << std::endl;
-    std::cout << "R: " << R << std::endl;
-    std::cout << "memory_L: " << memory_L << std::endl;
-    std::cout << "disk_L: " << disk_L << std::endl;
-    std::cout << "K: " << K << std::endl;
-    std::cout << "B: " << B << std::endl;
-    std::cout << "M: " << M << std::endl;
-    std::cout << "build_threads: " << build_threads << std::endl;
-    std::cout << "consolidate_threads: " << consolidate_threads << std::endl;
-    std::cout << "search_threads: " << search_threads << std::endl;
-    std::cout << "alpha: " << alpha << std::endl;
-    std::cout << "use_reconstructed_vectors: " << use_reconstructed_vectors << std::endl;
-    std::cout << "disk_index_already_built: " << disk_index_already_built << std::endl;
-    std::cout << "beamwidth: " << beamwidth << std::endl;
-    std::cout << "p: " << p << std::endl;
-    std::cout << "deviation_factor: " << deviation_factor << std::endl;
-    std::cout << "n_theta_estimation_queries: " << n_theta_estimation_queries << std::endl;
-    std::cout << "n_search_iter: " << n_search_iter << std::endl;
-    std::cout << "sector_len: " << sector_len << std::endl;
-    std::cout << "pca_dim: " << pca_dim << std::endl;
-    std::cout << "buckets_per_dim: " << buckets_per_dim << std::endl;
-    std::cout << "use_regional_theta: " << use_regional_theta << std::endl;
-    std::cout << "==============================" << std::endl << std::endl;
+    logger->info("{{\n"
+        "  \"event\": \"params\",\n"
+        "  \"data_type\": \"{}\",\n"
+        "  \"data_path\": \"{}\",\n"
+        "  \"query_path\": \"{}\",\n"
+        "  \"groundtruth_path\": \"{}\",\n"
+        "  \"disk_index_prefix\": \"{}\",\n"
+        "  \"R\": {},\n"
+        "  \"memory_L\": {},\n"
+        "  \"disk_L\": {},\n"
+        "  \"K\": {},\n"
+        "  \"B\": {},\n"
+        "  \"M\": {},\n"
+        "  \"build_threads\": {},\n"
+        "  \"consolidate_threads\": {},\n"
+        "  \"search_threads\": {},\n"
+        "  \"alpha\": {},\n"
+        "  \"use_reconstructed_vectors\": {},\n"
+        "  \"disk_index_already_built\": {},\n"
+        "  \"beamwidth\": {},\n"
+        "  \"p\": {},\n"
+        "  \"deviation_factor\": {},\n"
+        "  \"n_theta_estimation_queries\": {},\n"
+        "  \"n_search_iter\": {},\n"
+        "  \"sector_len\": {},\n"
+        "  \"use_regional_theta\": {},\n"
+        "  \"pca_dim\": {},\n"
+        "  \"buckets_per_dim\": {}\n"
+        "}}",
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_search_iter, sector_len, use_regional_theta, pca_dim, buckets_per_dim);
 
     if (data_type == "float") {
         experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta, pca_dim, buckets_per_dim);

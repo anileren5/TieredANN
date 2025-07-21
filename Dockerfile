@@ -9,6 +9,7 @@ RUN apt update && \
         git make cmake g++ libaio-dev libgoogle-perftools-dev libunwind-dev \
         clang-format libboost-dev libboost-program-options-dev \
         libmkl-full-dev libcpprest-dev python3.10 \
-        libeigen3-dev
+        libeigen3-dev \
+        libspdlog-dev
 
 WORKDIR /app
