@@ -8,6 +8,7 @@ RUN apt update && \
     DEBIAN_FRONTEND=noninteractive apt install -y \
         git make cmake g++ libaio-dev libgoogle-perftools-dev libunwind-dev \
         clang-format libboost-dev libboost-program-options-dev \
-        libmkl-full-dev libcpprest-dev python3.10
+        libmkl-full-dev libcpprest-dev python3.10 \
+        libeigen3-dev
 
 WORKDIR /app

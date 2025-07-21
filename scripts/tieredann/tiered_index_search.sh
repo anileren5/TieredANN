@@ -28,7 +28,7 @@ P=0.90
 DEVIATION_FACTOR=0.00
 N_SEARCH_ITER=50
 SECTOR_LEN=4096
-EAGER_THETA_UPDATE=true
+USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 
 # Run the test with all parameters
 ./build/tests/tiered_index_search \
@@ -55,4 +55,4 @@ EAGER_THETA_UPDATE=true
   --n_theta_estimation_queries "$N_THETA_ESTIMATION_QUERIES" \
   --n_search_iter "$N_SEARCH_ITER" \
   --sector_len "$SECTOR_LEN" \
-  --eager_theta_update "$EAGER_THETA_UPDATE"
+  --use_regional_theta "$USE_REGIONAL_THETA" \

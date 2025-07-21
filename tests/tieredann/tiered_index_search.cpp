@@ -165,7 +165,7 @@ void experiment(
     double deviation_factor,
     uint32_t n_theta_estimation_queries,
     int n_search_iter,
-    bool eager_theta_update
+    bool use_regional_theta
 ) {
    // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
@@ -173,7 +173,8 @@ void experiment(
        R, memory_L, disk_L, B, M, alpha, 
        consolidate_threads, build_threads, search_threads,
        disk_index_already_built, (bool)use_reconstructed_vectors,
-       p, deviation_factor, n_theta_estimation_queries, eager_theta_update
+       p, deviation_factor, n_theta_estimation_queries,
+       use_regional_theta
     );
 
     // Load groundtruth ids for the results
@@ -215,7 +216,7 @@ int main(int argc, char **argv) {
     uint32_t n_theta_estimation_queries;
     int n_search_iter;
     uint32_t sector_len = 4096; // Default value
-    bool eager_theta_update = false; // Default value
+    bool use_regional_theta = true;
 
     po::options_description desc;
 
@@ -249,7 +250,7 @@ int main(int argc, char **argv) {
             ("n_theta_estimation_queries", po::value<uint32_t>(&n_theta_estimation_queries)->default_value(1000), "Number of theta estimation queries")
             ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations")
             ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes")
-            ("eager_theta_update", po::value<bool>(&eager_theta_update)->default_value(false), "Update theta immediately (true) or defer to insertion (false)");
+            ("use_regional_theta", po::value<bool>(&use_regional_theta)->default_value(true), "Use regional theta (true) or global theta (false)");
 
 
         po::variables_map vm;
@@ -295,14 +296,15 @@ int main(int argc, char **argv) {
     std::cout << "n_theta_estimation_queries: " << n_theta_estimation_queries << std::endl;
     std::cout << "n_search_iter: " << n_search_iter << std::endl;
     std::cout << "sector_len: " << sector_len << std::endl;
+    std::cout << "use_regional_theta: " << use_regional_theta << std::endl;
     std::cout << "==============================" << std::endl << std::endl;
 
     if (data_type == "float") {
-        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, eager_theta_update);
+        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta);
     } else if (data_type == "int8") {
-        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, eager_theta_update);
+        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta);
     } else if (data_type == "uint8") {
-        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, eager_theta_update);
+        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }
