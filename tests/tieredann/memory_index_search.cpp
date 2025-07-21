@@ -6,6 +6,8 @@
 #include <chrono>
 #include <algorithm>
 #include <set>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 // TieredANN headers
 #include "tieredann/tiered_index.h"
@@ -31,8 +33,7 @@ void calculate_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_
         total_recall += recall;        
     }
     double average_recall = total_recall / (query_num);
-
-    std::cout << K << "Recall@" << K << ": " << average_recall * 100 << "%" << std::endl;
+    spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": {}, \"type\": \"all\"}}", K, average_recall);
 }
 
 template <typename T, typename TagT = uint32_t>
@@ -90,6 +91,7 @@ void memory_search(
               << " qps_per_thread=" << qps_per_thread
               << " tail_latency_ms(p90,p95,p99)=" << p90 << ", " << p95 << ", " << p99
               << std::endl;
+    spdlog::info("{{\"event\": \"latency\", \"queries\": {}, \"threads\": {}, \"total_time_ms\": {}, \"avg_latency_ms\": {}, \"qps\": {}, \"qps_per_thread\": {}, \"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}}}", query_num, search_threads, total_time_ms, avg_latency_ms, qps, qps_per_thread, p90, p95, p99);
 }
 
 template <typename T = float, typename TagT = uint32_t>
@@ -228,22 +230,26 @@ int main(int argc, char **argv) {
     // Set the global SECTOR_LEN variable
     set_sector_len(sector_len);
     
-    // Run the experiment
-    std::cout << "===== Program Parameters =====" << std::endl;
-    std::cout << "data_type: " << data_type << std::endl;
-    std::cout << "data_path: " << data_path << std::endl;
-    std::cout << "query_path: " << query_path << std::endl;
-    std::cout << "groundtruth_path: " << groundtruth_path << std::endl;
-    std::cout << "R: " << R << std::endl;
-    std::cout << "L: " << L << std::endl;
-    std::cout << "K: " << K << std::endl;
-    std::cout << "build_threads: " << build_threads << std::endl;
-    std::cout << "consolidate_threads: " << consolidate_threads << std::endl;
-    std::cout << "search_threads: " << search_threads << std::endl;
-    std::cout << "alpha: " << alpha << std::endl;
-    std::cout << "n_search_iter: " << n_search_iter << std::endl;
-    std::cout << "sector_len: " << sector_len << std::endl;
-    std::cout << "==============================" << std::endl << std::endl;
+    // Set up spdlog global logger
+    auto logger = spdlog::stdout_color_mt("console");
+    spdlog::set_pattern("%v"); // Only print the message (JSON)
+    logger->info("{{\n"
+        "  \\\"event\\\": \\\"params\\\",\n"
+        "  \\\"data_type\\\": \\\"{}\\\",\n"
+        "  \\\"data_path\\\": \\\"{}\\\",\n"
+        "  \\\"query_path\\\": \\\"{}\\\",\n"
+        "  \\\"groundtruth_path\\\": \\\"{}\\\",\n"
+        "  \\\"R\\\": {},\n"
+        "  \\\"L\\\": {},\n"
+        "  \\\"K\\\": {},\n"
+        "  \\\"build_threads\\\": {},\n"
+        "  \\\"consolidate_threads\\\": {},\n"
+        "  \\\"search_threads\\\": {},\n"
+        "  \\\"alpha\\\": {},\n"
+        "  \\\"n_search_iter\\\": {},\n"
+        "  \\\"sector_len\\\": {}\n"
+        "}}",
+        data_type, data_path, query_path, groundtruth_path, R, L, K, build_threads, consolidate_threads, search_threads, alpha, n_search_iter, sector_len);
 
     if (data_type == "float") {
         experiment<float>(data_path, query_path, groundtruth_path, R, L, K, alpha, consolidate_threads, build_threads, search_threads, n_search_iter);
@@ -252,7 +258,7 @@ int main(int argc, char **argv) {
     } else if (data_type == "uint8") {
         experiment<uint8_t>(data_path, query_path, groundtruth_path, R, L, K, alpha, consolidate_threads, build_threads, search_threads, n_search_iter);
     } else {
-        std::cerr << "Unsupported data type: " << data_type << std::endl;
+        spdlog::error("{{\"event\": \"error\", \"message\": \"Unsupported data type: {}\"}}", data_type);
     }
 
     return 0;
