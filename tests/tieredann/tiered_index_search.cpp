@@ -165,7 +165,9 @@ void experiment(
     double deviation_factor,
     uint32_t n_theta_estimation_queries,
     int n_search_iter,
-    bool use_regional_theta
+    bool use_regional_theta,
+    size_t pca_dim,
+    size_t buckets_per_dim
 ) {
    // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
@@ -174,7 +176,9 @@ void experiment(
        consolidate_threads, build_threads, search_threads,
        disk_index_already_built, (bool)use_reconstructed_vectors,
        p, deviation_factor, n_theta_estimation_queries,
-       use_regional_theta
+       use_regional_theta,
+       pca_dim,
+       buckets_per_dim
     );
 
     // Load groundtruth ids for the results
@@ -217,6 +221,8 @@ int main(int argc, char **argv) {
     int n_search_iter;
     uint32_t sector_len = 4096; // Default value
     bool use_regional_theta = true;
+    size_t pca_dim = 16;
+    size_t buckets_per_dim = 4;
 
     po::options_description desc;
 
@@ -250,6 +256,8 @@ int main(int argc, char **argv) {
             ("n_theta_estimation_queries", po::value<uint32_t>(&n_theta_estimation_queries)->default_value(1000), "Number of theta estimation queries")
             ("n_search_iter", po::value<int>(&n_search_iter)->default_value(100), "Number of search iterations")
             ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes")
+            ("pca_dim", po::value<size_t>(&pca_dim)->default_value(16), "Number of PCA dimensions for region partitioning")
+            ("buckets_per_dim", po::value<size_t>(&buckets_per_dim)->default_value(4), "Number of buckets per PCA dimension")
             ("use_regional_theta", po::value<bool>(&use_regional_theta)->default_value(true), "Use regional theta (true) or global theta (false)");
 
 
@@ -296,15 +304,17 @@ int main(int argc, char **argv) {
     std::cout << "n_theta_estimation_queries: " << n_theta_estimation_queries << std::endl;
     std::cout << "n_search_iter: " << n_search_iter << std::endl;
     std::cout << "sector_len: " << sector_len << std::endl;
+    std::cout << "pca_dim: " << pca_dim << std::endl;
+    std::cout << "buckets_per_dim: " << buckets_per_dim << std::endl;
     std::cout << "use_regional_theta: " << use_regional_theta << std::endl;
     std::cout << "==============================" << std::endl << std::endl;
 
     if (data_type == "float") {
-        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta);
+        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta, pca_dim, buckets_per_dim);
     } else if (data_type == "int8") {
-        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta);
+        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta, pca_dim, buckets_per_dim);
     } else if (data_type == "uint8") {
-        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta);
+        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta, pca_dim, buckets_per_dim);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }

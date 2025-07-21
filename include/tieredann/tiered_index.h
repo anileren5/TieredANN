@@ -22,9 +22,9 @@
 
 namespace tieredann {
 
-    // Hash for std::array<uint8_t, 16>
+    // Hash for std::vector<uint8_t>
     struct ArrayHash {
-        std::size_t operator()(const std::array<uint8_t, 16>& arr) const {
+        std::size_t operator()(const std::vector<uint8_t>& arr) const {
             std::size_t h = 0;
             for (auto v : arr) h = h * 31 + v;
             return h;
@@ -53,9 +53,9 @@ namespace tieredann {
             bool use_regional_theta = true;
             
             // --- PCA and region-aware theta map additions ---
-            static constexpr size_t PCA_DIM = 16; // Project to 16D
-            static constexpr size_t BUCKETS_PER_DIM = 4; // 4 buckets per dim
-            using RegionKey = std::array<uint8_t, PCA_DIM>;
+            size_t PCA_DIM; // Project to PCA_DIM dimensions
+            size_t BUCKETS_PER_DIM; // Number of buckets per dim
+            using RegionKey = std::vector<uint8_t>; // Dynamic size
             // Map: region -> (K -> theta)
             std::unordered_map<RegionKey, std::unordered_map<uint32_t, double>, ArrayHash> region_theta_map;
             // PCA projection matrix and min/max for bucketing
@@ -103,10 +103,10 @@ namespace tieredann {
 
             // --- Helper: Project vector to PCA and compute region key ---
             RegionKey compute_region_key(const T* vec) {
+                RegionKey key(PCA_DIM);
                 if constexpr (std::is_floating_point<T>::value) {
                     Eigen::Map<const Eigen::Matrix<T, 1, Eigen::Dynamic>> v(vec, dim);
-                    Eigen::Matrix<T, 1, PCA_DIM> proj = (v - pca_mean) * pca_components;
-                    RegionKey key{};
+                    Eigen::Matrix<T, 1, Eigen::Dynamic> proj = (v - pca_mean) * pca_components.leftCols(PCA_DIM);
                     for (size_t i = 0; i < PCA_DIM; ++i) {
                         T val = proj(0, i);
                         T minv = pca_min[i], maxv = pca_max[i];
@@ -117,14 +117,11 @@ namespace tieredann {
                             key[i] = static_cast<uint8_t>(bucket);
                         }
                     }
-                    return key;
                 } else {
-                    // Cast query to float for PCA
                     std::vector<float> float_vec(dim);
                     for (size_t j = 0; j < dim; ++j) float_vec[j] = static_cast<float>(vec[j]);
                     Eigen::Map<const Eigen::Matrix<float, 1, Eigen::Dynamic>> v(float_vec.data(), dim);
-                    Eigen::Matrix<float, 1, PCA_DIM> proj = (v - pca_mean_float) * pca_components_float;
-                    RegionKey key{};
+                    Eigen::Matrix<float, 1, Eigen::Dynamic> proj = (v - pca_mean_float) * pca_components_float.leftCols(PCA_DIM);
                     for (size_t i = 0; i < PCA_DIM; ++i) {
                         float val = proj(0, i);
                         float minv = pca_min_float[i], maxv = pca_max_float[i];
@@ -135,8 +132,8 @@ namespace tieredann {
                             key[i] = static_cast<uint8_t>(bucket);
                         }
                     }
-                    return key;
                 }
+                return key;
             }
 
             // --- Helper: Lazy initialize region theta map ---
@@ -203,7 +200,9 @@ namespace tieredann {
                         double p,
                         double deviation_factor, 
                         uint32_t n_theta_estimation_queries,
-                        bool use_regional_theta = true)
+                        bool use_regional_theta = true,
+                        size_t pca_dim = 16,
+                        size_t buckets_per_dim = 4)
                         : data_path(data_path),
                         disk_index_prefix(disk_index_prefix),
                         search_threads(search_threads),
@@ -212,7 +211,9 @@ namespace tieredann {
                         deviation_factor(deviation_factor),
                         memory_L(memory_L),
                         disk_L(disk_L),
-                        use_regional_theta(use_regional_theta)
+                        use_regional_theta(use_regional_theta),
+                        PCA_DIM(pca_dim),
+                        BUCKETS_PER_DIM(buckets_per_dim)
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
@@ -311,7 +312,7 @@ namespace tieredann {
                         pca_components = svd.matrixV().leftCols(PCA_DIM);
                         std::cout << "[TieredIndex] Projecting data and computing min/max for each PCA dim..." << std::endl;
                         // Project all data to PCA and compute min/max for each dim
-                        Eigen::Matrix<T, Eigen::Dynamic, PCA_DIM> projected = centered * pca_components;
+                        Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> projected = centered * pca_components.leftCols(PCA_DIM);
                         pca_min.resize(PCA_DIM);
                         pca_max.resize(PCA_DIM);
                         for (size_t i = 0; i < PCA_DIM; ++i) {
@@ -345,7 +346,7 @@ namespace tieredann {
                         pca_components_float = svd.matrixV().leftCols(PCA_DIM);
                         std::cout << "[TieredIndex] Projecting data and computing min/max for each PCA dim..." << std::endl;
                         // Project all data to PCA and compute min/max for each dim
-                        Eigen::Matrix<float, Eigen::Dynamic, PCA_DIM> projected = centered * pca_components_float;
+                        Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> projected = centered * pca_components_float.leftCols(PCA_DIM);
                         pca_min_float.resize(PCA_DIM);
                         pca_max_float.resize(PCA_DIM);
                         for (size_t i = 0; i < PCA_DIM; ++i) {
