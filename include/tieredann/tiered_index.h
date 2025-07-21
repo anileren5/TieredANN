@@ -206,10 +206,10 @@ namespace tieredann {
                 if (use_regional_theta) {
                     if (region_theta_map.find(key) == region_theta_map.end()) {
                         // Default values as before
-                        region_theta_map[key][1] = std::numeric_limits<double>::min();
-                        region_theta_map[key][5] = std::numeric_limits<double>::min();
-                        region_theta_map[key][10] = std::numeric_limits<double>::min();
-                        region_theta_map[key][100] = std::numeric_limits<double>::min();
+                        region_theta_map[key][1] = 0;
+                        region_theta_map[key][5] = 0;
+                        region_theta_map[key][10] = 0;
+                        region_theta_map[key][100] = 0;
                     }
                 }
             }
