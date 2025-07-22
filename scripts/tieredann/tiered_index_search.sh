@@ -4,14 +4,14 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="spacev_1m"
-DATA_TYPE="int8"
+DATASET="deep1m"
+DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 R=64
-MEMORY_L=256
-DISK_L=256
+MEMORY_L=128
+DISK_L=128
 K=100
 B=8
 M=8
@@ -31,6 +31,7 @@ SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=4 # Set to desired number of buckets per PCA dimension (e.g., 4)
+MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
 
 # Run the test with all parameters
 ./build/tests/tiered_index_search \
@@ -60,3 +61,4 @@ BUCKETS_PER_DIM=4 # Set to desired number of buckets per PCA dimension (e.g., 4)
   --use_regional_theta "$USE_REGIONAL_THETA" \
   --pca_dim "$PCA_DIM" \
   --buckets_per_dim "$BUCKETS_PER_DIM" \
+  --memory_index_max_points "$MEMORY_INDEX_MAX_POINTS"

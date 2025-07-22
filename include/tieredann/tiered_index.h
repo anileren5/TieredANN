@@ -43,6 +43,7 @@ namespace tieredann {
             std::string disk_index_prefix;
             size_t dim, aligned_dim;
             size_t num_points;
+            size_t memory_index_max_points;
             uint32_t search_threads;
             bool use_reconstructed_vectors;
             std::unique_ptr<tieredann::InsertThreadPool<T, TagT>> insert_pool;
@@ -265,6 +266,7 @@ namespace tieredann {
                         double p,
                         double deviation_factor, 
                         uint32_t n_theta_estimation_queries,
+                        size_t memory_index_max_points,
                         bool use_regional_theta = true,
                         size_t pca_dim = 16,
                         size_t buckets_per_dim = 4)
@@ -278,11 +280,14 @@ namespace tieredann {
                         disk_L(disk_L),
                         use_regional_theta(use_regional_theta),
                         PCA_DIM(pca_dim),
-                        BUCKETS_PER_DIM(buckets_per_dim)
+                        BUCKETS_PER_DIM(buckets_per_dim),
+                        memory_index_max_points(memory_index_max_points)
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
                 aligned_dim = ROUND_UP(dim, 8);
+
+                // memory_index_max_points is now required and must be set by caller
 
                 // Build memory index
                 diskann::IndexWriteParameters memory_index_write_params = diskann::IndexWriteParametersBuilder(memory_L, R)
@@ -295,7 +300,7 @@ namespace tieredann {
                 diskann::IndexConfig memory_index_config = diskann::IndexConfigBuilder()
                                                             .with_metric(diskann::L2)
                                                             .with_dimension(dim)
-                                                            .with_max_points(num_points)
+                                                            .with_max_points(memory_index_max_points)
                                                             .is_dynamic_index(true)
                                                             .with_index_write_params(memory_index_write_params)
                                                             .with_index_search_params(memory_index_search_params)

@@ -170,9 +170,10 @@ void experiment(
     double deviation_factor,
     uint32_t n_theta_estimation_queries,
     int n_search_iter,
-    bool use_regional_theta,
-    uint32_t pca_dim,
-    uint32_t buckets_per_dim
+    size_t memory_index_max_points,
+    bool use_regional_theta = true,
+    uint32_t pca_dim = 16,
+    uint32_t buckets_per_dim = 4
 ) {
    // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
@@ -181,6 +182,7 @@ void experiment(
        consolidate_threads, build_threads, search_threads,
        disk_index_already_built, (bool)use_reconstructed_vectors,
        p, deviation_factor, n_theta_estimation_queries,
+       memory_index_max_points,
        use_regional_theta,
        pca_dim,
        buckets_per_dim
@@ -227,6 +229,7 @@ int main(int argc, char **argv) {
     uint32_t sector_len = 4096; // Default value
     bool use_regional_theta = true;
     uint32_t pca_dim, buckets_per_dim;
+    size_t memory_index_max_points;
 
     po::options_description desc;
 
@@ -262,7 +265,8 @@ int main(int argc, char **argv) {
             ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes")
             ("use_regional_theta", po::value<bool>(&use_regional_theta)->default_value(true), "Use regional theta (true) or global theta (false)")
             ("pca_dim", po::value<uint32_t>(&pca_dim)->required(), "Value of PCA dimension")
-            ("buckets_per_dim", po::value<uint32_t>(&buckets_per_dim)->required(), "Value of buckets per dimension");
+            ("buckets_per_dim", po::value<uint32_t>(&buckets_per_dim)->required(), "Value of buckets per dimension")
+            ("memory_index_max_points", po::value<size_t>(&memory_index_max_points)->required(), "Max points for memory index");
 
 
         po::variables_map vm;
@@ -315,16 +319,17 @@ int main(int argc, char **argv) {
         "  \"sector_len\": {},\n"
         "  \"use_regional_theta\": {},\n"
         "  \"pca_dim\": {},\n"
-        "  \"buckets_per_dim\": {}\n"
+        "  \"buckets_per_dim\": {},\n"
+        "  \"memory_index_max_points\": {}\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_search_iter, sector_len, use_regional_theta, pca_dim, buckets_per_dim);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_search_iter, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points);
 
     if (data_type == "float") {
-        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta, pca_dim, buckets_per_dim);
+        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim);
     } else if (data_type == "int8") {
-        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta, pca_dim, buckets_per_dim);
+        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim);
     } else if (data_type == "uint8") {
-        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, use_regional_theta, pca_dim, buckets_per_dim);
+        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }
