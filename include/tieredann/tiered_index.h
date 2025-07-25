@@ -11,6 +11,7 @@
 #include "percentile_stats.h"
 #include <cstdint>
 #include "tieredann/insert_thread_pool.h"
+#include <set>
 #include <unordered_map>
 #include <mutex>
 #include <atomic>
@@ -54,7 +55,8 @@ namespace tieredann {
             uint32_t memory_L;  // L value for memory index search
             uint32_t disk_L;    // L value for disk index search
             bool use_regional_theta = true;
-            
+            diskann::IndexWriteParameters memory_index_delete_params;
+
             // --- PCA and region-aware theta map additions ---
             size_t PCA_DIM; // Project to PCA_DIM dimensions
             size_t BUCKETS_PER_DIM; // Number of buckets per dim
@@ -70,6 +72,10 @@ namespace tieredann {
             Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> pca_components_float;
             Eigen::Matrix<float, 1, Eigen::Dynamic> pca_mean_float;
             std::vector<float> pca_min_float, pca_max_float;
+
+            // Eviction structures
+            std::set<TagT> to_be_consolidated_tags;
+            std::mutex to_be_consolidated_tags_mutex;
             
             // --- PCA persistence helpers ---
             std::string get_pca_filename() const {
@@ -166,6 +172,22 @@ namespace tieredann {
                 num_points_in_memory_index.fetch_add(successful_inserts, std::memory_order_relaxed);
                 // No theta update here; always done in main thread (eager theta update)
             }
+
+            void memory_index_lazy_delete_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_deleted) {
+                for (size_t i = 0; i < to_be_deleted.size(); ++i) {
+                    index->lazy_delete(static_cast<TagT>(to_be_deleted[i]));
+                }
+                std::lock_guard<std::mutex> lock(to_be_consolidated_tags_mutex);
+                to_be_consolidated_tags.insert(to_be_deleted.begin(), to_be_deleted.end());
+            }
+
+            void memory_index_consolidate_deletes_sync(std::unique_ptr<diskann::AbstractIndex>& index) {
+                std::lock_guard<std::mutex> lock(to_be_consolidated_tags_mutex);
+                auto report = index->consolidate_deletes(memory_index_delete_params);
+                num_points_in_memory_index.fetch_sub(to_be_consolidated_tags.size(), std::memory_order_relaxed);
+                to_be_consolidated_tags.clear();
+            }
+
 
             // --- Helper: Project vector to PCA and compute region key ---
             RegionKey compute_region_key(const T* vec) {
@@ -281,7 +303,12 @@ namespace tieredann {
                         use_regional_theta(use_regional_theta),
                         PCA_DIM(pca_dim),
                         BUCKETS_PER_DIM(buckets_per_dim),
-                        memory_index_max_points(memory_index_max_points)
+                        memory_index_max_points(memory_index_max_points),
+                        memory_index_delete_params(diskann::IndexWriteParametersBuilder(memory_L, R)
+                                                .with_alpha(alpha)
+                                                .with_num_threads(consolidate_threads)
+                                                .with_filter_list_size(memory_L)
+                                                .build())
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
