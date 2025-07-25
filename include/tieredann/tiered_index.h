@@ -56,6 +56,7 @@ namespace tieredann {
             uint32_t disk_L;    // L value for disk index search
             bool use_regional_theta = true;
             diskann::IndexWriteParameters memory_index_delete_params;
+            uint32_t n_async_insert_threads = 4;
 
             // --- PCA and region-aware theta map additions ---
             size_t PCA_DIM; // Project to PCA_DIM dimensions
@@ -275,6 +276,7 @@ namespace tieredann {
 
         
         public:
+            template <typename... Args>
             TieredIndex(const std::string& data_path,
                         const std::string& disk_index_prefix,
                         uint32_t R, uint32_t memory_L, uint32_t disk_L,
@@ -291,7 +293,8 @@ namespace tieredann {
                         size_t memory_index_max_points,
                         bool use_regional_theta = true,
                         size_t pca_dim = 16,
-                        size_t buckets_per_dim = 4)
+                        size_t buckets_per_dim = 4,
+                        uint32_t n_async_insert_threads_ = 4)
                         : data_path(data_path),
                         disk_index_prefix(disk_index_prefix),
                         search_threads(search_threads),
@@ -304,6 +307,7 @@ namespace tieredann {
                         PCA_DIM(pca_dim),
                         BUCKETS_PER_DIM(buckets_per_dim),
                         memory_index_max_points(memory_index_max_points),
+                        n_async_insert_threads(n_async_insert_threads_),
                         memory_index_delete_params(diskann::IndexWriteParametersBuilder(memory_L, R)
                                                 .with_alpha(alpha)
                                                 .with_num_threads(consolidate_threads)
@@ -374,12 +378,12 @@ namespace tieredann {
                     auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K, float query_distance) {
                         this->memory_index_insert_reconstructed_sync(index, to_be_inserted, dim, K, query_distance);
                     };
-                    insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(4, task);
+                    insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task);
                 } else {
                     auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K, float query_distance) {
                         this->memory_index_insert_sync(index, to_be_inserted, data_path, dim, K, query_distance);
                     };
-                    insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(4, task);
+                    insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task);
                 }
 
                 std::cout << "TieredIndex built successfully!" << std::endl;

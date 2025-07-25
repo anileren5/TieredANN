@@ -170,7 +170,8 @@ void experiment_split_noisy(
     uint32_t pca_dim,
     uint32_t buckets_per_dim,
     int n_splits,
-    int n_rounds // Number of rounds (base + noisy sets)
+    int n_rounds,
+    uint32_t n_async_insert_threads
 ) {
    tieredann::TieredIndex<T> tiered_index(
        data_path, disk_index_prefix,
@@ -181,7 +182,8 @@ void experiment_split_noisy(
        memory_index_max_points,
        use_regional_theta,
        pca_dim,
-       buckets_per_dim
+       buckets_per_dim,
+       n_async_insert_threads
     );
     TagT *groundtruth_ids = nullptr;
     float *groundtruth_dists = nullptr;
@@ -253,6 +255,7 @@ int main(int argc, char **argv) {
     size_t memory_index_max_points;
     int n_splits;
     int n_rounds;
+    uint32_t n_async_insert_threads = 4;
     po::options_description desc;
     try {
         po::options_description desc("Allowed options");
@@ -286,7 +289,8 @@ int main(int argc, char **argv) {
             ("buckets_per_dim", po::value<uint32_t>(&buckets_per_dim)->required(), "Value of buckets per dimension")
             ("memory_index_max_points", po::value<size_t>(&memory_index_max_points)->required(), "Max points for memory index")
             ("n_splits", po::value<int>(&n_splits)->required(), "Number of splits for queries")
-            ("n_rounds", po::value<int>(&n_rounds)->required(), "Number of rounds (base + noisy sets)");
+            ("n_rounds", po::value<int>(&n_rounds)->required(), "Number of rounds (base + noisy sets)")
+            ("n_async_insert_threads", po::value<uint32_t>(&n_async_insert_threads)->default_value(4), "Number of async insert threads");
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
         if (vm.count("help")) {
@@ -331,15 +335,16 @@ int main(int argc, char **argv) {
         "  \"buckets_per_dim\": {},\n"
         "  \"memory_index_max_points\": {},\n"
         "  \"n_splits\": {},\n"
-        "  \"n_rounds\": {}\n"
+        "  \"n_rounds\": {},\n"
+        "  \"n_async_insert_threads\": {}\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads);
     if (data_type == "float") {
-        experiment_split_noisy<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds);
+        experiment_split_noisy<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads);
     } else if (data_type == "int8") {
-        experiment_split_noisy<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds);
+        experiment_split_noisy<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads);
     } else if (data_type == "uint8") {
-        experiment_split_noisy<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds);
+        experiment_split_noisy<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }

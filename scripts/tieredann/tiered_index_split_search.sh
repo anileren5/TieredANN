@@ -4,7 +4,7 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="siftsmall"
+DATASET="deep1m"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
@@ -28,12 +28,13 @@ P=0.90
 DEVIATION_FACTOR=0.025
 N_ITERATION_PER_SPLIT=30 # Number of search iterations per split
 N_SPLITS=10 # Number of splits for queries
-N_ROUNDS=5 # Number of rounds to repeat all splits
+N_ROUNDS=1 # Number of rounds to repeat all splits
 SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=4 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
+N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
 
 # Run the test with all parameters
 ./build/tests/tiered_index_split_search \
@@ -65,4 +66,5 @@ MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
   --buckets_per_dim "$BUCKETS_PER_DIM" \
   --memory_index_max_points "$MEMORY_INDEX_MAX_POINTS" \
   --n_splits "$N_SPLITS" \
-  --n_rounds "$N_ROUNDS" 
+  --n_rounds "$N_ROUNDS" \
+  --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" 

@@ -34,6 +34,7 @@ USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=4 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
+N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
 
 # Run the test with all parameters
 ./build/tests/tiered_index_split_search_noisy \
@@ -65,4 +66,5 @@ MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
   --buckets_per_dim "$BUCKETS_PER_DIM" \
   --memory_index_max_points "$MEMORY_INDEX_MAX_POINTS" \
   --n_splits "$N_SPLITS" \
-  --n_rounds "$N_ROUNDS" 
+  --n_rounds "$N_ROUNDS" \
+  --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" 
