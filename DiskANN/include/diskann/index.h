@@ -183,6 +183,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
 
     DISKANN_DLLEXPORT void get_active_tags(tsl::robin_set<TagT> &active_tags);
 
+    DISKANN_DLLEXPORT size_t get_number_of_lazy_deleted_points();
+
     // memory should be allocated for vec before calling this function
     DISKANN_DLLEXPORT int get_vector_by_tag(TagT &tag, T *vec);
 
@@ -220,6 +222,7 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
 
     virtual void _get_active_tags(TagRobinSet &active_tags) override;
     virtual size_t _get_number_of_active_vectors() override;
+    virtual size_t _get_number_of_lazy_deleted_points() override;
 
     virtual void _set_start_points_at_random(DataType radius, uint32_t random_seed = 0) override;
 

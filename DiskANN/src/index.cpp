@@ -3137,6 +3137,19 @@ size_t Index<T, TagT, LabelT>::_get_number_of_active_vectors()
     return _tag_to_location.size();
 }
 
+template <typename T, typename TagT, typename LabelT>
+size_t Index<T, TagT, LabelT>::_get_number_of_lazy_deleted_points()
+{
+    std::shared_lock<std::shared_timed_mutex> dl(_delete_lock);
+    return _delete_set->size();
+}
+
+template <typename T, typename TagT, typename LabelT>
+size_t Index<T, TagT, LabelT>::get_number_of_lazy_deleted_points()
+{
+    return this->_get_number_of_lazy_deleted_points();
+}
+
 template <typename T, typename TagT, typename LabelT> void Index<T, TagT, LabelT>::print_status()
 {
     std::shared_lock<std::shared_timed_mutex> ul(_update_lock);
