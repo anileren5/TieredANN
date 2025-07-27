@@ -95,7 +95,6 @@ class AbstractIndex
 
     template <typename tag_type> void get_active_tags(tsl::robin_set<tag_type> &active_tags);
 
-    template <typename tag_type> 
     size_t get_number_of_active_vectors()
     {
         return this->_get_number_of_active_vectors();

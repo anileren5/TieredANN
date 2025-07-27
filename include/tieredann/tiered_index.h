@@ -11,28 +11,14 @@
 #include "percentile_stats.h"
 #include <cstdint>
 #include "tieredann/insert_thread_pool.h"
+#include "tieredann/pca_utils.h"
 #include <set>
 #include <unordered_map>
 #include <mutex>
 #include <atomic>
-#include <array>
-
-// Headers for PCA and region-aware theta map
-#include <Eigen/Dense>
 #include <type_traits>
-#include <fstream>
-#include <filesystem>
 
 namespace tieredann {
-
-    // Hash for std::vector<uint8_t>
-    struct ArrayHash {
-        std::size_t operator()(const std::vector<uint8_t>& arr) const {
-            std::size_t h = 0;
-            for (auto v : arr) h = h * 31 + v;
-            return h;
-        }
-    };
 
     template <typename T, typename TagT = uint32_t>
     class TieredIndex {
@@ -51,95 +37,14 @@ namespace tieredann {
             std::unordered_map<uint32_t, double> theta_map;
             std::mutex theta_map_mutex;
             double p, deviation_factor;
-            std::atomic<size_t> num_points_in_memory_index{0};
-            uint32_t memory_L;  // L value for memory index search
-            uint32_t disk_L;    // L value for disk index search
+            uint32_t memory_L; 
+            uint32_t disk_L;    
             bool use_regional_theta = true;
             diskann::IndexWriteParameters memory_index_delete_params;
             uint32_t n_async_insert_threads = 4;
 
-            // --- PCA and region-aware theta map additions ---
-            size_t PCA_DIM; // Project to PCA_DIM dimensions
-            size_t BUCKETS_PER_DIM; // Number of buckets per dim
-            using RegionKey = std::vector<uint8_t>; // Dynamic size
-            // Map: region -> (K -> theta)
-            std::unordered_map<RegionKey, std::unordered_map<uint32_t, double>, ArrayHash> region_theta_map;
-            // PCA projection matrix and min/max for bucketing
-            Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> pca_components; // [dim, PCA_DIM]
-            Eigen::Matrix<T, 1, Eigen::Dynamic> pca_mean; // [1, dim]
-            std::vector<T> pca_min, pca_max; // min/max for each PCA dim
-            // --- PCA float storage for int8/uint8 types ---
-            // Only used if T is not floating point
-            Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> pca_components_float;
-            Eigen::Matrix<float, 1, Eigen::Dynamic> pca_mean_float;
-            std::vector<float> pca_min_float, pca_max_float;
-
-            // Eviction structures
-            std::set<TagT> to_be_consolidated_tags;
-            std::mutex to_be_consolidated_tags_mutex;
-            
-            // --- PCA persistence helpers ---
-            std::string get_pca_filename() const {
-                return disk_index_prefix + ".pca.bin";
-            }
-            bool file_exists(const std::string& filename) const {
-                return std::filesystem::exists(filename);
-            }
-            // Save PCA data to file
-            void save_pca_to_file(bool is_float) {
-                std::ofstream ofs(get_pca_filename(), std::ios::binary);
-                if (!ofs) return;
-                ofs.write((char*)&dim, sizeof(dim));
-                ofs.write((char*)&PCA_DIM, sizeof(PCA_DIM));
-                ofs.write((char*)&BUCKETS_PER_DIM, sizeof(BUCKETS_PER_DIM));
-                if (is_float) {
-                    // Save pca_mean
-                    ofs.write(reinterpret_cast<const char*>(pca_mean_float.data()), sizeof(float) * dim);
-                    // Save pca_components (row-major)
-                    ofs.write(reinterpret_cast<const char*>(pca_components_float.data()), sizeof(float) * dim * PCA_DIM);
-                    // Save pca_min, pca_max
-                    ofs.write(reinterpret_cast<const char*>(pca_min_float.data()), sizeof(float) * PCA_DIM);
-                    ofs.write(reinterpret_cast<const char*>(pca_max_float.data()), sizeof(float) * PCA_DIM);
-                } else {
-                    // Save pca_mean
-                    ofs.write(reinterpret_cast<const char*>(pca_mean.data()), sizeof(T) * dim);
-                    // Save pca_components (row-major)
-                    ofs.write(reinterpret_cast<const char*>(pca_components.data()), sizeof(T) * dim * PCA_DIM);
-                    // Save pca_min, pca_max
-                    ofs.write(reinterpret_cast<const char*>(pca_min.data()), sizeof(T) * PCA_DIM);
-                    ofs.write(reinterpret_cast<const char*>(pca_max.data()), sizeof(T) * PCA_DIM);
-                }
-            }
-            // Load PCA data from file
-            bool load_pca_from_file(bool is_float) {
-                std::ifstream ifs(get_pca_filename(), std::ios::binary);
-                if (!ifs) return false;
-                size_t file_dim, file_pca_dim, file_buckets_per_dim;
-                ifs.read((char*)&file_dim, sizeof(file_dim));
-                ifs.read((char*)&file_pca_dim, sizeof(file_pca_dim));
-                ifs.read((char*)&file_buckets_per_dim, sizeof(file_buckets_per_dim));
-                if (file_dim != dim || file_pca_dim != PCA_DIM || file_buckets_per_dim != BUCKETS_PER_DIM) return false;
-                if (is_float) {
-                    pca_mean_float.resize(dim);
-                    ifs.read(reinterpret_cast<char*>(pca_mean_float.data()), sizeof(float) * dim);
-                    pca_components_float.resize(dim, PCA_DIM);
-                    ifs.read(reinterpret_cast<char*>(pca_components_float.data()), sizeof(float) * dim * PCA_DIM);
-                    pca_min_float.resize(PCA_DIM);
-                    pca_max_float.resize(PCA_DIM);
-                    ifs.read(reinterpret_cast<char*>(pca_min_float.data()), sizeof(float) * PCA_DIM);
-                    ifs.read(reinterpret_cast<char*>(pca_max_float.data()), sizeof(float) * PCA_DIM);
-                } else {
-                    pca_mean.resize(dim);
-                    ifs.read(reinterpret_cast<char*>(pca_mean.data()), sizeof(T) * dim);
-                    pca_components.resize(dim, PCA_DIM);
-                    ifs.read(reinterpret_cast<char*>(pca_components.data()), sizeof(T) * dim * PCA_DIM);
-                    pca_min.resize(PCA_DIM);
-                    pca_max.resize(PCA_DIM);
-                    ifs.read(reinterpret_cast<char*>(pca_min.data()), sizeof(T) * PCA_DIM);
-                    ifs.read(reinterpret_cast<char*>(pca_max.data()), sizeof(T) * PCA_DIM);
-                }
-                return true;
-            }
+            // --- PCA utilities ---
+            std::unique_ptr<PCAUtils<T>> pca_utils;
 
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
                 std::vector<T*> vectors;
@@ -155,11 +60,9 @@ namespace tieredann {
                     int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
                     if (ret == 0) ++successful_inserts;
                 }
-                num_points_in_memory_index.fetch_add(successful_inserts, std::memory_order_relaxed);
                 for (auto v : vectors) {
                     diskann::aligned_free(v);
                 }
-                // No theta update here; always done in main thread (eager theta update)
             }
 
             void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
@@ -170,87 +73,12 @@ namespace tieredann {
                     int ret = index->insert_point(reconstructed_vec.data(), 1 + to_be_inserted[i]);
                     if (ret == 0) ++successful_inserts;
                 }
-                num_points_in_memory_index.fetch_add(successful_inserts, std::memory_order_relaxed);
-                // No theta update here; always done in main thread (eager theta update)
             }
 
-            void memory_index_lazy_delete_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_deleted) {
-                for (size_t i = 0; i < to_be_deleted.size(); ++i) {
-                    index->lazy_delete(static_cast<TagT>(to_be_deleted[i]));
-                }
-                std::lock_guard<std::mutex> lock(to_be_consolidated_tags_mutex);
-                to_be_consolidated_tags.insert(to_be_deleted.begin(), to_be_deleted.end());
-            }
-
-            void memory_index_consolidate_deletes_sync(std::unique_ptr<diskann::AbstractIndex>& index) {
-                std::lock_guard<std::mutex> lock(to_be_consolidated_tags_mutex);
-                auto report = index->consolidate_deletes(memory_index_delete_params);
-                num_points_in_memory_index.fetch_sub(to_be_consolidated_tags.size(), std::memory_order_relaxed);
-                to_be_consolidated_tags.clear();
-            }
-
-
-            // --- Helper: Project vector to PCA and compute region key ---
-            RegionKey compute_region_key(const T* vec) {
-                RegionKey key(PCA_DIM);
-                if constexpr (std::is_floating_point<T>::value) {
-                    Eigen::Map<const Eigen::Matrix<T, 1, Eigen::Dynamic>> v(vec, dim);
-                    Eigen::Matrix<T, 1, Eigen::Dynamic> proj = (v - pca_mean) * pca_components.leftCols(PCA_DIM);
-                    for (size_t i = 0; i < PCA_DIM; ++i) {
-                        T val = proj(0, i);
-                        T minv = pca_min[i], maxv = pca_max[i];
-                        if (maxv == minv) key[i] = 0;
-                        else {
-                            T norm = (val - minv) / (maxv - minv);
-                            size_t bucket = std::min<size_t>(BUCKETS_PER_DIM - 1, static_cast<size_t>(norm * BUCKETS_PER_DIM));
-                            key[i] = static_cast<uint8_t>(bucket);
-                        }
-                    }
-                } else {
-                    std::vector<float> float_vec(dim);
-                    for (size_t j = 0; j < dim; ++j) float_vec[j] = static_cast<float>(vec[j]);
-                    Eigen::Map<const Eigen::Matrix<float, 1, Eigen::Dynamic>> v(float_vec.data(), dim);
-                    Eigen::Matrix<float, 1, Eigen::Dynamic> proj = (v - pca_mean_float) * pca_components_float.leftCols(PCA_DIM);
-                    for (size_t i = 0; i < PCA_DIM; ++i) {
-                        float val = proj(0, i);
-                        float minv = pca_min_float[i], maxv = pca_max_float[i];
-                        if (maxv == minv) key[i] = 0;
-                        else {
-                            float norm = (val - minv) / (maxv - minv);
-                            size_t bucket = std::min<size_t>(BUCKETS_PER_DIM - 1, static_cast<size_t>(norm * BUCKETS_PER_DIM));
-                            key[i] = static_cast<uint8_t>(bucket);
-                        }
-                    }
-                }
-                return key;
-            }
-
-            // --- Helper: Lazy initialize region theta map ---
-            void lazy_init_region(const RegionKey& key) {
-                if (use_regional_theta) {
-                    if (region_theta_map.find(key) == region_theta_map.end()) {
-                        // Default values as before
-                        region_theta_map[key][1] = 0;
-                        region_theta_map[key][5] = 0;
-                        region_theta_map[key][10] = 0;
-                        region_theta_map[key][100] = 0;
-                    }
-                }
-            }
-
-            // --- Modified isHit to use region-aware theta map ---
             bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
                 std::lock_guard<std::mutex> lock(theta_map_mutex);
                 if (use_regional_theta) {
-                    RegionKey region = compute_region_key(query_ptr);
-                    lazy_init_region(region);
-                    if (this->get_number_of_vectors_in_memory_index() < K){
-                        return false;
-                    }
-                    else if (distances[K - 1] > (1 + deviation_factor)*region_theta_map[region][K]) {
-                        return false;
-                    }
-                    return true;
+                    return pca_utils->isHit(query_ptr, K, L, distances, this->get_number_of_vectors_in_memory_index(), deviation_factor);
                 } else {
                     if (this->get_number_of_vectors_in_memory_index() < K){
                         return false;
@@ -262,13 +90,10 @@ namespace tieredann {
                 }
             }
 
-            // --- Modified theta update logic to use region-aware map ---
             void update_theta(const T* query_ptr, uint32_t K, float query_distance) {
                 std::lock_guard<std::mutex> lock(theta_map_mutex);
                 if (use_regional_theta) {
-                    RegionKey region = compute_region_key(query_ptr);
-                    lazy_init_region(region);
-                    region_theta_map[region][K] = p * query_distance + (1 - p) * region_theta_map[region][K];
+                    pca_utils->update_theta(query_ptr, K, query_distance, p);
                 } else {
                     theta_map[K] = p * query_distance + (1 - p) * theta_map[K];
                 }
@@ -304,8 +129,6 @@ namespace tieredann {
                         memory_L(memory_L),
                         disk_L(disk_L),
                         use_regional_theta(use_regional_theta),
-                        PCA_DIM(pca_dim),
-                        BUCKETS_PER_DIM(buckets_per_dim),
                         memory_index_max_points(memory_index_max_points),
                         n_async_insert_threads(n_async_insert_threads_),
                         memory_index_delete_params(diskann::IndexWriteParametersBuilder(memory_L, R)
@@ -388,86 +211,24 @@ namespace tieredann {
 
                 std::cout << "TieredIndex built successfully!" << std::endl;
 
-                // --- PCA construction (Eigen required) ---
                 // PCA is constructed at construction time using Eigen. Eigen is required.
                 if (use_regional_theta) {
+                    pca_utils = std::make_unique<PCAUtils<T>>(dim, pca_dim, buckets_per_dim, disk_index_prefix);
                     bool loaded = false;
                     if constexpr (std::is_floating_point<T>::value) {
-                        loaded = load_pca_from_file(false);
+                        loaded = pca_utils->load_pca_from_file(false);
                     } else {
-                        loaded = load_pca_from_file(true);
+                        loaded = pca_utils->load_pca_from_file(true);
                     }
                     if (loaded) {
-                        std::cout << "[TieredIndex] Loaded PCA from file: " << get_pca_filename() << std::endl;
+                        std::cout << "[TieredIndex] Loaded PCA from file: " << pca_utils->get_pca_filename_for_logging() << std::endl;
                     } else {
                         std::cout << "[TieredIndex] No PCA file found or mismatch, running PCA..." << std::endl;
                         T* data = nullptr;
                         diskann::alloc_aligned((void**)&data, num_points * aligned_dim * sizeof(T), 8 * sizeof(T));
                         diskann::load_aligned_bin<T>(data_path, data, num_points, dim, aligned_dim);
-                        if constexpr (std::is_floating_point<T>::value) {
-                            std::cout << "[TieredIndex] Starting PCA construction (float/double)..." << std::endl;
-                            // Copy to Eigen matrix (only the first 'dim' of each vector)
-                            std::cout << "[TieredIndex] Copying data to Eigen matrix..." << std::endl;
-                            Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> data_mat(num_points, dim);
-                            for (size_t i = 0; i < num_points; ++i) {
-                                for (size_t j = 0; j < dim; ++j) {
-                                    data_mat(i, j) = data[i * aligned_dim + j];
-                                }
-                            }
-                            diskann::aligned_free(data);
-                            std::cout << "[TieredIndex] Mean centering..." << std::endl;
-                            pca_mean = data_mat.colwise().mean();
-                            Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> centered = data_mat.rowwise() - pca_mean;
-                            std::cout << "[TieredIndex] Running SVD..." << std::endl;
-                            Eigen::JacobiSVD<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>> svd(centered, Eigen::ComputeThinU | Eigen::ComputeThinV);
-                            pca_components = svd.matrixV().leftCols(PCA_DIM);
-                            std::cout << "[TieredIndex] Projecting data and computing min/max for each PCA dim..." << std::endl;
-                            // Project all data to PCA and compute min/max for each dim
-                            Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> projected = centered * pca_components.leftCols(PCA_DIM);
-                            pca_min.resize(PCA_DIM);
-                            pca_max.resize(PCA_DIM);
-                            for (size_t i = 0; i < PCA_DIM; ++i) {
-                                pca_min[i] = projected.col(i).minCoeff();
-                                pca_max[i] = projected.col(i).maxCoeff();
-                            }
-                            std::cout << "[TieredIndex] PCA construction complete." << std::endl;
-                            save_pca_to_file(false);
-                        } else {
-                            std::cout << "[TieredIndex] Starting PCA construction (int8/uint8 branch, using float)..." << std::endl;
-                            // Convert to float for PCA
-                            std::cout << "[TieredIndex] Converting data to float..." << std::endl;
-                            std::vector<float> float_data(num_points * dim);
-                            for (size_t i = 0; i < num_points; ++i) {
-                                for (size_t j = 0; j < dim; ++j) {
-                                    float_data[i * dim + j] = static_cast<float>(data[i * aligned_dim + j]);
-                                }
-                            }
-                            diskann::aligned_free(data);
-                            std::cout << "[TieredIndex] Copying float data to Eigen matrix..." << std::endl;
-                            Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> data_mat(num_points, dim);
-                            for (size_t i = 0; i < num_points; ++i) {
-                                for (size_t j = 0; j < dim; ++j) {
-                                    data_mat(i, j) = float_data[i * dim + j];
-                                }
-                            }
-                            std::cout << "[TieredIndex] Mean centering..." << std::endl;
-                            pca_mean_float = data_mat.colwise().mean();
-                            Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> centered = data_mat.rowwise() - pca_mean_float;
-                            std::cout << "[TieredIndex] Running SVD..." << std::endl;
-                            Eigen::JacobiSVD<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> svd(centered, Eigen::ComputeThinU | Eigen::ComputeThinV);
-                            pca_components_float = svd.matrixV().leftCols(PCA_DIM);
-                            std::cout << "[TieredIndex] Projecting data and computing min/max for each PCA dim..." << std::endl;
-                            // Project all data to PCA and compute min/max for each dim
-                            Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> projected = centered * pca_components_float.leftCols(PCA_DIM);
-                            pca_min_float.resize(PCA_DIM);
-                            pca_max_float.resize(PCA_DIM);
-                            for (size_t i = 0; i < PCA_DIM; ++i) {
-                                pca_min_float[i] = projected.col(i).minCoeff();
-                                pca_max_float[i] = projected.col(i).maxCoeff();
-                            }
-                            std::cout << "[TieredIndex] PCA construction complete." << std::endl;
-                            save_pca_to_file(true);
-                        }
+                        pca_utils->construct_pca_from_data(data, num_points, aligned_dim, disk_index_prefix);
+                        diskann::aligned_free(data);
                     }
                 } else {
                     std::cout << "[TieredIndex] Skipping PCA construction (use_regional_theta is false)." << std::endl;
@@ -501,7 +262,15 @@ namespace tieredann {
             }
 
             size_t get_number_of_vectors_in_memory_index() const {
-                return num_points_in_memory_index.load(std::memory_order_relaxed);
+                return this->memory_index->get_number_of_active_vectors();
+            }
+
+            size_t get_number_of_lazy_deleted_vectors_in_memory_index() const {
+                return this->memory_index->get_number_of_lazy_deleted_points();
+            }
+
+            size_t get_number_of_max_points_in_memory_index() const {
+                return this->memory_index->get_max_points();
             }
     };
 }
