@@ -223,6 +223,7 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
     virtual void _get_active_tags(TagRobinSet &active_tags) override;
     virtual size_t _get_number_of_active_vectors() override;
     virtual size_t _get_number_of_lazy_deleted_points() override;
+    virtual size_t _get_max_points() override;
 
     virtual void _set_start_points_at_random(DataType radius, uint32_t random_seed = 0) override;
 

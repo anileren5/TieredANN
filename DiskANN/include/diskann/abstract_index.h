@@ -107,6 +107,12 @@ class AbstractIndex
         return this->_get_number_of_lazy_deleted_points();
     }
     
+    // Get the maximum number of points in a thread-safe manner
+    size_t get_max_points()
+    {
+        return this->_get_max_points();
+    }
+    
     template <typename data_type> void set_start_points_at_random(data_type radius, uint32_t random_seed = 0);
 
     virtual consolidation_report consolidate_deletes(const IndexWriteParameters &parameters) = 0;
@@ -132,6 +138,7 @@ class AbstractIndex
     virtual void _get_active_tags(TagRobinSet &active_tags) = 0;
     virtual size_t _get_number_of_active_vectors() = 0;
     virtual size_t _get_number_of_lazy_deleted_points() = 0;
+    virtual size_t _get_max_points() = 0;
     virtual void _set_start_points_at_random(DataType radius, uint32_t random_seed = 0) = 0;
     virtual int _get_vector_by_tag(TagType &tag, DataType &vec) = 0;
     virtual size_t _search_with_tags(const DataType &query, const uint64_t K, const uint32_t L, const TagType &tags,
