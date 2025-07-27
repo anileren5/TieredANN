@@ -98,11 +98,7 @@ class AbstractIndex
     template <typename tag_type> 
     size_t get_number_of_active_vectors()
     {
-        tsl::robin_set<tag_type> active_tags;
-        auto any_active_tags = TagRobinSet(active_tags);
-        this->_get_active_tags(any_active_tags);
-        return active_tags.size();
-    
+        return this->_get_number_of_active_vectors();
     }
     
     template <typename data_type> void set_start_points_at_random(data_type radius, uint32_t random_seed = 0);
@@ -128,6 +124,7 @@ class AbstractIndex
     virtual int _lazy_delete(const TagType &tag) = 0;
     virtual void _lazy_delete(TagVector &tags, TagVector &failed_tags) = 0;
     virtual void _get_active_tags(TagRobinSet &active_tags) = 0;
+    virtual size_t _get_number_of_active_vectors() = 0;
     virtual void _set_start_points_at_random(DataType radius, uint32_t random_seed = 0) = 0;
     virtual int _get_vector_by_tag(TagType &tag, DataType &vec) = 0;
     virtual size_t _search_with_tags(const DataType &query, const uint64_t K, const uint32_t L, const TagType &tags,

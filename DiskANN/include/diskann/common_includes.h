@@ -10,6 +10,7 @@
 #include <climits>
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <fcntl.h>
@@ -23,5 +24,6 @@
 #include <shared_mutex>
 #include <sys/stat.h>
 #include <sstream>
+#include <string>
 #include <unordered_map>
 #include <vector>

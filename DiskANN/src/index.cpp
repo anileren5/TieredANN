@@ -3130,6 +3130,13 @@ void Index<T, TagT, LabelT>::get_active_tags(tsl::robin_set<TagT> &active_tags)
     }
 }
 
+template <typename T, typename TagT, typename LabelT>
+size_t Index<T, TagT, LabelT>::_get_number_of_active_vectors()
+{
+    std::shared_lock<std::shared_timed_mutex> tl(_tag_lock);
+    return _tag_to_location.size();
+}
+
 template <typename T, typename TagT, typename LabelT> void Index<T, TagT, LabelT>::print_status()
 {
     std::shared_lock<std::shared_timed_mutex> ul(_update_lock);
@@ -3493,5 +3500,7 @@ template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint32_t,
 template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint32_t, uint16_t>::search_with_filters<
     uint32_t>(const int8_t *query, const uint16_t &filter_label, const size_t K, const uint32_t L, uint32_t *indices,
               float *distances);
+
+
 
 } // namespace diskann
