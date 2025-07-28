@@ -175,7 +175,11 @@ void experiment_split(
     uint32_t buckets_per_dim,
     int n_splits,
     int n_rounds,
-    uint32_t n_async_insert_threads
+    uint32_t n_async_insert_threads,
+    size_t hit_rate_window_size = 1000,
+    double hit_rate_threshold = 0.9,
+    double consolidation_ratio = 0.2,
+    uint32_t lru_async_threads = 4
 ) {
    tieredann::TieredIndex<T> tiered_index(
        data_path, disk_index_prefix,
@@ -187,7 +191,11 @@ void experiment_split(
        use_regional_theta,
        pca_dim,
        buckets_per_dim,
-       n_async_insert_threads
+       n_async_insert_threads,
+       hit_rate_window_size,
+       hit_rate_threshold,
+       consolidation_ratio,
+       lru_async_threads
     );
     TagT *groundtruth_ids = nullptr;
     float *groundtruth_dists = nullptr;
@@ -247,6 +255,10 @@ int main(int argc, char **argv) {
     int n_splits;
     int n_rounds;
     uint32_t n_async_insert_threads = 4;
+    size_t hit_rate_window_size = 1000;
+    double hit_rate_threshold = 0.9;
+    double consolidation_ratio = 0.2;
+    uint32_t lru_async_threads = 4;
     po::options_description desc;
     try {
         po::options_description desc("Allowed options");
@@ -281,7 +293,11 @@ int main(int argc, char **argv) {
             ("memory_index_max_points", po::value<size_t>(&memory_index_max_points)->required(), "Max points for memory index")
             ("n_splits", po::value<int>(&n_splits)->required(), "Number of splits for queries")
             ("n_rounds", po::value<int>(&n_rounds)->default_value(1), "Number of rounds to repeat all splits")
-            ("n_async_insert_threads", po::value<uint32_t>(&n_async_insert_threads)->default_value(4), "Number of async insert threads");
+            ("n_async_insert_threads", po::value<uint32_t>(&n_async_insert_threads)->default_value(4), "Number of async insert threads")
+            ("hit_rate_window_size", po::value<size_t>(&hit_rate_window_size)->default_value(1000), "Number of requests to track for hit rate")
+            ("hit_rate_threshold", po::value<double>(&hit_rate_threshold)->default_value(0.9), "Hit rate threshold for consolidation (0.0-1.0)")
+            ("consolidation_ratio", po::value<double>(&consolidation_ratio)->default_value(0.2), "Fraction of memory index to evict during consolidation (0.0-1.0)")
+            ("lru_async_threads", po::value<uint32_t>(&lru_async_threads)->default_value(4), "Number of threads for LRU async operations");
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
         if (vm.count("help")) {
@@ -327,15 +343,19 @@ int main(int argc, char **argv) {
         "  \"memory_index_max_points\": {},\n"
         "  \"n_splits\": {},\n"
         "  \"n_rounds\": {},\n"
-        "  \"n_async_insert_threads\": {}\n"
+        "  \"n_async_insert_threads\": {},\n"
+        "  \"hit_rate_window_size\": {},\n"
+        "  \"hit_rate_threshold\": {},\n"
+        "  \"consolidation_ratio\": {},\n"
+        "  \"lru_async_threads\": {}\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
     if (data_type == "float") {
-        experiment_split<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads);
+        experiment_split<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
     } else if (data_type == "int8") {
-        experiment_split<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads);
+        experiment_split<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
     } else if (data_type == "uint8") {
-        experiment_split<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads);
+        experiment_split<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }

@@ -26,13 +26,17 @@ USE_RECONSTRUCTED_VECTORS=0
 N_THETA_ESTIMATION_QUERIES=1000
 P=0.90
 DEVIATION_FACTOR=0.025
-N_SEARCH_ITER=30
+N_SEARCH_ITER=60
 SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=4 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
 N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
+HIT_RATE_WINDOW_SIZE=1000 # Number of requests to track for hit rate
+HIT_RATE_THRESHOLD=0.9 # Hit rate threshold for consolidation (0.0-1.0)
+CONSOLIDATION_RATIO=0.2 # Fraction of memory index to evict during consolidation (0.0-1.0)
+LRU_ASYNC_THREADS=4 # Number of threads for LRU async operations
 
 # Run the test with all parameters
 ./build/tests/tiered_index_search \
@@ -63,4 +67,8 @@ N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
   --pca_dim "$PCA_DIM" \
   --buckets_per_dim "$BUCKETS_PER_DIM" \
   --memory_index_max_points "$MEMORY_INDEX_MAX_POINTS" \
-  --n_async_insert_threads "$N_ASYNC_INSERT_THREADS"
+  --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" \
+  --hit_rate_window_size "$HIT_RATE_WINDOW_SIZE" \
+  --hit_rate_threshold "$HIT_RATE_THRESHOLD" \
+  --consolidation_ratio "$CONSOLIDATION_RATIO" \
+  --lru_async_threads "$LRU_ASYNC_THREADS"

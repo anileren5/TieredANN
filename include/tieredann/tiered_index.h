@@ -12,11 +12,13 @@
 #include <cstdint>
 #include "tieredann/insert_thread_pool.h"
 #include "tieredann/pca_utils.h"
-#include <set>
+#include "tieredann/lru_cache.h"
+#include "tieredann/lru_thread_pool.h"
+#include "tieredann/hit_rate_tracker.h"
 #include <unordered_map>
 #include <mutex>
-#include <atomic>
 #include <type_traits>
+#include <memory>
 
 namespace tieredann {
 
@@ -43,9 +45,20 @@ namespace tieredann {
             diskann::IndexWriteParameters memory_index_delete_params;
             uint32_t n_async_insert_threads = 4;
 
+            // --- Consolidation parameters ---
+            size_t hit_rate_window_size_;
+            double hit_rate_threshold_;
+            double consolidation_ratio_;
+
             // --- PCA utilities ---
             std::unique_ptr<PCAUtils<T>> pca_utils;
 
+            // Eviction utilities (all thread-safe)
+            std::mutex consolidation_mutex; // Only one consolidation thread is allowed at a time, acquire this mutex before calling consolidate_deletes
+            tieredann::LRUCache<TagT> lru_metadata; // Thread-safe with shared_mutex
+            std::unique_ptr<tieredann::LRUThreadPool<TagT>> lru_async_pool; // Thread-safe thread pool
+            std::unique_ptr<tieredann::HitRateTracker> hit_rate_tracker; // Thread-safe with mutex
+            
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
                 std::vector<T*> vectors;
                 vectors.reserve(to_be_inserted.size());
@@ -56,12 +69,42 @@ namespace tieredann {
                     diskann::load_vector_by_index(data_path, vector, dim, to_be_inserted[i]);
                     vectors.push_back(vector);
                 }
-                for (size_t i = 0; i < to_be_inserted.size(); ++i) {
-                    int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
-                    if (ret == 0) ++successful_inserts;
+
+                consolidation_mutex.lock();
+                if (this->get_number_of_vectors_in_memory_index() + to_be_inserted.size() > this->memory_index_max_points) {
+                    // Check hit rate before deciding on consolidation
+                    auto stats = hit_rate_tracker->get_statistics();
+                    bool should_consolidate = (stats.request_count >= hit_rate_window_size_) && (stats.hit_rate < hit_rate_threshold_);
+                    
+                    if (should_consolidate) {
+                        std::vector<TagT> tags_to_delete = lru_metadata.evict(memory_index_max_points * consolidation_ratio_);
+                        for (auto tag : tags_to_delete) {
+                            index->lazy_delete(tag);
+                        }
+                        index->consolidate_deletes(memory_index_delete_params);
+                        
+                    } 
+
+                    // Insert the new vectors
+                    for (size_t i = 0; i < to_be_inserted.size(); ++i) {
+                        int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
+                        if (ret == 0) ++successful_inserts;
+                    }
+                    for (auto v : vectors) {
+                        diskann::aligned_free(v);
+                    }
+                    consolidation_mutex.unlock();
+                    
                 }
-                for (auto v : vectors) {
-                    diskann::aligned_free(v);
+                else {
+                    consolidation_mutex.unlock();                
+                    for (size_t i = 0; i < to_be_inserted.size(); ++i) {
+                        int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
+                        if (ret == 0) ++successful_inserts;
+                    }
+                    for (auto v : vectors) {
+                        diskann::aligned_free(v);
+                    }
                 }
             }
 
@@ -77,6 +120,7 @@ namespace tieredann {
 
             bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
                 std::lock_guard<std::mutex> lock(theta_map_mutex);
+                
                 if (use_regional_theta) {
                     return pca_utils->isHit(query_ptr, K, L, distances, this->get_number_of_vectors_in_memory_index(), deviation_factor);
                 } else {
@@ -99,7 +143,6 @@ namespace tieredann {
                 }
             }
 
-        
         public:
             template <typename... Args>
             TieredIndex(const std::string& data_path,
@@ -119,7 +162,11 @@ namespace tieredann {
                         bool use_regional_theta = true,
                         size_t pca_dim = 16,
                         size_t buckets_per_dim = 4,
-                        uint32_t n_async_insert_threads_ = 4)
+                        uint32_t n_async_insert_threads_ = 4,
+                        size_t hit_rate_window_size = 1000,
+                        double hit_rate_threshold = 0.9,
+                        double consolidation_ratio = 0.2,
+                        uint32_t lru_async_threads = 4)
                         : data_path(data_path),
                         disk_index_prefix(disk_index_prefix),
                         search_threads(search_threads),
@@ -131,11 +178,15 @@ namespace tieredann {
                         use_regional_theta(use_regional_theta),
                         memory_index_max_points(memory_index_max_points),
                         n_async_insert_threads(n_async_insert_threads_),
+                        hit_rate_window_size_(hit_rate_window_size),
+                        hit_rate_threshold_(hit_rate_threshold),
+                        consolidation_ratio_(consolidation_ratio),
                         memory_index_delete_params(diskann::IndexWriteParametersBuilder(memory_L, R)
                                                 .with_alpha(alpha)
                                                 .with_num_threads(consolidate_threads)
                                                 .with_filter_list_size(memory_L)
-                                                .build())
+                                                .build()),
+                        lru_metadata(memory_index_max_points)
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
@@ -209,6 +260,15 @@ namespace tieredann {
                     insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task);
                 }
 
+                // Initialize async LRU pool for non-blocking LRU updates
+                lru_async_pool = std::make_unique<tieredann::LRUThreadPool<TagT>>(lru_async_threads); // Configurable threads for LRU updates
+
+                // Initialize hit rate tracker
+                hit_rate_tracker = std::make_unique<tieredann::HitRateTracker>(
+                    hit_rate_window_size_,  // Track last N requests
+                    hit_rate_threshold_     // Threshold for consolidation decisions
+                );
+
                 std::cout << "TieredIndex built successfully!" << std::endl;
 
                 // PCA is constructed at construction time using Eigen. Eigen is required.
@@ -247,14 +307,32 @@ namespace tieredann {
             bool search(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
                 // Search in memory index
                 this->memory_index->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
-                if (this->isHit(query_ptr, K, memory_L, query_result_dists_ptr)) {
+                
+                // Determine if this is a hit BEFORE any other operations
+                bool is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                
+                if (is_hit) {
+                    // Record hit in statistics
+                    hit_rate_tracker->record_request(true);
+                    
+                    // Copy tags for async LRU update to avoid memory issues
+                    std::vector<TagT> tags_copy(query_result_tags_ptr, query_result_tags_ptr + K);
+                    
+                    // Asynchronously update LRU metadata (non-blocking)
+                    auto future = lru_async_pool->async_access_batch(lru_metadata, tags_copy);
+                    
                     return true; // Return true if the query is hit in the memory index
                 }
                 else {
+                    // Record miss in statistics
+                    hit_rate_tracker->record_request(false);
+                    
                     this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                     insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
                     for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
+                    std::vector<TagT> tags_copy(query_result_tags_ptr, query_result_tags_ptr + K);
+                    lru_async_pool->async_access_batch(lru_metadata, tags_to_insert);
                     // Always update theta in main thread
                     update_theta(query_ptr, K, query_result_dists_ptr[K - 1]);
                     return false; // Return false if the query is missed in the memory index
@@ -272,5 +350,11 @@ namespace tieredann {
             size_t get_number_of_max_points_in_memory_index() const {
                 return this->memory_index->get_max_points();
             }
+
+            tieredann::HitRateTracker::Statistics get_hit_rate_statistics() const {
+                return hit_rate_tracker->get_statistics();
+            }
+
+
     };
 }

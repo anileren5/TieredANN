@@ -4,7 +4,7 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="siftsmall"
+DATASET="deep1m"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/noisy_queries_groundtruths/${DATASET}_query.noisy_nrounds-5_noiseratio-0.05.bin" # Concatenated base+noisy queries
@@ -26,7 +26,7 @@ USE_RECONSTRUCTED_VECTORS=0
 N_THETA_ESTIMATION_QUERIES=1000
 P=0.90
 DEVIATION_FACTOR=0.025
-N_ITERATION_PER_SPLIT=30 # Number of search iterations per split
+N_ITERATION_PER_SPLIT=60 # Number of search iterations per split
 N_SPLITS=10 # Number of splits for queries
 N_ROUNDS=5 # Number of rounds (base + noisy sets)
 SECTOR_LEN=4096
@@ -35,6 +35,10 @@ PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=4 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
 N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
+HIT_RATE_WINDOW_SIZE=1000 # Number of requests to track for hit rate
+HIT_RATE_THRESHOLD=0.9 # Hit rate threshold for consolidation (0.0-1.0)
+CONSOLIDATION_RATIO=0.20 # Fraction of memory index to evict during consolidation (0.0-1.0)
+LRU_ASYNC_THREADS=4 # Number of threads for LRU async operations
 
 # Run the test with all parameters
 ./build/tests/tiered_index_split_search_noisy \
@@ -67,4 +71,8 @@ N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
   --memory_index_max_points "$MEMORY_INDEX_MAX_POINTS" \
   --n_splits "$N_SPLITS" \
   --n_rounds "$N_ROUNDS" \
-  --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" 
+  --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" \
+  --hit_rate_window_size "$HIT_RATE_WINDOW_SIZE" \
+  --hit_rate_threshold "$HIT_RATE_THRESHOLD" \
+  --consolidation_ratio "$CONSOLIDATION_RATIO" \
+  --lru_async_threads "$LRU_ASYNC_THREADS" 
