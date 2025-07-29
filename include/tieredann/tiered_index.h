@@ -384,6 +384,13 @@ namespace tieredann {
                 return hit_rate_tracker->get_statistics();
             }
 
+            size_t get_number_of_active_pca_regions() const {
+                if (use_regional_theta && pca_utils) {
+                    return pca_utils->get_number_of_active_regions();
+                }
+                return 0;
+            }
+
 
     };
 }

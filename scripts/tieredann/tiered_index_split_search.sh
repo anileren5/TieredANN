@@ -4,14 +4,14 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="text_to_image_1m"
+DATASET="sift"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 R=64
-MEMORY_L=256
-DISK_L=256
+MEMORY_L=128
+DISK_L=128
 K=100
 B=8
 M=8
@@ -32,7 +32,7 @@ N_ROUNDS=1 # Number of rounds to repeat all splits
 SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
-BUCKETS_PER_DIM=4 # Set to desired number of buckets per PCA dimension (e.g., 4)
+BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
 N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
 LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates

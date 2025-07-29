@@ -139,8 +139,9 @@ std::vector<bool> hybrid_search(
               "\"memory_active_vectors\": {}, "
               "\"memory_lazy_deleted_vectors\": {}, "
               "\"memory_max_points\": {}, "
+              "\"pca_active_regions\": {}, "
               "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}}}",
-              search_threads, avg_latency_ms, avg_hit_latency_ms, qps, qps_per_thread, tiered_index.get_number_of_vectors_in_memory_index(), tiered_index.get_number_of_lazy_deleted_vectors_in_memory_index(), tiered_index.get_number_of_max_points_in_memory_index(), p90, p95, p99);
+              search_threads, avg_latency_ms, avg_hit_latency_ms, qps, qps_per_thread, tiered_index.get_number_of_vectors_in_memory_index(), tiered_index.get_number_of_lazy_deleted_vectors_in_memory_index(), tiered_index.get_number_of_max_points_in_memory_index(), tiered_index.get_number_of_active_pca_regions(), p90, p95, p99);
     delete[] stats;
     return hit_results;
 }

@@ -260,6 +260,12 @@ namespace tieredann {
         std::string get_pca_filename_for_logging() const {
             return get_pca_filename();
         }
+
+        // Get number of active regions (regions that have been initialized)
+        size_t get_number_of_active_regions() const {
+            std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(region_theta_map_mutex));
+            return region_theta_map.size();
+        }
     };
 
 } // namespace tieredann 
