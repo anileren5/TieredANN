@@ -19,6 +19,7 @@
 #include <mutex>
 #include <type_traits>
 #include <memory>
+#include <cstring>
 
 namespace tieredann {
 
@@ -44,6 +45,7 @@ namespace tieredann {
             bool use_regional_theta = true;
             diskann::IndexWriteParameters memory_index_delete_params;
             uint32_t n_async_insert_threads = 4;
+            bool lazy_theta_updates = true;
 
             // --- Consolidation parameters ---
             size_t hit_rate_window_size_;
@@ -163,6 +165,7 @@ namespace tieredann {
                         size_t pca_dim = 16,
                         size_t buckets_per_dim = 4,
                         uint32_t n_async_insert_threads_ = 4,
+                        bool lazy_theta_updates_ = true,
                         size_t hit_rate_window_size = 1000,
                         double hit_rate_threshold = 0.9,
                         double consolidation_ratio = 0.2,
@@ -178,6 +181,7 @@ namespace tieredann {
                         use_regional_theta(use_regional_theta),
                         memory_index_max_points(memory_index_max_points),
                         n_async_insert_threads(n_async_insert_threads_),
+                        lazy_theta_updates(lazy_theta_updates_),
                         hit_rate_window_size_(hit_rate_window_size),
                         hit_rate_threshold_(hit_rate_threshold),
                         consolidation_ratio_(consolidation_ratio),
@@ -252,12 +256,26 @@ namespace tieredann {
                     auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K, float query_distance) {
                         this->memory_index_insert_reconstructed_sync(index, to_be_inserted, dim, K, query_distance);
                     };
-                    insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task);
+                    if (lazy_theta_updates) {
+                        auto theta_update_task = [this](T* query_ptr, uint32_t K, float query_distance) {
+                            this->update_theta(query_ptr, K, query_distance);
+                        };
+                        insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task, theta_update_task);
+                    } else {
+                        insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task);
+                    }
                 } else {
                     auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K, float query_distance) {
                         this->memory_index_insert_sync(index, to_be_inserted, data_path, dim, K, query_distance);
                     };
-                    insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task);
+                    if (lazy_theta_updates) {
+                        auto theta_update_task = [this](T* query_ptr, uint32_t K, float query_distance) {
+                            this->update_theta(query_ptr, K, query_distance);
+                        };
+                        insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task, theta_update_task);
+                    } else {
+                        insert_pool = std::make_unique<tieredann::InsertThreadPool<T, TagT>>(n_async_insert_threads, task);
+                    }
                 }
 
                 // Initialize async LRU pool for non-blocking LRU updates
@@ -329,12 +347,23 @@ namespace tieredann {
                     
                     this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
-                    insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
+                    
+                    if (lazy_theta_updates) {
+                        // Copy query pointer for async insertion and theta update
+                        T* query_copy = nullptr;
+                        diskann::alloc_aligned((void**)&query_copy, this->aligned_dim * sizeof(T), 8 * sizeof(T));
+                        std::memcpy(query_copy, query_ptr, this->aligned_dim * sizeof(T));
+                        
+                        insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
+                    } else {
+                        // Immediate theta update in main thread
+                        update_theta(query_ptr, K, query_result_dists_ptr[K - 1]);
+                        insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
+                    }
+                    
                     for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
                     std::vector<TagT> tags_copy(query_result_tags_ptr, query_result_tags_ptr + K);
                     lru_async_pool->async_access_batch(lru_metadata, tags_to_insert);
-                    // Always update theta in main thread
-                    update_theta(query_ptr, K, query_result_dists_ptr[K - 1]);
                     return false; // Return false if the query is missed in the memory index
                 }
             }

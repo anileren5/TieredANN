@@ -32,10 +32,11 @@ USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=4 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
-N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
+N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
+LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates
 HIT_RATE_WINDOW_SIZE=1000 # Number of requests to track for hit rate
 HIT_RATE_THRESHOLD=0.9 # Hit rate threshold for consolidation (0.0-1.0)
-CONSOLIDATION_RATIO=0.2 # Fraction of memory index to evict during consolidation (0.0-1.0)
+CONSOLIDATION_RATIO=0.25 # Fraction of memory index to evict during consolidation (0.0-1.0)
 LRU_ASYNC_THREADS=4 # Number of threads for LRU async operations
 
 # Run the test with all parameters
@@ -68,6 +69,7 @@ LRU_ASYNC_THREADS=4 # Number of threads for LRU async operations
   --buckets_per_dim "$BUCKETS_PER_DIM" \
   --memory_index_max_points "$MEMORY_INDEX_MAX_POINTS" \
   --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" \
+  --lazy_theta_updates "$LAZY_THETA_UPDATES" \
   --hit_rate_window_size "$HIT_RATE_WINDOW_SIZE" \
   --hit_rate_threshold "$HIT_RATE_THRESHOLD" \
   --consolidation_ratio "$CONSOLIDATION_RATIO" \
