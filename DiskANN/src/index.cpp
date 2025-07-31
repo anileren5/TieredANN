@@ -3057,7 +3057,7 @@ template <typename T, typename TagT, typename LabelT> int Index<T, TagT, LabelT>
 
     if (_tag_to_location.find(tag) == _tag_to_location.end())
     {
-        diskann::cerr << "Delete tag not found " << get_tag_string(tag) << std::endl;
+        //diskann::cerr << "Delete tag not found " << get_tag_string(tag) << std::endl;
         return -1;
     }
     assert(_tag_to_location[tag] < _max_points);
