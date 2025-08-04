@@ -12,14 +12,13 @@
 #include <cstdint>
 #include "tieredann/insert_thread_pool.h"
 #include "tieredann/pca_utils.h"
-#include "tieredann/lru_cache.h"
-#include "tieredann/lru_thread_pool.h"
-#include "tieredann/hit_rate_tracker.h"
 #include <unordered_map>
 #include <mutex>
 #include <type_traits>
 #include <memory>
 #include <cstring>
+#include <atomic>
+#include <future>
 
 namespace tieredann {
 
@@ -28,12 +27,18 @@ namespace tieredann {
         
         private:
             std::unique_ptr<greator::PQFlashIndex<T, TagT>> disk_index;
-            std::unique_ptr<diskann::AbstractIndex> memory_index;
+            
+            // Cycling shadow paging: Two memory indices that cycle between active and query-only
+            std::unique_ptr<diskann::AbstractIndex> index_a;
+            std::unique_ptr<diskann::AbstractIndex> index_b;
+            std::atomic<diskann::AbstractIndex*> active_insert_index; // Index for new insertions
+
+            // --- Index parameters ---
             std::string data_path;
             std::string disk_index_prefix;
             size_t dim, aligned_dim;
             size_t num_points;
-            size_t memory_index_max_points;
+            size_t memory_index_max_points_per_index; // Capacity per index
             uint32_t search_threads;
             bool use_reconstructed_vectors;
             std::unique_ptr<tieredann::InsertThreadPool<T, TagT>> insert_pool;
@@ -48,19 +53,50 @@ namespace tieredann {
             bool lazy_theta_updates = true;
 
             // --- Consolidation parameters ---
-            size_t hit_rate_window_size_;
-            double hit_rate_threshold_;
             double consolidation_ratio_;
+
+            // --- Cycling shadow paging state ---
+            std::atomic<bool> cycling_in_progress{false};
+            std::future<void> cycling_future;
+            std::mutex cycling_mutex;
 
             // --- PCA utilities ---
             std::unique_ptr<PCAUtils<T>> pca_utils;
 
-            // Eviction utilities (all thread-safe)
-            std::mutex consolidation_mutex; // Only one consolidation thread is allowed at a time, acquire this mutex before calling consolidate_deletes
-            tieredann::LRUCache<TagT> lru_metadata; // Thread-safe with shared_mutex
-            std::unique_ptr<tieredann::LRUThreadPool<TagT>> lru_async_pool; // Thread-safe thread pool
-            std::unique_ptr<tieredann::HitRateTracker> hit_rate_tracker; // Thread-safe with mutex
+
             
+            // Helper function to create a memory index with given max points
+            std::unique_ptr<diskann::AbstractIndex> create_memory_index(size_t max_points) {
+                diskann::IndexWriteParameters memory_index_write_params = diskann::IndexWriteParametersBuilder(memory_L, aligned_dim)
+                                                                    .with_alpha(1.2f) // Default alpha
+                                                                    .with_num_threads(4) // Default threads
+                                                                    .build();
+
+                diskann::IndexSearchParams memory_index_search_params = diskann::IndexSearchParams(memory_L, search_threads);
+
+                diskann::IndexConfig memory_index_config = diskann::IndexConfigBuilder()
+                                                            .with_metric(diskann::L2)
+                                                            .with_dimension(dim)
+                                                            .with_max_points(max_points)
+                                                            .is_dynamic_index(true)
+                                                            .with_index_write_params(memory_index_write_params)
+                                                            .with_index_search_params(memory_index_search_params)
+                                                            .with_data_type(diskann_type_to_name<T>())
+                                                            .with_tag_type(diskann_type_to_name<TagT>())
+                                                            .with_data_load_store_strategy(diskann::DataStoreStrategy::MEMORY)
+                                                            .with_graph_load_store_strategy(diskann::GraphStoreStrategy::MEMORY)
+                                                            .is_enable_tags(true)
+                                                            .is_filtered(false)
+                                                            .with_num_frozen_pts(0)
+                                                            .is_concurrent_consolidate(true)
+                                                            .build();
+                
+                diskann::IndexFactory memory_index_factory = diskann::IndexFactory(memory_index_config);
+                auto index = memory_index_factory.create_instance();
+                index->set_start_points_at_random(static_cast<T>(0));
+                return index;
+            }
+
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
                 std::vector<T*> vectors;
                 vectors.reserve(to_be_inserted.size());
@@ -72,52 +108,96 @@ namespace tieredann {
                     vectors.push_back(vector);
                 }
 
-                consolidation_mutex.lock();
-                if (this->get_number_of_vectors_in_memory_index() + to_be_inserted.size() > this->memory_index_max_points) {
-                    // Check hit rate before deciding on consolidation
-                    auto stats = hit_rate_tracker->get_statistics();
-                    bool should_consolidate = (stats.request_count >= hit_rate_window_size_) && (stats.hit_rate < hit_rate_threshold_);
-                    
-                    if (should_consolidate) {
-                        std::vector<TagT> tags_to_delete = lru_metadata.evict(memory_index_max_points * consolidation_ratio_);
-                        for (auto tag : tags_to_delete) {
-                            index->lazy_delete(tag);
-                        }
-                        index->consolidate_deletes(memory_index_delete_params);
-                        
-                    } 
-
-                    // Insert the new vectors
-                    for (size_t i = 0; i < to_be_inserted.size(); ++i) {
-                        int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
-                        if (ret == 0) ++successful_inserts;
-                    }
-                    for (auto v : vectors) {
-                        diskann::aligned_free(v);
-                    }
-                    consolidation_mutex.unlock();
-                    
+                // Insert the new vectors into the provided index (which should be the current active one)
+                for (size_t i = 0; i < to_be_inserted.size(); ++i) {
+                    int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
+                    if (ret == 0) ++successful_inserts;
                 }
-                else {
-                    consolidation_mutex.unlock();                
-                    for (size_t i = 0; i < to_be_inserted.size(); ++i) {
-                        int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
-                        if (ret == 0) ++successful_inserts;
+                
+                // Check if we need to trigger cycling shadow paging AFTER insertion
+                // Only trigger if the currently active index is full
+                diskann::AbstractIndex* current_active = active_insert_index.load();
+                if (index.get() == current_active && index->get_number_of_active_vectors() >= memory_index_max_points_per_index) {
+                    // Always cycle when the currently active index is full
+                    if (!cycling_in_progress.load()) {
+                        // Start cycling shadow paging
+                        trigger_cycling_shadow_paging();
                     }
-                    for (auto v : vectors) {
-                        diskann::aligned_free(v);
-                    }
+                }
+                
+                for (auto v : vectors) {
+                    diskann::aligned_free(v);
                 }
             }
 
             void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
                 std::vector<std::vector<T>> reconstructed_vectors = this->disk_index->inflate_vectors_by_tags(to_be_inserted);
                 size_t successful_inserts = 0;
+                
+                // Insert the reconstructed vectors into the provided index
                 for (size_t i = 0; i < to_be_inserted.size(); i++) {
                     const auto& reconstructed_vec = reconstructed_vectors[i];
                     int ret = index->insert_point(reconstructed_vec.data(), 1 + to_be_inserted[i]);
                     if (ret == 0) ++successful_inserts;
                 }
+                
+                // Check if we need to trigger cycling shadow paging AFTER insertion
+                // Only trigger if the currently active index is full
+                diskann::AbstractIndex* current_active = active_insert_index.load();
+                if (index.get() == current_active && index->get_number_of_active_vectors() >= memory_index_max_points_per_index) {
+                    // Always cycle when the currently active index is full
+                    if (!cycling_in_progress.load()) {
+                        trigger_cycling_shadow_paging();
+                    }
+                }
+            }
+
+            // Cycling shadow paging: switch to other index and clear the old one
+            void trigger_cycling_shadow_paging() {
+                std::lock_guard<std::mutex> lock(cycling_mutex);
+                
+                if (cycling_in_progress.load()) {
+                    return; // Already in progress
+                }
+                
+                cycling_in_progress.store(true);
+                
+                // Start background cycling
+                cycling_future = std::async(std::launch::async, [this]() {
+                    this->perform_cycling_shadow_paging();
+                });
+            }
+
+            void perform_cycling_shadow_paging() {
+                // Get current active insert index
+                diskann::AbstractIndex* current_active = active_insert_index.load();
+                bool switching_to_a = (current_active == index_b.get());
+                        
+                // STEP 1: Replace the target index with a fresh empty one
+                // This preserves the current active index's hit points
+                if (switching_to_a) {
+                    index_a = create_memory_index(memory_index_max_points_per_index);
+                    std::cout << "[CYCLING] Replaced index A with fresh empty index" << std::endl;
+                } else {
+                    index_b = create_memory_index(memory_index_max_points_per_index);
+                    std::cout << "[CYCLING] Replaced index B with fresh empty index" << std::endl;
+                }
+                
+                // STEP 2: Switch active insert index to the fresh empty index
+                // New insertions go to the fresh index, but we can still hit from the preserved index
+                if (switching_to_a) {
+                    active_insert_index.store(index_a.get());
+                } else {
+                    active_insert_index.store(index_b.get());
+                }
+                
+                std::cout << "[CYCLING] Switched active index to " << (switching_to_a ? "A" : "B") << std::endl;
+                std::cout << "[CYCLING] Index A vectors: " << index_a->get_number_of_active_vectors() 
+                          << ", Index B vectors: " << index_b->get_number_of_active_vectors() << std::endl;
+                
+                // Cycling complete
+                cycling_in_progress.store(false);
+                std::cout << "[CYCLING] Cycling complete" << std::endl;
             }
 
             bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
@@ -166,8 +246,6 @@ namespace tieredann {
                         size_t buckets_per_dim = 4,
                         uint32_t n_async_insert_threads_ = 4,
                         bool lazy_theta_updates_ = true,
-                        size_t hit_rate_window_size = 1000,
-                        double hit_rate_threshold = 0.9,
                         double consolidation_ratio = 0.2,
                         uint32_t lru_async_threads = 4)
                         : data_path(data_path),
@@ -179,55 +257,29 @@ namespace tieredann {
                         memory_L(memory_L),
                         disk_L(disk_L),
                         use_regional_theta(use_regional_theta),
-                        memory_index_max_points(memory_index_max_points),
+                        memory_index_max_points_per_index(memory_index_max_points / 2), // Half for each index
                         n_async_insert_threads(n_async_insert_threads_),
                         lazy_theta_updates(lazy_theta_updates_),
-                        hit_rate_window_size_(hit_rate_window_size),
-                        hit_rate_threshold_(hit_rate_threshold),
                         consolidation_ratio_(consolidation_ratio),
                         memory_index_delete_params(diskann::IndexWriteParametersBuilder(memory_L, R)
                                                 .with_alpha(alpha)
                                                 .with_num_threads(consolidate_threads)
                                                 .with_filter_list_size(memory_L)
-                                                .build()),
-                        lru_metadata(memory_index_max_points)
+                                                .build())
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
                 aligned_dim = ROUND_UP(dim, 8);
 
-                // memory_index_max_points is now required and must be set by caller
-
-                // Build memory index
-                diskann::IndexWriteParameters memory_index_write_params = diskann::IndexWriteParametersBuilder(memory_L, R)
-                                                                    .with_alpha(alpha)
-                                                                    .with_num_threads(consolidate_threads)
-                                                                    .build();
-
-                diskann::IndexSearchParams memory_index_search_params = diskann::IndexSearchParams(memory_L, search_threads);
-
-                diskann::IndexConfig memory_index_config = diskann::IndexConfigBuilder()
-                                                            .with_metric(diskann::L2)
-                                                            .with_dimension(dim)
-                                                            .with_max_points(memory_index_max_points)
-                                                            .is_dynamic_index(true)
-                                                            .with_index_write_params(memory_index_write_params)
-                                                            .with_index_search_params(memory_index_search_params)
-                                                            .with_data_type(diskann_type_to_name<T>())
-                                                            .with_tag_type(diskann_type_to_name<TagT>())
-                                                            .with_data_load_store_strategy(diskann::DataStoreStrategy::MEMORY)
-                                                            .with_graph_load_store_strategy(diskann::GraphStoreStrategy::MEMORY)
-                                                            .is_enable_tags(true)
-                                                            .is_filtered(false)
-                                                            .with_num_frozen_pts(0)
-                                                            .is_concurrent_consolidate(true)
-                                                            .build();
+                // Build cycling shadow paging memory indices
+                index_a = create_memory_index(memory_index_max_points_per_index);
+                index_b = create_memory_index(memory_index_max_points_per_index);
                 
-                diskann::IndexFactory memory_index_factory = diskann::IndexFactory(memory_index_config);
-                memory_index = memory_index_factory.create_instance();
-                memory_index->set_start_points_at_random(static_cast<T>(0));
+                // Set index_a as active initially for insertions
+                active_insert_index.store(index_a.get());
             
-                std::cout << "TieredIndex memory index built successfully!" << std::endl;
+                std::cout << "TieredIndex shadow paging memory indices built successfully!" << std::endl;
+                std::cout << "Each index can hold up to " << memory_index_max_points_per_index << " vectors" << std::endl;
 
                 // Build disk index
                 if (disk_index_already_built == 0) {
@@ -278,16 +330,7 @@ namespace tieredann {
                     }
                 }
 
-                // Initialize async LRU pool for non-blocking LRU updates
-                lru_async_pool = std::make_unique<tieredann::LRUThreadPool<TagT>>(lru_async_threads); // Configurable threads for LRU updates
-
-                // Initialize hit rate tracker
-                hit_rate_tracker = std::make_unique<tieredann::HitRateTracker>(
-                    hit_rate_window_size_,  // Track last N requests
-                    hit_rate_threshold_     // Threshold for consolidation decisions
-                );
-
-                std::cout << "TieredIndex built successfully!" << std::endl;
+                std::cout << "TieredIndex built successfully with shadow paging!" << std::endl;
 
                 // PCA is constructed at construction time using Eigen. Eigen is required.
                 if (use_regional_theta) {
@@ -323,27 +366,31 @@ namespace tieredann {
 
 
             bool search(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
-                // Search in memory index
-                this->memory_index->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                // Get current active insert index (atomic read)
+                diskann::AbstractIndex* current_active = active_insert_index.load();
                 
-                // Determine if this is a hit BEFORE any other operations
-                bool is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                // Always search in both indices
+                bool is_hit = false;
+                
+                // Try current active index first
+                if (current_active->get_number_of_active_vectors() > 0) {
+                    current_active->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                    is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                }
+                
+                // If miss in current active index, try the other index
+                if (!is_hit) {
+                    diskann::AbstractIndex* other_index = (current_active == index_a.get()) ? index_b.get() : index_a.get();
+                    if (other_index->get_number_of_active_vectors() > 0) {
+                        other_index->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                        is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                    }
+                }
                 
                 if (is_hit) {
-                    // Record hit in statistics
-                    hit_rate_tracker->record_request(true);
-                    
-                    // Copy tags for async LRU update to avoid memory issues
-                    std::vector<TagT> tags_copy(query_result_tags_ptr, query_result_tags_ptr + K);
-                    
-                    // Asynchronously update LRU metadata (non-blocking)
-                    auto future = lru_async_pool->async_access_batch(lru_metadata, tags_copy);
-                    
                     return true; // Return true if the query is hit in the memory index
                 }
                 else {
-                    // Record miss in statistics
-                    hit_rate_tracker->record_request(false);
                     
                     this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
@@ -354,34 +401,50 @@ namespace tieredann {
                         diskann::alloc_aligned((void**)&query_copy, this->aligned_dim * sizeof(T), 8 * sizeof(T));
                         std::memcpy(query_copy, query_ptr, this->aligned_dim * sizeof(T));
                         
-                        insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
+                        // Submit to insert pool with current active index
+                        if (current_active == index_a.get()) {
+                            insert_pool->submit(index_a, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
+                        } else {
+                            insert_pool->submit(index_b, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
+                        }
                     } else {
                         // Immediate theta update in main thread
                         update_theta(query_ptr, K, query_result_dists_ptr[K - 1]);
-                        insert_pool->submit(this->memory_index, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
+                        if (current_active == index_a.get()) {
+                            insert_pool->submit(index_a, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
+                        } else {
+                            insert_pool->submit(index_b, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
+                        }
                     }
                     
                     for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
-                    std::vector<TagT> tags_copy(query_result_tags_ptr, query_result_tags_ptr + K);
-                    lru_async_pool->async_access_batch(lru_metadata, tags_to_insert);
                     return false; // Return false if the query is missed in the memory index
                 }
             }
 
             size_t get_number_of_vectors_in_memory_index() const {
-                return this->memory_index->get_number_of_active_vectors();
-            }
-
-            size_t get_number_of_lazy_deleted_vectors_in_memory_index() const {
-                return this->memory_index->get_number_of_lazy_deleted_points();
+                return index_a->get_number_of_active_vectors() + index_b->get_number_of_active_vectors();
             }
 
             size_t get_number_of_max_points_in_memory_index() const {
-                return this->memory_index->get_max_points();
+                return memory_index_max_points_per_index * 2; // Total capacity across both indices
             }
 
-            tieredann::HitRateTracker::Statistics get_hit_rate_statistics() const {
-                return hit_rate_tracker->get_statistics();
+            // New methods for cycling shadow paging status
+            bool is_cycling_in_progress() const {
+                return cycling_in_progress.load();
+            }
+
+            size_t get_index_a_vector_count() const {
+                return index_a->get_number_of_active_vectors();
+            }
+
+            size_t get_index_b_vector_count() const {
+                return index_b->get_number_of_active_vectors();
+            }
+
+            bool is_index_a_active() const {
+                return active_insert_index.load() == index_a.get();
             }
 
             size_t get_number_of_active_pca_regions() const {

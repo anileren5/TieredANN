@@ -1470,7 +1470,7 @@ void Index<T, TagT, LabelT>::set_start_points(const T *data, size_t data_count)
         _data_store->set_vector((location_t)(i + _max_points), data + i * _dim);
     }
     _has_built = true;
-    diskann::cout << "Index start points set: #" << _num_frozen_pts << std::endl;
+    //diskann::cout << "Index start points set: #" << _num_frozen_pts << std::endl;
 }
 
 template <typename T, typename TagT, typename LabelT>

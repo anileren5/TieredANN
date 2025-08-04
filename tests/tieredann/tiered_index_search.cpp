@@ -143,11 +143,10 @@ std::vector<bool> hybrid_search(
               "\"qps\": {}, "
               "\"qps_per_thread\": {}, "
               "\"memory_active_vectors\": {}, "
-              "\"memory_lazy_deleted_vectors\": {}, "
               "\"memory_max_points\": {}, "
               "\"pca_active_regions\": {}, "
               "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}}}",
-              search_threads, avg_latency_ms, avg_hit_latency_ms, qps, qps_per_thread, tiered_index.get_number_of_vectors_in_memory_index(), tiered_index.get_number_of_lazy_deleted_vectors_in_memory_index(), tiered_index.get_number_of_max_points_in_memory_index(), tiered_index.get_number_of_active_pca_regions(), p90, p95, p99);
+              search_threads, avg_latency_ms, avg_hit_latency_ms, qps, qps_per_thread, tiered_index.get_number_of_vectors_in_memory_index(), tiered_index.get_number_of_max_points_in_memory_index(), tiered_index.get_number_of_active_pca_regions(), p90, p95, p99);
 
     delete[] stats;
     return hit_results;
@@ -179,8 +178,6 @@ void experiment(
     uint32_t buckets_per_dim = 4,
     uint32_t n_async_insert_threads = 4,
     bool lazy_theta_updates = true,
-    size_t hit_rate_window_size = 1000,
-    double hit_rate_threshold = 0.9,
     double consolidation_ratio = 0.2,
     uint32_t lru_async_threads = 4
 ) {
@@ -197,8 +194,6 @@ void experiment(
        buckets_per_dim,
        n_async_insert_threads,
        lazy_theta_updates,
-       hit_rate_window_size,
-       hit_rate_threshold,
        consolidation_ratio,
        lru_async_threads
     );
@@ -247,8 +242,6 @@ int main(int argc, char **argv) {
     size_t memory_index_max_points;
     uint32_t n_async_insert_threads = 4;
     bool lazy_theta_updates = true;
-    size_t hit_rate_window_size = 1000;
-    double hit_rate_threshold = 0.9;
     double consolidation_ratio = 0.2;
     uint32_t lru_async_threads = 4;
 
@@ -289,8 +282,6 @@ int main(int argc, char **argv) {
             ("buckets_per_dim", po::value<uint32_t>(&buckets_per_dim)->required(), "Value of buckets per dimension")
             ("memory_index_max_points", po::value<size_t>(&memory_index_max_points)->required(), "Max points for memory index")
             ("n_async_insert_threads", po::value<uint32_t>(&n_async_insert_threads)->default_value(4), "Number of async insert threads")
-            ("hit_rate_window_size", po::value<size_t>(&hit_rate_window_size)->default_value(1000), "Number of requests to track for hit rate")
-            ("hit_rate_threshold", po::value<double>(&hit_rate_threshold)->default_value(0.9), "Hit rate threshold for consolidation (0.0-1.0)")
             ("consolidation_ratio", po::value<double>(&consolidation_ratio)->default_value(0.2), "Fraction of memory index to evict during consolidation (0.0-1.0)")
             ("lru_async_threads", po::value<uint32_t>(&lru_async_threads)->default_value(4), "Number of threads for LRU async operations")
             ("lazy_theta_updates", po::value<bool>(&lazy_theta_updates)->default_value(true), "Enable lazy theta updates (true) or immediate updates (false)");
@@ -350,19 +341,17 @@ int main(int argc, char **argv) {
         "  \"memory_index_max_points\": {},\n"
         "  \"n_async_insert_threads\": {},\n"
         "  \"lazy_theta_updates\": {},\n"
-        "  \"hit_rate_window_size\": {},\n"
-        "  \"hit_rate_threshold\": {},\n"
         "  \"consolidation_ratio\": {},\n"
         "  \"lru_async_threads\": {}\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_search_iter, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_async_insert_threads, lazy_theta_updates, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_search_iter, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_async_insert_threads, lazy_theta_updates, consolidation_ratio, lru_async_threads);
 
     if (data_type == "float") {
-        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
+        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, consolidation_ratio, lru_async_threads);
     } else if (data_type == "int8") {
-        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
+        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, consolidation_ratio, lru_async_threads);
     } else if (data_type == "uint8") {
-        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
+        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, consolidation_ratio, lru_async_threads);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }

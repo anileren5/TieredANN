@@ -602,7 +602,7 @@ template <> diskann::Distance<float> *get_distance_function(diskann::Metric m)
     {
         if (Avx2SupportedCPU)
         {
-            diskann::cout << "L2: Using AVX2 distance computation DistanceL2Float" << std::endl;
+            //diskann::cout << "L2: Using AVX2 distance computation DistanceL2Float" << std::endl;
             return new diskann::DistanceL2Float();
         }
         else if (AvxSupportedCPU)

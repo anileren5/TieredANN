@@ -139,11 +139,12 @@ std::vector<bool> hybrid_search(
               "\"qps\": {}, "
               "\"qps_per_thread\": {}, "
               "\"memory_active_vectors\": {}, "
-              "\"memory_lazy_deleted_vectors\": {}, "
               "\"memory_max_points\": {}, "
               "\"pca_active_regions\": {}, "
+              "\"index_a_vectors\": {}, "
+              "\"index_b_vectors\": {}, "
               "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}}}",
-              search_threads, avg_latency_ms, avg_hit_latency_ms, qps, qps_per_thread, tiered_index.get_number_of_vectors_in_memory_index(), tiered_index.get_number_of_lazy_deleted_vectors_in_memory_index(), tiered_index.get_number_of_max_points_in_memory_index(), tiered_index.get_number_of_active_pca_regions(), p90, p95, p99);
+              search_threads, avg_latency_ms, avg_hit_latency_ms, qps, qps_per_thread, tiered_index.get_number_of_vectors_in_memory_index(), tiered_index.get_number_of_max_points_in_memory_index(), tiered_index.get_number_of_active_pca_regions(), tiered_index.get_index_a_vector_count(), tiered_index.get_index_b_vector_count(), p90, p95, p99);
     delete[] stats;
     return hit_results;
 }
@@ -178,8 +179,6 @@ void experiment_split(
     int n_rounds,
     uint32_t n_async_insert_threads,
     bool lazy_theta_updates = true,
-    size_t hit_rate_window_size = 1000,
-    double hit_rate_threshold = 0.9,
     double consolidation_ratio = 0.2,
     uint32_t lru_async_threads = 4
 ) {
@@ -195,8 +194,6 @@ void experiment_split(
        buckets_per_dim,
        n_async_insert_threads,
        lazy_theta_updates,
-       hit_rate_window_size,
-       hit_rate_threshold,
        consolidation_ratio,
        lru_async_threads
     );
@@ -211,29 +208,58 @@ void experiment_split(
     // Split queries
     size_t split_size = (query_num + n_splits - 1) / n_splits;
     for (int round = 0; round < n_rounds; ++round) {
-        for (int split = 0; split < n_splits; ++split) {
-            size_t start = split * split_size;
-            size_t end = std::min(start + split_size, query_num);
-            if (start >= end) break;
-            size_t this_split_size = end - start;
-            std::vector<TagT> query_result_tags(this_split_size * K);
-            for (int iter = 0; iter < n_iteration_per_split; ++iter) {
-                std::vector<bool> hit_results = hybrid_search(
-                    tiered_index,
-                    query + start * query_aligned_dim,
-                    this_split_size,
-                    query_aligned_dim,
-                    K,
-                    memory_L,
-                    search_threads,
-                    query_result_tags,
-                    res,
-                    beamwidth,
-                    data_path
-                );
-                calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
-                calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
-                query_result_tags.clear();
+        for (int split = 0; split < n_splits; split += 2) {
+            // Process each pair of splits twice
+            for (int repeat = 0; repeat < 2; ++repeat) {
+                // First split in the pair
+                size_t start = split * split_size;
+                size_t end = std::min(start + split_size, query_num);
+                if (start < end) {
+                    size_t this_split_size = end - start;
+                    std::vector<TagT> query_result_tags(this_split_size * K);
+                    for (int iter = 0; iter < n_iteration_per_split; ++iter) {
+                        std::vector<bool> hit_results = hybrid_search(
+                            tiered_index,
+                            query + start * query_aligned_dim,
+                            this_split_size,
+                            query_aligned_dim,
+                            K,
+                            memory_L,
+                            search_threads,
+                            query_result_tags,
+                            res,
+                            beamwidth,
+                            data_path
+                        );
+                        calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
+                        calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
+                        query_result_tags.clear();
+                    }
+                }
+                
+                // Second split in the pair
+                size_t start2 = (split + 1) * split_size;
+                size_t end2 = std::min(start2 + split_size, query_num);
+                size_t this_split_size2 = end2 - start2;
+                std::vector<TagT> query_result_tags2(this_split_size2 * K);
+                for (int iter = 0; iter < n_iteration_per_split; ++iter) {
+                    std::vector<bool> hit_results2 = hybrid_search(
+                        tiered_index,
+                        query + start2 * query_aligned_dim,
+                        this_split_size2,
+                        query_aligned_dim,
+                        K,
+                        memory_L,
+                        search_threads,
+                        query_result_tags2,
+                        res,
+                        beamwidth,
+                        data_path
+                    );
+                    calculate_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, this_split_size2, groundtruth_dim);
+                    calculate_hit_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, hit_results2, this_split_size2, groundtruth_dim);
+                    query_result_tags2.clear();
+                }
             }
         }
     }
@@ -259,8 +285,6 @@ int main(int argc, char **argv) {
     int n_rounds;
     uint32_t n_async_insert_threads = 4;
     bool lazy_theta_updates = true;
-    size_t hit_rate_window_size = 1000;
-    double hit_rate_threshold = 0.9;
     double consolidation_ratio = 0.2;
     uint32_t lru_async_threads = 4;
     po::options_description desc;
@@ -298,8 +322,6 @@ int main(int argc, char **argv) {
             ("n_splits", po::value<int>(&n_splits)->required(), "Number of splits for queries")
             ("n_rounds", po::value<int>(&n_rounds)->default_value(1), "Number of rounds to repeat all splits")
             ("n_async_insert_threads", po::value<uint32_t>(&n_async_insert_threads)->default_value(4), "Number of async insert threads")
-            ("hit_rate_window_size", po::value<size_t>(&hit_rate_window_size)->default_value(1000), "Number of requests to track for hit rate")
-            ("hit_rate_threshold", po::value<double>(&hit_rate_threshold)->default_value(0.9), "Hit rate threshold for consolidation (0.0-1.0)")
             ("consolidation_ratio", po::value<double>(&consolidation_ratio)->default_value(0.2), "Fraction of memory index to evict during consolidation (0.0-1.0)")
             ("lru_async_threads", po::value<uint32_t>(&lru_async_threads)->default_value(4), "Number of threads for LRU async operations")
             ("lazy_theta_updates", po::value<bool>(&lazy_theta_updates)->default_value(true), "Enable lazy theta updates (true) or immediate updates (false)");
@@ -350,18 +372,16 @@ int main(int argc, char **argv) {
         "  \"n_rounds\": {},\n"
         "  \"n_async_insert_threads\": {},\n"
         "  \"lazy_theta_updates\": {},\n"
-        "  \"hit_rate_window_size\": {},\n"
-        "  \"hit_rate_threshold\": {},\n"
         "  \"consolidation_ratio\": {},\n"
         "  \"lru_async_threads\": {}\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, consolidate_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, consolidation_ratio, lru_async_threads);
     if (data_type == "float") {
-        experiment_split<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
+        experiment_split<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, consolidation_ratio, lru_async_threads);
     } else if (data_type == "int8") {
-        experiment_split<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
+        experiment_split<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, consolidation_ratio, lru_async_threads);
     } else if (data_type == "uint8") {
-        experiment_split<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, hit_rate_window_size, hit_rate_threshold, consolidation_ratio, lru_async_threads);
+        experiment_split<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, consolidate_threads, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_theta_estimation_queries, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, consolidation_ratio, lru_async_threads);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }
