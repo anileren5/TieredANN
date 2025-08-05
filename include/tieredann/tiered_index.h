@@ -3,6 +3,7 @@
 #include "greator/aux_utils.h"
 #include "greator/linux_aligned_file_reader.h"
 #include "greator/utils.h"
+#include "greator/ctpl_stl.h"
 
 // DiskANN (Memory index) headers
 #include "diskann/index_factory.h"
@@ -19,6 +20,8 @@
 #include <cstring>
 #include <atomic>
 #include <future>
+#include <vector>
+#include <algorithm>
 
 namespace tieredann {
 
@@ -28,10 +31,9 @@ namespace tieredann {
         private:
             std::unique_ptr<greator::PQFlashIndex<T, TagT>> disk_index;
             
-            // Cycling shadow paging: Two memory indices that cycle between active and query-only
-            std::unique_ptr<diskann::AbstractIndex> index_a;
-            std::unique_ptr<diskann::AbstractIndex> index_b;
-            std::atomic<diskann::AbstractIndex*> active_insert_index; // Index for new insertions
+            // Cycling shadow paging: n memory indices that cycle between active and query-only
+            std::vector<std::unique_ptr<diskann::AbstractIndex>> memory_indices;
+            std::atomic<size_t> active_insert_index_id; // Index ID for new insertions
 
             // --- Index parameters ---
             std::string data_path;
@@ -39,6 +41,7 @@ namespace tieredann {
             size_t dim, aligned_dim;
             size_t num_points;
             size_t memory_index_max_points_per_index; // Capacity per index
+            size_t number_of_mini_indexes; // Number of mini indexes
             uint32_t search_threads;
             bool use_reconstructed_vectors;
             std::unique_ptr<tieredann::InsertThreadPool<T, TagT>> insert_pool;
@@ -48,12 +51,11 @@ namespace tieredann {
             uint32_t memory_L; 
             uint32_t disk_L;    
             bool use_regional_theta = true;
-            diskann::IndexWriteParameters memory_index_delete_params;
+
             uint32_t n_async_insert_threads = 4;
             bool lazy_theta_updates = true;
-
-            // --- Consolidation parameters ---
-            double consolidation_ratio_;
+            bool search_mini_indexes_in_parallel = false; // Control parallel vs sequential search
+            size_t max_search_threads = 32; // Maximum threads for parallel search (should be > query processing threads)
 
             // --- Cycling shadow paging state ---
             std::atomic<bool> cycling_in_progress{false};
@@ -62,6 +64,10 @@ namespace tieredann {
 
             // --- PCA utilities ---
             std::unique_ptr<PCAUtils<T>> pca_utils;
+
+            // --- Thread pool for parallel search ---
+            std::unique_ptr<ctpl::thread_pool> search_thread_pool;
+            std::mutex search_pool_mutex;
 
 
             
@@ -116,8 +122,8 @@ namespace tieredann {
                 
                 // Check if we need to trigger cycling shadow paging AFTER insertion
                 // Only trigger if the currently active index is full
-                diskann::AbstractIndex* current_active = active_insert_index.load();
-                if (index.get() == current_active && index->get_number_of_active_vectors() >= memory_index_max_points_per_index) {
+                size_t current_active_id = active_insert_index_id.load();
+                if (index.get() == memory_indices[current_active_id].get() && index->get_number_of_active_vectors() >= memory_index_max_points_per_index) {
                     // Always cycle when the currently active index is full
                     if (!cycling_in_progress.load()) {
                         // Start cycling shadow paging
@@ -143,8 +149,8 @@ namespace tieredann {
                 
                 // Check if we need to trigger cycling shadow paging AFTER insertion
                 // Only trigger if the currently active index is full
-                diskann::AbstractIndex* current_active = active_insert_index.load();
-                if (index.get() == current_active && index->get_number_of_active_vectors() >= memory_index_max_points_per_index) {
+                size_t current_active_id = active_insert_index_id.load();
+                if (index.get() == memory_indices[current_active_id].get() && index->get_number_of_active_vectors() >= memory_index_max_points_per_index) {
                     // Always cycle when the currently active index is full
                     if (!cycling_in_progress.load()) {
                         trigger_cycling_shadow_paging();
@@ -152,7 +158,7 @@ namespace tieredann {
                 }
             }
 
-            // Cycling shadow paging: switch to other index and clear the old one
+            // Cycling shadow paging: switch to next index and clear the old one
             void trigger_cycling_shadow_paging() {
                 std::lock_guard<std::mutex> lock(cycling_mutex);
                 
@@ -169,35 +175,20 @@ namespace tieredann {
             }
 
             void perform_cycling_shadow_paging() {
-                // Get current active insert index
-                diskann::AbstractIndex* current_active = active_insert_index.load();
-                bool switching_to_a = (current_active == index_b.get());
+                // Get current active insert index ID
+                size_t current_active_id = active_insert_index_id.load();
+                size_t next_active_id = (current_active_id + 1) % number_of_mini_indexes;
                         
                 // STEP 1: Replace the target index with a fresh empty one
                 // This preserves the current active index's hit points
-                if (switching_to_a) {
-                    index_a = create_memory_index(memory_index_max_points_per_index);
-                    std::cout << "[CYCLING] Replaced index A with fresh empty index" << std::endl;
-                } else {
-                    index_b = create_memory_index(memory_index_max_points_per_index);
-                    std::cout << "[CYCLING] Replaced index B with fresh empty index" << std::endl;
-                }
+                memory_indices[next_active_id] = create_memory_index(memory_index_max_points_per_index);
                 
                 // STEP 2: Switch active insert index to the fresh empty index
-                // New insertions go to the fresh index, but we can still hit from the preserved index
-                if (switching_to_a) {
-                    active_insert_index.store(index_a.get());
-                } else {
-                    active_insert_index.store(index_b.get());
-                }
-                
-                std::cout << "[CYCLING] Switched active index to " << (switching_to_a ? "A" : "B") << std::endl;
-                std::cout << "[CYCLING] Index A vectors: " << index_a->get_number_of_active_vectors() 
-                          << ", Index B vectors: " << index_b->get_number_of_active_vectors() << std::endl;
-                
+                // New insertions go to the fresh index, but we can still hit from the preserved indices
+                active_insert_index_id.store(next_active_id);
+                                                
                 // Cycling complete
                 cycling_in_progress.store(false);
-                std::cout << "[CYCLING] Cycling complete" << std::endl;
             }
 
             bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
@@ -225,6 +216,96 @@ namespace tieredann {
                 }
             }
 
+            // Helper function to search a single memory index
+            bool search_single_index(size_t index_id, const T* query_ptr, uint32_t K, uint32_t L, 
+                                   uint32_t* query_result_tags_ptr, std::vector<T*>& res, 
+                                   float* query_result_dists_ptr) {
+                if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
+                    memory_indices[index_id]->search_with_tags(query_ptr, K, L, query_result_tags_ptr, query_result_dists_ptr, res);
+                    return this->isHit(query_ptr, K, L, query_result_dists_ptr);
+                }
+                return false;
+            }
+
+            // Parallel search across all memory indices using thread pool
+            bool parallel_search_memory_indices(const T* query_ptr, uint32_t K, uint32_t L,
+                                              uint32_t* query_result_tags_ptr, std::vector<T*>& res,
+                                              float* query_result_dists_ptr) {
+                if (number_of_mini_indexes == 1) {
+                    // Single index case - no need for parallelization
+                    return search_single_index(0, query_ptr, K, L, query_result_tags_ptr, res, query_result_dists_ptr);
+                }
+
+                // Ensure thread pool is initialized
+                {
+                    std::lock_guard<std::mutex> lock(search_pool_mutex);
+                    if (!search_thread_pool) {
+                        // Create thread pool with enough threads to handle concurrent searches
+                        // The pool should be sized to handle the maximum number of concurrent searches
+                        // For n memory indices, we need at least n threads to search them all in parallel
+                        // The max_search_threads parameter provides an upper limit
+                        size_t pool_size = std::min(max_search_threads, std::max(number_of_mini_indexes, static_cast<size_t>(8)));
+                        search_thread_pool = std::make_unique<ctpl::thread_pool>(static_cast<int>(pool_size));
+                    }
+                }
+
+                // Prepare results for each index
+                std::vector<std::vector<uint32_t>> all_tags(number_of_mini_indexes);
+                std::vector<std::vector<float>> all_dists(number_of_mini_indexes);
+                std::vector<std::vector<T*>> all_res(number_of_mini_indexes);
+                std::vector<bool> hit_results(number_of_mini_indexes, false);
+                std::vector<std::mutex> result_mutexes(number_of_mini_indexes);
+                std::vector<std::future<void>> futures;
+
+                // Lambda function for parallel search
+                auto search_worker = [&](int thread_id, size_t index_id) {
+                    if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
+                        // Allocate temporary storage for this thread
+                        std::vector<uint32_t> temp_tags(K);
+                        std::vector<float> temp_dists(K);
+                        std::vector<T*> temp_res;
+
+                        // Search in this index
+                        memory_indices[index_id]->search_with_tags(query_ptr, K, L, temp_tags.data(), temp_dists.data(), temp_res);
+                        
+                        // Check if this is a hit
+                        bool is_hit = this->isHit(query_ptr, K, L, temp_dists.data());
+                        
+                        // Store results atomically
+                        {
+                            std::lock_guard<std::mutex> lock(result_mutexes[index_id]);
+                            all_tags[index_id] = std::move(temp_tags);
+                            all_dists[index_id] = std::move(temp_dists);
+                            all_res[index_id] = std::move(temp_res);
+                            hit_results[index_id] = is_hit;
+                        }
+                    }
+                };
+
+                // Submit tasks to thread pool
+                for (size_t i = 0; i < number_of_mini_indexes; ++i) {
+                    futures.push_back(search_thread_pool->push(search_worker, i));
+                }
+
+                // Wait for all tasks to complete
+                for (auto& future : futures) {
+                    future.get();
+                }
+
+                // Find the first hit and use its results
+                for (size_t i = 0; i < number_of_mini_indexes; ++i) {
+                    if (hit_results[i]) {
+                        // Copy the winning results to the output
+                        std::copy(all_tags[i].begin(), all_tags[i].end(), query_result_tags_ptr);
+                        std::copy(all_dists[i].begin(), all_dists[i].end(), query_result_dists_ptr);
+                        res = std::move(all_res[i]);
+                        return true;
+                    }
+                }
+
+                return false; // No hits found
+            }
+
         public:
             template <typename... Args>
             TieredIndex(const std::string& data_path,
@@ -232,22 +313,21 @@ namespace tieredann {
                         uint32_t R, uint32_t memory_L, uint32_t disk_L,
                         uint32_t B, uint32_t M,
                         float alpha,
-                        uint32_t consolidate_threads,
                         uint32_t build_threads,
                         uint32_t search_threads,
                         int disk_index_already_built,
                         bool use_reconstructed_vectors,
                         double p,
                         double deviation_factor, 
-                        uint32_t n_theta_estimation_queries,
                         size_t memory_index_max_points,
                         bool use_regional_theta = true,
                         size_t pca_dim = 16,
                         size_t buckets_per_dim = 4,
                         uint32_t n_async_insert_threads_ = 4,
                         bool lazy_theta_updates_ = true,
-                        double consolidation_ratio = 0.2,
-                        uint32_t lru_async_threads = 4)
+                        size_t number_of_mini_indexes_ = 2,
+                        bool search_mini_indexes_in_parallel_ = false,
+                        size_t max_search_threads_ = 32)
                         : data_path(data_path),
                         disk_index_prefix(disk_index_prefix),
                         search_threads(search_threads),
@@ -257,29 +337,31 @@ namespace tieredann {
                         memory_L(memory_L),
                         disk_L(disk_L),
                         use_regional_theta(use_regional_theta),
-                        memory_index_max_points_per_index(memory_index_max_points / 2), // Half for each index
+                        number_of_mini_indexes(number_of_mini_indexes_),
+                        memory_index_max_points_per_index(memory_index_max_points / number_of_mini_indexes_), // Equal capacity per index
                         n_async_insert_threads(n_async_insert_threads_),
                         lazy_theta_updates(lazy_theta_updates_),
-                        consolidation_ratio_(consolidation_ratio),
-                        memory_index_delete_params(diskann::IndexWriteParametersBuilder(memory_L, R)
-                                                .with_alpha(alpha)
-                                                .with_num_threads(consolidate_threads)
-                                                .with_filter_list_size(memory_L)
-                                                .build())
+                        search_mini_indexes_in_parallel(search_mini_indexes_in_parallel_),
+                        max_search_threads(max_search_threads_)
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
                 aligned_dim = ROUND_UP(dim, 8);
 
                 // Build cycling shadow paging memory indices
-                index_a = create_memory_index(memory_index_max_points_per_index);
-                index_b = create_memory_index(memory_index_max_points_per_index);
+                memory_indices.reserve(number_of_mini_indexes);
+                for (size_t i = 0; i < number_of_mini_indexes; ++i) {
+                    memory_indices.push_back(create_memory_index(memory_index_max_points_per_index));
+                }
                 
-                // Set index_a as active initially for insertions
-                active_insert_index.store(index_a.get());
+                // Set index 0 as active initially for insertions
+                active_insert_index_id.store(0);
             
                 std::cout << "TieredIndex shadow paging memory indices built successfully!" << std::endl;
-                std::cout << "Each index can hold up to " << memory_index_max_points_per_index << " vectors" << std::endl;
+                std::cout << "Created " << number_of_mini_indexes << " indices, each can hold up to " << memory_index_max_points_per_index << " vectors" << std::endl;
+                if (search_mini_indexes_in_parallel) {
+                    std::cout << "Parallel search enabled with max " << max_search_threads << " threads" << std::endl;
+                }
 
                 // Build disk index
                 if (disk_index_already_built == 0) {
@@ -366,24 +448,30 @@ namespace tieredann {
 
 
             bool search(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
-                // Get current active insert index (atomic read)
-                diskann::AbstractIndex* current_active = active_insert_index.load();
+                // Get current active insert index ID (atomic read)
+                size_t current_active_id = active_insert_index_id.load();
                 
-                // Always search in both indices
+                // Search all memory indices (parallel or sequential based on configuration)
                 bool is_hit = false;
-                
-                // Try current active index first
-                if (current_active->get_number_of_active_vectors() > 0) {
-                    current_active->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
-                    is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
-                }
-                
-                // If miss in current active index, try the other index
-                if (!is_hit) {
-                    diskann::AbstractIndex* other_index = (current_active == index_a.get()) ? index_b.get() : index_a.get();
-                    if (other_index->get_number_of_active_vectors() > 0) {
-                        other_index->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                if (search_mini_indexes_in_parallel && number_of_mini_indexes > 1) {
+                    is_hit = parallel_search_memory_indices(query_ptr, K, memory_L, query_result_tags_ptr, res, query_result_dists_ptr);
+                } else {
+                    // Sequential search (original logic)
+                    // Try current active index first
+                    if (memory_indices[current_active_id]->get_number_of_active_vectors() > 0) {
+                        memory_indices[current_active_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
                         is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                    }
+                    
+                    // If miss in current active index, try all other indices
+                    if (!is_hit) {
+                        for (size_t i = 0; i < number_of_mini_indexes; ++i) {
+                            if (i != current_active_id && memory_indices[i]->get_number_of_active_vectors() > 0) {
+                                memory_indices[i]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                                is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                                if (is_hit) break; // Found a hit, no need to search further
+                            }
+                        }
                     }
                 }
                 
@@ -402,19 +490,11 @@ namespace tieredann {
                         std::memcpy(query_copy, query_ptr, this->aligned_dim * sizeof(T));
                         
                         // Submit to insert pool with current active index
-                        if (current_active == index_a.get()) {
-                            insert_pool->submit(index_a, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
-                        } else {
-                            insert_pool->submit(index_b, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
-                        }
+                        insert_pool->submit(memory_indices[current_active_id], tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
                     } else {
                         // Immediate theta update in main thread
                         update_theta(query_ptr, K, query_result_dists_ptr[K - 1]);
-                        if (current_active == index_a.get()) {
-                            insert_pool->submit(index_a, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
-                        } else {
-                            insert_pool->submit(index_b, tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
-                        }
+                        insert_pool->submit(memory_indices[current_active_id], tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
                     }
                     
                     for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
@@ -423,11 +503,15 @@ namespace tieredann {
             }
 
             size_t get_number_of_vectors_in_memory_index() const {
-                return index_a->get_number_of_active_vectors() + index_b->get_number_of_active_vectors();
+                size_t total = 0;
+                for (const auto& index : memory_indices) {
+                    total += index->get_number_of_active_vectors();
+                }
+                return total;
             }
 
             size_t get_number_of_max_points_in_memory_index() const {
-                return memory_index_max_points_per_index * 2; // Total capacity across both indices
+                return memory_index_max_points_per_index * number_of_mini_indexes; // Total capacity across all indices
             }
 
             // New methods for cycling shadow paging status
@@ -435,16 +519,27 @@ namespace tieredann {
                 return cycling_in_progress.load();
             }
 
-            size_t get_index_a_vector_count() const {
-                return index_a->get_number_of_active_vectors();
+            size_t get_index_vector_count(size_t index_id) const {
+                if (index_id < number_of_mini_indexes) {
+                    return memory_indices[index_id]->get_number_of_active_vectors();
+                }
+                return 0;
             }
 
-            size_t get_index_b_vector_count() const {
-                return index_b->get_number_of_active_vectors();
+            size_t get_active_index_id() const {
+                return active_insert_index_id.load();
             }
 
-            bool is_index_a_active() const {
-                return active_insert_index.load() == index_a.get();
+            size_t get_number_of_mini_indexes() const {
+                return number_of_mini_indexes;
+            }
+
+            bool is_parallel_search_enabled() const {
+                return search_mini_indexes_in_parallel;
+            }
+
+            size_t get_max_search_threads() const {
+                return max_search_threads;
             }
 
             size_t get_number_of_active_pca_regions() const {

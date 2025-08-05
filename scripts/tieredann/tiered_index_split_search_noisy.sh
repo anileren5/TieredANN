@@ -16,14 +16,12 @@ K=100
 B=8
 M=8
 ALPHA=1.2
-SEARCH_THREADS=32
+SEARCH_THREADS=24
 BUILD_THREADS=8
-CONSOLIDATE_THREADS=8
 DISK_INDEX_PREFIX="./index/${DATASET}/${DATASET}"
 DISK_INDEX_ALREADY_BUILT=1
 BEAMWIDTH=2
 USE_RECONSTRUCTED_VECTORS=0
-N_THETA_ESTIMATION_QUERIES=1000
 P=0.90
 DEVIATION_FACTOR=0.025
 N_ITERATION_PER_SPLIT=60 # Number of search iterations per split
@@ -33,11 +31,12 @@ SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
-MEMORY_INDEX_MAX_POINTS=1000000 # Set to desired max points for memory index
+MEMORY_INDEX_MAX_POINTS=200000 # Set to desired max points for memory index
 N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
 LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates
-CONSOLIDATION_RATIO=0.25 # Fraction of memory index to evict during consolidation (0.0-1.0)
-LRU_ASYNC_THREADS=4 # Number of threads for LRU async operations
+NUMBER_OF_MINI_INDEXES=2 # Number of mini indexes for shadow cycling
+SEARCH_MINI_INDEXES_IN_PARALLEL=false # Set to true to search mini indexes in parallel
+MAX_SEARCH_THREADS=32 # Maximum threads for parallel search
 
 # Run the test with all parameters
 ./build/tests/tiered_index_split_search_noisy \
@@ -54,14 +53,12 @@ LRU_ASYNC_THREADS=4 # Number of threads for LRU async operations
   --alpha "$ALPHA" \
   --search_threads "$SEARCH_THREADS" \
   --build_threads "$BUILD_THREADS" \
-  --consolidate_threads "$CONSOLIDATE_THREADS" \
   --disk_index_already_built "$DISK_INDEX_ALREADY_BUILT" \
   --beamwidth "$BEAMWIDTH" \
   --disk_index_prefix "$DISK_INDEX_PREFIX" \
   --use_reconstructed_vectors "$USE_RECONSTRUCTED_VECTORS" \
   --p "$P" \
   --deviation_factor "$DEVIATION_FACTOR" \
-  --n_theta_estimation_queries "$N_THETA_ESTIMATION_QUERIES" \
   --n_iteration_per_split "$N_ITERATION_PER_SPLIT" \
   --sector_len "$SECTOR_LEN" \
   --use_regional_theta "$USE_REGIONAL_THETA" \
@@ -72,5 +69,6 @@ LRU_ASYNC_THREADS=4 # Number of threads for LRU async operations
   --n_rounds "$N_ROUNDS" \
   --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" \
   --lazy_theta_updates "$LAZY_THETA_UPDATES" \
-  --consolidation_ratio "$CONSOLIDATION_RATIO" \
-  --lru_async_threads "$LRU_ASYNC_THREADS" 
+  --number_of_mini_indexes "$NUMBER_OF_MINI_INDEXES" \
+  --search_mini_indexes_in_parallel "$SEARCH_MINI_INDEXES_IN_PARALLEL" \
+  --max_search_threads "$MAX_SEARCH_THREADS" 
