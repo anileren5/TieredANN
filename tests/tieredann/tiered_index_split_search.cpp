@@ -216,37 +216,38 @@ void experiment_split(
     size_t split_size = (query_num + n_splits - 1) / n_splits;
     for (int round = 0; round < n_rounds; ++round) {
         for (int split = 0; split < n_splits; split += 2) {
-            // Process each pair of splits twice
-            for (int repeat = 0; repeat < 2; ++repeat) {
-                // First split in the pair
-                size_t start = split * split_size;
-                size_t end = std::min(start + split_size, query_num);
-                if (start < end) {
-                    size_t this_split_size = end - start;
-                    std::vector<TagT> query_result_tags(this_split_size * K);
-                    for (int iter = 0; iter < n_iteration_per_split; ++iter) {
-                        std::vector<bool> hit_results = hybrid_search(
-                            tiered_index,
-                            query + start * query_aligned_dim,
-                            this_split_size,
-                            query_aligned_dim,
-                            K,
-                            memory_L,
-                            search_threads,
-                            query_result_tags,
-                            res,
-                            beamwidth,
-                            data_path
-                        );
-                        calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
-                        calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
-                        query_result_tags.clear();
-                    }
+            // Process splits in pattern: 1, 2, 2, 1, 3, 4, 4, 3, 5, 6, 6, 5, etc.
+            
+            // First split in the pair
+            size_t start = split * split_size;
+            size_t end = std::min(start + split_size, query_num);
+            if (start < end) {
+                size_t this_split_size = end - start;
+                std::vector<TagT> query_result_tags(this_split_size * K);
+                for (int iter = 0; iter < n_iteration_per_split; ++iter) {
+                    std::vector<bool> hit_results = hybrid_search(
+                        tiered_index,
+                        query + start * query_aligned_dim,
+                        this_split_size,
+                        query_aligned_dim,
+                        K,
+                        memory_L,
+                        search_threads,
+                        query_result_tags,
+                        res,
+                        beamwidth,
+                        data_path
+                    );
+                    calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
+                    calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
+                    query_result_tags.clear();
                 }
-                
-                // Second split in the pair
-                size_t start2 = (split + 1) * split_size;
-                size_t end2 = std::min(start2 + split_size, query_num);
+            }
+            
+            // Second split in the pair
+            size_t start2 = (split + 1) * split_size;
+            size_t end2 = std::min(start2 + split_size, query_num);
+            if (start2 < end2) {
                 size_t this_split_size2 = end2 - start2;
                 std::vector<TagT> query_result_tags2(this_split_size2 * K);
                 for (int iter = 0; iter < n_iteration_per_split; ++iter) {
@@ -266,6 +267,54 @@ void experiment_split(
                     calculate_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, this_split_size2, groundtruth_dim);
                     calculate_hit_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, hit_results2, this_split_size2, groundtruth_dim);
                     query_result_tags2.clear();
+                }
+            }
+            
+            // Second split in the pair again (reverse order)
+            if (start2 < end2) {
+                size_t this_split_size2 = end2 - start2;
+                std::vector<TagT> query_result_tags2(this_split_size2 * K);
+                for (int iter = 0; iter < n_iteration_per_split; ++iter) {
+                    std::vector<bool> hit_results2 = hybrid_search(
+                        tiered_index,
+                        query + start2 * query_aligned_dim,
+                        this_split_size2,
+                        query_aligned_dim,
+                        K,
+                        memory_L,
+                        search_threads,
+                        query_result_tags2,
+                        res,
+                        beamwidth,
+                        data_path
+                    );
+                    calculate_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, this_split_size2, groundtruth_dim);
+                    calculate_hit_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, hit_results2, this_split_size2, groundtruth_dim);
+                    query_result_tags2.clear();
+                }
+            }
+            
+            // First split in the pair again (reverse order)
+            if (start < end) {
+                size_t this_split_size = end - start;
+                std::vector<TagT> query_result_tags(this_split_size * K);
+                for (int iter = 0; iter < n_iteration_per_split; ++iter) {
+                    std::vector<bool> hit_results = hybrid_search(
+                        tiered_index,
+                        query + start * query_aligned_dim,
+                        this_split_size,
+                        query_aligned_dim,
+                        K,
+                        memory_L,
+                        search_threads,
+                        query_result_tags,
+                        res,
+                        beamwidth,
+                        data_path
+                    );
+                    calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
+                    calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
+                    query_result_tags.clear();
                 }
             }
         }

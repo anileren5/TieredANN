@@ -4,7 +4,7 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="sift"
+DATASET="deep1m"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
@@ -34,7 +34,7 @@ BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=200000 # Set to desired max points for memory index
 N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
 LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates
-NUMBER_OF_MINI_INDEXES=2 # Number of mini indexes for shadow cycling
+NUMBER_OF_MINI_INDEXES=4 # Number of mini indexes for shadow cycling
 SEARCH_MINI_INDEXES_IN_PARALLEL=false # Set to true to search mini indexes in parallel
 MAX_SEARCH_THREADS=32 # Maximum threads for parallel search
 

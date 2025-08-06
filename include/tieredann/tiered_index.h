@@ -13,6 +13,7 @@
 #include <cstdint>
 #include "tieredann/insert_thread_pool.h"
 #include "tieredann/pca_utils.h"
+#include "tieredann/lru_cache.h"
 #include <unordered_map>
 #include <mutex>
 #include <type_traits>
@@ -31,9 +32,12 @@ namespace tieredann {
         private:
             std::unique_ptr<greator::PQFlashIndex<T, TagT>> disk_index;
             
-            // Cycling shadow paging: n memory indices that cycle between active and query-only
+            // LRU-managed memory indices: n memory indices managed by LRU eviction
             std::vector<std::unique_ptr<diskann::AbstractIndex>> memory_indices;
             std::atomic<size_t> active_insert_index_id; // Index ID for new insertions
+
+            // --- LRU Cache for managing mini-index access patterns ---
+            std::unique_ptr<LRUCache<size_t>> lru_cache; // Tracks mini-index usage
 
             // --- Index parameters ---
             std::string data_path;
@@ -57,10 +61,10 @@ namespace tieredann {
             bool search_mini_indexes_in_parallel = false; // Control parallel vs sequential search
             size_t max_search_threads = 32; // Maximum threads for parallel search (should be > query processing threads)
 
-            // --- Cycling shadow paging state ---
-            std::atomic<bool> cycling_in_progress{false};
-            std::future<void> cycling_future;
-            std::mutex cycling_mutex;
+            // --- LRU eviction state ---
+            std::atomic<bool> eviction_in_progress{false};
+            std::future<void> eviction_future;
+            std::mutex eviction_mutex;
 
             // --- PCA utilities ---
             std::unique_ptr<PCAUtils<T>> pca_utils;
@@ -120,14 +124,14 @@ namespace tieredann {
                     if (ret == 0) ++successful_inserts;
                 }
                 
-                // Check if we need to trigger cycling shadow paging AFTER insertion
+                // Check if we need to trigger LRU eviction AFTER insertion
                 // Only trigger if the currently active index is full
                 size_t current_active_id = active_insert_index_id.load();
                 if (index.get() == memory_indices[current_active_id].get() && index->get_number_of_active_vectors() >= memory_index_max_points_per_index) {
-                    // Always cycle when the currently active index is full
-                    if (!cycling_in_progress.load()) {
-                        // Start cycling shadow paging
-                        trigger_cycling_shadow_paging();
+                    // Always evict when the currently active index is full
+                    if (!eviction_in_progress.load()) {
+                        // Start LRU eviction
+                        trigger_eviction();
                     }
                 }
                 
@@ -147,48 +151,91 @@ namespace tieredann {
                     if (ret == 0) ++successful_inserts;
                 }
                 
-                // Check if we need to trigger cycling shadow paging AFTER insertion
+                // Check if we need to trigger LRU eviction AFTER insertion
                 // Only trigger if the currently active index is full
                 size_t current_active_id = active_insert_index_id.load();
                 if (index.get() == memory_indices[current_active_id].get() && index->get_number_of_active_vectors() >= memory_index_max_points_per_index) {
-                    // Always cycle when the currently active index is full
-                    if (!cycling_in_progress.load()) {
-                        trigger_cycling_shadow_paging();
+                    // Always evict when the currently active index is full
+                    if (!eviction_in_progress.load()) {
+                        trigger_eviction();
                     }
                 }
             }
 
-            // Cycling shadow paging: switch to next index and clear the old one
-            void trigger_cycling_shadow_paging() {
-                std::lock_guard<std::mutex> lock(cycling_mutex);
+            // LRU eviction: evict the least recently used index and replace with fresh one
+            void trigger_eviction() {
+                std::lock_guard<std::mutex> lock(eviction_mutex);
                 
-                if (cycling_in_progress.load()) {
+                if (eviction_in_progress.load()) {
                     return; // Already in progress
                 }
                 
-                cycling_in_progress.store(true);
+                eviction_in_progress.store(true);
                 
-                // Start background cycling
-                cycling_future = std::async(std::launch::async, [this]() {
-                    this->perform_cycling_shadow_paging();
+                // Start background eviction
+                eviction_future = std::async(std::launch::async, [this]() {
+                    this->perform_eviction();
                 });
             }
 
-            void perform_cycling_shadow_paging() {
-                // Get current active insert index ID
-                size_t current_active_id = active_insert_index_id.load();
-                size_t next_active_id = (current_active_id + 1) % number_of_mini_indexes;
-                        
-                // STEP 1: Replace the target index with a fresh empty one
-                // This preserves the current active index's hit points
-                memory_indices[next_active_id] = create_memory_index(memory_index_max_points_per_index);
+            void perform_eviction() {
+                // Debug: Show current LRU order before eviction
+                std::vector<size_t> current_lru_order = lru_cache->get_all_tags();
+                std::cout << "[LRU Eviction] Current LRU order before eviction: ";
+                for (size_t idx : current_lru_order) {
+                    std::cout << idx << " ";
+                }
+                std::cout << std::endl;
                 
-                // STEP 2: Switch active insert index to the fresh empty index
-                // New insertions go to the fresh index, but we can still hit from the preserved indices
-                active_insert_index_id.store(next_active_id);
-                                                
-                // Cycling complete
-                cycling_in_progress.store(false);
+                // Get the least recently used index ID from LRU cache
+                std::vector<size_t> lru_tags = lru_cache->get_lru_tags(1);
+                if (lru_tags.empty()) {
+                    // Fallback to cycling if LRU cache is empty
+                    size_t current_active_id = active_insert_index_id.load();
+                    size_t next_active_id = (current_active_id + 1) % number_of_mini_indexes;
+                    std::cout << "[LRU Eviction] Fallback: Evicting index " << next_active_id << std::endl;
+                    memory_indices[next_active_id] = create_memory_index(memory_index_max_points_per_index);
+                    active_insert_index_id.store(next_active_id);
+                } else {
+                    size_t lru_index_id = lru_tags[0];
+                    
+                    // Check if this is the only index in the cache
+                    if (current_lru_order.size() == 1) {
+                        // If only one index remains, don't evict it - this prevents infinite eviction loop
+                        std::cout << "[LRU Eviction] Only one index remaining (" << lru_index_id << "), skipping eviction to prevent infinite loop" << std::endl;
+                        eviction_in_progress.store(false);
+                        return;
+                    }
+                    
+                    std::cout << "[LRU Eviction] Evicting least recently used index: " << lru_index_id << std::endl;
+                    // STEP 1: Replace the LRU index with a fresh empty one
+                    memory_indices[lru_index_id] = create_memory_index(memory_index_max_points_per_index);
+                    // STEP 2: Switch active insert index to the fresh empty index
+                    active_insert_index_id.store(lru_index_id);
+                    // STEP 3: Remove the evicted index from LRU cache and add the new active index
+                    // Note: We don't need to explicitly evict since we're replacing the same index ID
+                    lru_cache->access(lru_index_id); // This will move the index to front (most recently used)
+                }
+                
+                // Debug: Show new LRU order after eviction
+                std::vector<size_t> new_lru_order = lru_cache->get_all_tags();
+                std::cout << "[LRU Eviction] New LRU order after eviction: ";
+                for (size_t idx : new_lru_order) {
+                    std::cout << idx << " ";
+                }
+                std::cout << std::endl;
+                std::cout << "[LRU Eviction] LRU cache size: " << lru_cache->size() << "/" << lru_cache->max_capacity() << std::endl;
+                
+                // Ensure all indices are present in the LRU cache
+                for (size_t i = 0; i < number_of_mini_indexes; ++i) {
+                    if (!lru_cache->contains(i)) {
+                        std::cout << "[LRU Eviction] Warning: Index " << i << " missing from LRU cache, adding it" << std::endl;
+                        lru_cache->access(i);
+                    }
+                }
+                
+                // Eviction complete
+                eviction_in_progress.store(false);
             }
 
             bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
@@ -222,7 +269,14 @@ namespace tieredann {
                                    float* query_result_dists_ptr) {
                 if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
                     memory_indices[index_id]->search_with_tags(query_ptr, K, L, query_result_tags_ptr, query_result_dists_ptr, res);
-                    return this->isHit(query_ptr, K, L, query_result_dists_ptr);
+                    bool is_hit = this->isHit(query_ptr, K, L, query_result_dists_ptr);
+                    
+                    // Only update LRU cache if this search resulted in a hit
+                    if (is_hit) {
+                        lru_cache->access(index_id);
+                    }
+                    
+                    return is_hit;
                 }
                 return false;
             }
@@ -270,6 +324,11 @@ namespace tieredann {
                         
                         // Check if this is a hit
                         bool is_hit = this->isHit(query_ptr, K, L, temp_dists.data());
+                        
+                        // Only update LRU cache if this search resulted in a hit
+                        if (is_hit) {
+                            lru_cache->access(index_id);
+                        }
                         
                         // Store results atomically
                         {
@@ -348,17 +407,27 @@ namespace tieredann {
                 diskann::get_bin_metadata(data_path, num_points, dim);
                 aligned_dim = ROUND_UP(dim, 8);
 
-                // Build cycling shadow paging memory indices
+                // Build LRU-managed memory indices
                 memory_indices.reserve(number_of_mini_indexes);
                 for (size_t i = 0; i < number_of_mini_indexes; ++i) {
                     memory_indices.push_back(create_memory_index(memory_index_max_points_per_index));
                 }
                 
+                // Initialize LRU cache for managing mini-index access patterns
+                lru_cache = std::make_unique<LRUCache<size_t>>(number_of_mini_indexes);
+                
                 // Set index 0 as active initially for insertions
                 active_insert_index_id.store(0);
+                
+                // Initialize LRU cache with ALL indices (not just the active one)
+                // This ensures we have a complete LRU order from the start
+                for (size_t i = 0; i < number_of_mini_indexes; ++i) {
+                    lru_cache->access(i);
+                }
             
-                std::cout << "TieredIndex shadow paging memory indices built successfully!" << std::endl;
+                std::cout << "TieredIndex LRU-managed memory indices built successfully!" << std::endl;
                 std::cout << "Created " << number_of_mini_indexes << " indices, each can hold up to " << memory_index_max_points_per_index << " vectors" << std::endl;
+                std::cout << "LRU eviction policy enabled" << std::endl;
                 if (search_mini_indexes_in_parallel) {
                     std::cout << "Parallel search enabled with max " << max_search_threads << " threads" << std::endl;
                 }
@@ -412,7 +481,7 @@ namespace tieredann {
                     }
                 }
 
-                std::cout << "TieredIndex built successfully with shadow paging!" << std::endl;
+                std::cout << "TieredIndex built successfully with LRU eviction policy!" << std::endl;
 
                 // PCA is constructed at construction time using Eigen. Eigen is required.
                 if (use_regional_theta) {
@@ -456,20 +525,19 @@ namespace tieredann {
                 if (search_mini_indexes_in_parallel && number_of_mini_indexes > 1) {
                     is_hit = parallel_search_memory_indices(query_ptr, K, memory_L, query_result_tags_ptr, res, query_result_dists_ptr);
                 } else {
-                    // Sequential search (original logic)
-                    // Try current active index first
-                    if (memory_indices[current_active_id]->get_number_of_active_vectors() > 0) {
-                        memory_indices[current_active_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
-                        is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
-                    }
+                    // Sequential search in LRU order (most recently used first)
+                    std::vector<size_t> lru_order = lru_cache->get_all_tags();
                     
-                    // If miss in current active index, try all other indices
-                    if (!is_hit) {
-                        for (size_t i = 0; i < number_of_mini_indexes; ++i) {
-                            if (i != current_active_id && memory_indices[i]->get_number_of_active_vectors() > 0) {
-                                memory_indices[i]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
-                                is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
-                                if (is_hit) break; // Found a hit, no need to search further
+                    // Search indices in LRU order (most recently used first)
+                    for (size_t index_id : lru_order) {
+                        if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
+                            memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                            is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                            
+                            // Only update LRU cache if this search resulted in a hit
+                            if (is_hit) {
+                                lru_cache->access(index_id);
+                                break; // Found a hit, no need to search further
                             }
                         }
                     }
@@ -514,9 +582,9 @@ namespace tieredann {
                 return memory_index_max_points_per_index * number_of_mini_indexes; // Total capacity across all indices
             }
 
-            // New methods for cycling shadow paging status
-            bool is_cycling_in_progress() const {
-                return cycling_in_progress.load();
+            // New methods for LRU eviction status
+            bool is_eviction_in_progress() const {
+                return eviction_in_progress.load();
             }
 
             size_t get_index_vector_count(size_t index_id) const {
@@ -547,6 +615,23 @@ namespace tieredann {
                     return pca_utils->get_number_of_active_regions();
                 }
                 return 0;
+            }
+
+            // LRU management methods
+            std::vector<size_t> get_lru_order() const {
+                return lru_cache->get_all_tags();
+            }
+
+            std::vector<size_t> get_most_recently_used_indices(size_t n) const {
+                return lru_cache->get_mru_tags(n);
+            }
+
+            std::vector<size_t> get_least_recently_used_indices(size_t n) const {
+                return lru_cache->get_lru_tags(n);
+            }
+
+            size_t get_lru_cache_size() const {
+                return lru_cache->size();
             }
 
 
