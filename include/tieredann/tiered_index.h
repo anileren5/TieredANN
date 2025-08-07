@@ -23,6 +23,7 @@
 #include <future>
 #include <vector>
 #include <algorithm>
+#include <deque>
 
 namespace tieredann {
 
@@ -73,8 +74,26 @@ namespace tieredann {
             std::unique_ptr<ctpl::thread_pool> search_thread_pool;
             std::mutex search_pool_mutex;
 
+        public:
+            // Configuration option to choose search strategy
+            enum class SearchStrategy {
+                SEQUENTIAL_LRU_STOP_FIRST_HIT,  // Problematic: Stop at first hit in LRU order (causes recall drops)
+                SEQUENTIAL_LRU_ADAPTIVE,  // Adaptive: Monitor hit ratio, switch to SEQUENTIAL_ALL when low
+                SEQUENTIAL_ALL,           // Search all indices sequentially, pick best result
+                PARALLEL                  // Parallel search (existing implementation)
+            };
 
+        private:
+            // Search strategy for the public search method
+            SearchStrategy search_strategy = SearchStrategy::SEQUENTIAL_LRU_STOP_FIRST_HIT;
             
+            // Hit ratio monitoring for adaptive strategy
+            std::deque<bool> hit_history;  // Sliding window of hit/miss results
+            std::mutex hit_history_mutex;
+            size_t hit_ratio_window_size = 100;  // Default window size
+            double hit_ratio_threshold = 0.90;   // Default threshold (90%)
+            bool use_adaptive_strategy = false;  // Whether to use adaptive behavior
+
             // Helper function to create a memory index with given max points
             std::unique_ptr<diskann::AbstractIndex> create_memory_index(size_t max_points) {
                 diskann::IndexWriteParameters memory_index_write_params = diskann::IndexWriteParametersBuilder(memory_L, aligned_dim)
@@ -365,6 +384,151 @@ namespace tieredann {
                 return false; // No hits found
             }
 
+
+
+            // Problematic search strategy: stop at first hit in LRU order (causes recall drops)
+            bool search_sequential_lru_stop_first_hit(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
+                // Get current active insert index ID (atomic read)
+                size_t current_active_id = active_insert_index_id.load();
+                
+                // Sequential search in LRU order (most recently used first)
+                // ORIGINAL PROBLEMATIC BEHAVIOR: Stop at first hit
+                std::vector<size_t> lru_order = lru_cache->get_all_tags();
+                
+                for (size_t index_id : lru_order) {
+                    if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
+                        memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                        bool is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                        
+                        // Only update LRU cache if this search resulted in a hit
+                        if (is_hit) {
+                            lru_cache->access(index_id);
+                            return true; // Found a hit, stop immediately (this was the problem!)
+                        }
+                    }
+                }
+                
+                // No hit found in memory indices, search disk
+                this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
+                std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
+                
+                if (lazy_theta_updates) {
+                    // Copy query pointer for async insertion and theta update
+                    T* query_copy = nullptr;
+                    diskann::alloc_aligned((void**)&query_copy, this->aligned_dim * sizeof(T), 8 * sizeof(T));
+                    std::memcpy(query_copy, query_ptr, this->aligned_dim * sizeof(T));
+                    
+                    // Submit to insert pool with current active index
+                    insert_pool->submit(memory_indices[current_active_id], tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
+                } else {
+                    // Immediate theta update in main thread
+                    update_theta(query_ptr, K, query_result_dists_ptr[K - 1]);
+                    insert_pool->submit(memory_indices[current_active_id], tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
+                }
+                
+                for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
+                return false; // Return false if the query is missed in the memory index
+            }
+
+            // Adaptive search strategy: monitor hit ratio and switch to SEQUENTIAL_ALL when low
+            bool search_adaptive_hit_ratio(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
+                // Check if we should use adaptive strategy (hit ratio is low)
+                bool use_adaptive = should_use_adaptive_strategy();
+                
+                bool was_hit;
+                
+                if (use_adaptive) {
+                    // Use SEQUENTIAL_ALL strategy when hit ratio is low
+                    was_hit = search_sequential_all_impl(query_ptr, K, L, query_result_tags_ptr, res, beamwidth, query_result_dists_ptr, stat);
+                } else {
+                    // Use SEQUENTIAL_LRU_STOP_FIRST_HIT strategy when hit ratio is good
+                    was_hit = search_sequential_lru_stop_first_hit(query_ptr, K, L, query_result_tags_ptr, res, beamwidth, query_result_dists_ptr, stat);
+                }
+                
+                // Update hit history for monitoring
+                update_hit_history(was_hit);
+                
+                return was_hit;
+            }
+            
+            // Helper method for SEQUENTIAL_ALL implementation
+            bool search_sequential_all_impl(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, greator::QueryStats* stat) {
+                // Get current active insert index ID (atomic read)
+                size_t current_active_id = active_insert_index_id.load();
+                
+                // Sequential search in LRU order (most recently used first)
+                std::vector<size_t> lru_order = lru_cache->get_all_tags();
+                
+                // Search indices in LRU order (most recently used first)
+                // But don't stop at first hit - search all indices to find the best result
+                bool found_hit = false;
+                float best_distance = std::numeric_limits<float>::max();
+                size_t best_index_id = 0;
+                std::vector<uint32_t> best_tags;
+                std::vector<float> best_dists;
+                std::vector<T*> best_res;
+                
+                for (size_t index_id : lru_order) {
+                    if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
+                        // Allocate temporary storage for this search
+                        std::vector<uint32_t> temp_tags(K);
+                        std::vector<float> temp_dists(K);
+                        std::vector<T*> temp_res;
+                        
+                        memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
+                        bool is_hit = this->isHit(query_ptr, K, memory_L, temp_dists.data());
+                        
+                        if (is_hit) {
+                            found_hit = true;
+                            // Check if this result is better than the current best
+                            // Use the K-th distance as a quality metric
+                            if (temp_dists[K-1] < best_distance) {
+                                best_distance = temp_dists[K-1];
+                                best_index_id = index_id;
+                                best_tags = std::move(temp_tags);
+                                best_dists = std::move(temp_dists);
+                                best_res = std::move(temp_res);
+                            }
+                        }
+                    }
+                }
+                
+                if (found_hit) {
+                    // Use the best result found
+                    std::copy(best_tags.begin(), best_tags.end(), query_result_tags_ptr);
+                    std::copy(best_dists.begin(), best_dists.end(), query_result_dists_ptr);
+                    res = std::move(best_res);
+                    
+                    // Update LRU cache for the index that provided the best result
+                    lru_cache->access(best_index_id);
+                    
+                    return true;
+                }
+                
+                // No hit found in memory indices, search disk
+                this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
+                std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
+                
+                if (lazy_theta_updates) {
+                    // Copy query pointer for async insertion and theta update
+                    T* query_copy = nullptr;
+                    diskann::alloc_aligned((void**)&query_copy, this->aligned_dim * sizeof(T), 8 * sizeof(T));
+                    std::memcpy(query_copy, query_ptr, this->aligned_dim * sizeof(T));
+                    
+                    // Submit to insert pool with current active index
+                    insert_pool->submit(memory_indices[current_active_id], tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1], query_copy);
+                } else {
+                    // Immediate theta update in main thread
+                    update_theta(query_ptr, K, query_result_dists_ptr[K - 1]);
+                    insert_pool->submit(memory_indices[current_active_id], tags_to_insert, data_path, this->dim, K, query_result_dists_ptr[K - 1]);
+                }
+                
+                for (size_t j = 0; j < K; j++) query_result_tags_ptr[j] += 1;
+                return false; // Return false if the query is missed in the memory index
+            }
+
+
+
         public:
             template <typename... Args>
             TieredIndex(const std::string& data_path,
@@ -520,26 +684,64 @@ namespace tieredann {
                 // Get current active insert index ID (atomic read)
                 size_t current_active_id = active_insert_index_id.load();
                 
-                // Search all memory indices (parallel or sequential based on configuration)
+                // Search all memory indices based on configured strategy
                 bool is_hit = false;
-                if (search_mini_indexes_in_parallel && number_of_mini_indexes > 1) {
+                
+                if (search_strategy == SearchStrategy::PARALLEL && search_mini_indexes_in_parallel && number_of_mini_indexes > 1) {
                     is_hit = parallel_search_memory_indices(query_ptr, K, memory_L, query_result_tags_ptr, res, query_result_dists_ptr);
+
+                } else if (search_strategy == SearchStrategy::SEQUENTIAL_LRU_STOP_FIRST_HIT) {
+                    return search_sequential_lru_stop_first_hit(query_ptr, K, L, query_result_tags_ptr, res, beamwidth, query_result_dists_ptr, stat);
+                } else if (search_strategy == SearchStrategy::SEQUENTIAL_LRU_ADAPTIVE) {
+                    return search_adaptive_hit_ratio(query_ptr, K, L, query_result_tags_ptr, res, beamwidth, query_result_dists_ptr, stat);
                 } else {
                     // Sequential search in LRU order (most recently used first)
                     std::vector<size_t> lru_order = lru_cache->get_all_tags();
                     
                     // Search indices in LRU order (most recently used first)
+                    // But don't stop at first hit - search all indices to find the best result
+                    bool found_hit = false;
+                    float best_distance = std::numeric_limits<float>::max();
+                    size_t best_index_id = 0;
+                    std::vector<uint32_t> best_tags;
+                    std::vector<float> best_dists;
+                    std::vector<T*> best_res;
+                    
                     for (size_t index_id : lru_order) {
                         if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
-                            memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
-                            is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                            // Allocate temporary storage for this search
+                            std::vector<uint32_t> temp_tags(K);
+                            std::vector<float> temp_dists(K);
+                            std::vector<T*> temp_res;
                             
-                            // Only update LRU cache if this search resulted in a hit
+                            memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
+                            bool is_hit = this->isHit(query_ptr, K, memory_L, temp_dists.data());
+                            
                             if (is_hit) {
-                                lru_cache->access(index_id);
-                                break; // Found a hit, no need to search further
+                                found_hit = true;
+                                // Check if this result is better than the current best
+                                // Use the K-th distance as a quality metric
+                                if (temp_dists[K-1] < best_distance) {
+                                    best_distance = temp_dists[K-1];
+                                    best_index_id = index_id;
+                                    best_tags = std::move(temp_tags);
+                                    best_dists = std::move(temp_dists);
+                                    best_res = std::move(temp_res);
+                                }
                             }
                         }
+                    }
+                    
+                    if (found_hit) {
+                        // Use the best result found
+                        std::copy(best_tags.begin(), best_tags.end(), query_result_tags_ptr);
+                        std::copy(best_dists.begin(), best_dists.end(), query_result_dists_ptr);
+                        res = std::move(best_res);
+                        
+                        // Update LRU cache for the index that provided the best result
+                        lru_cache->access(best_index_id);
+                        
+                        is_hit = true;
                     }
                 }
                 
@@ -633,6 +835,57 @@ namespace tieredann {
             size_t get_lru_cache_size() const {
                 return lru_cache->size();
             }
+
+
+
+            void set_search_strategy(SearchStrategy strategy) {
+                search_strategy = strategy;
+            }
+
+            SearchStrategy get_search_strategy() const {
+                return search_strategy;
+            }
+            
+            // Hit ratio monitoring methods
+            void update_hit_history(bool was_hit) {
+                std::lock_guard<std::mutex> lock(hit_history_mutex);
+                hit_history.push_back(was_hit);
+                if (hit_history.size() > hit_ratio_window_size) {
+                    hit_history.pop_front();
+                }
+            }
+            
+            double get_current_hit_ratio() const {
+                std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(hit_history_mutex));
+                if (hit_history.empty()) {
+                    return 1.0;  // Assume good hit ratio if no history
+                }
+                size_t hits = std::count(hit_history.begin(), hit_history.end(), true);
+                return static_cast<double>(hits) / hit_history.size();
+            }
+            
+            bool should_use_adaptive_strategy() const {
+                return use_adaptive_strategy && get_current_hit_ratio() < hit_ratio_threshold;
+            }
+            
+            // Configuration methods for adaptive strategy
+            void set_hit_ratio_window_size(size_t window_size) {
+                std::lock_guard<std::mutex> lock(hit_history_mutex);
+                hit_ratio_window_size = window_size;
+                // Trim history if new window is smaller
+                while (hit_history.size() > hit_ratio_window_size) {
+                    hit_history.pop_front();
+                }
+            }
+            
+            void set_hit_ratio_threshold(double threshold) {
+                hit_ratio_threshold = threshold;
+            }
+            
+            void enable_adaptive_strategy(bool enable) {
+                use_adaptive_strategy = enable;
+            }
+            
 
 
     };

@@ -4,13 +4,13 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="deep1m"
+DATASET="sift"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 R=64
-MEMORY_L=128  
+MEMORY_L=sift  
 DISK_L=128
 K=100
 B=8
@@ -37,6 +37,7 @@ LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate up
 NUMBER_OF_MINI_INDEXES=4 # Number of mini indexes for shadow cycling
 SEARCH_MINI_INDEXES_IN_PARALLEL=false # Set to true to search mini indexes in parallel
 MAX_SEARCH_THREADS=32 # Maximum threads for parallel search
+SEARCH_STRATEGY="SEQUENTIAL_LRU_ADAPTIVE" # Search strategy: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL
 
 # Run the test with all parameters
 ./build/tests/tiered_index_split_search \
@@ -71,4 +72,5 @@ MAX_SEARCH_THREADS=32 # Maximum threads for parallel search
   --lazy_theta_updates "$LAZY_THETA_UPDATES" \
   --number_of_mini_indexes "$NUMBER_OF_MINI_INDEXES" \
   --search_mini_indexes_in_parallel "$SEARCH_MINI_INDEXES_IN_PARALLEL" \
-  --max_search_threads "$MAX_SEARCH_THREADS" 
+  --max_search_threads "$MAX_SEARCH_THREADS" \
+  --search_strategy "$SEARCH_STRATEGY" 
