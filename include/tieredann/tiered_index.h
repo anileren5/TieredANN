@@ -527,6 +527,61 @@ namespace tieredann {
                 return false; // Return false if the query is missed in the memory index
             }
 
+            void load_sampled_data(const std::string& data_path, T*& sampled_data, size_t& sampled_num_points, size_t aligned_dim, size_t total_num_points, size_t sample_rate = 1000) {
+                // Calculate the number of sampled points
+                sampled_num_points = total_num_points / sample_rate;
+                sampled_data = nullptr;
+
+                // Allocate memory for the sampled data
+                diskann::alloc_aligned((void**)&sampled_data, sampled_num_points * aligned_dim * sizeof(T), 8 * sizeof(T));
+
+                // Open the binary file
+                std::ifstream reader(data_path, std::ios::binary);
+                if (!reader.is_open()) {
+                    throw std::runtime_error("Failed to open file: " + data_path);
+                }
+
+                // Skip metadata (2 * sizeof(uint32_t))
+                reader.seekg(2 * sizeof(uint32_t), std::ios::beg);
+
+                // Randomly sample points
+                std::default_random_engine generator(std::random_device{}());
+                std::uniform_int_distribution<size_t> distribution(0, total_num_points - 1);
+
+                std::unordered_set<size_t> sampled_indices;
+                while (sampled_indices.size() < sampled_num_points) {
+                    sampled_indices.insert(distribution(generator));
+                }
+
+                size_t current_index = 0;
+                size_t sampled_index = 0;
+                T* buffer = new T[aligned_dim];
+
+                for (size_t i = 0; i < total_num_points; ++i) {
+                    if (i % 100 == 0) {
+                        std::cout << "Reading point " << i << "/" << total_num_points << "\r" << std::flush;
+                    }
+                    // Read the vector
+                    reader.read(reinterpret_cast<char*>(buffer), dim * sizeof(T));
+                    // Skip padding for aligned dimensions
+                    reader.seekg((aligned_dim - dim) * sizeof(T), std::ios::cur);
+
+                    // If the current index is in the sampled set, copy it to the sampled data
+                    if (sampled_indices.count(i)) {
+                        std::memcpy(sampled_data + sampled_index * aligned_dim, buffer, dim * sizeof(T));
+                        std::memset(sampled_data + sampled_index * aligned_dim + dim, 0, (aligned_dim - dim) * sizeof(T));
+                        ++sampled_index;
+                    }
+
+                    if (sampled_index >= sampled_num_points) {
+                        break;
+                    }
+                }
+
+                delete[] buffer;
+                reader.close();
+            }
+
 
 
         public:
@@ -661,9 +716,12 @@ namespace tieredann {
                     } else {
                         std::cout << "[TieredIndex] No PCA file found or mismatch, running PCA..." << std::endl;
                         T* data = nullptr;
-                        diskann::alloc_aligned((void**)&data, num_points * aligned_dim * sizeof(T), 8 * sizeof(T));
-                        diskann::load_aligned_bin<T>(data_path, data, num_points, dim, aligned_dim);
-                        pca_utils->construct_pca_from_data(data, num_points, aligned_dim, disk_index_prefix);
+                        size_t sampled_num_points;
+                        diskann::get_bin_metadata(data_path, num_points, dim);
+                        aligned_dim = ROUND_UP(dim, 8);
+                        load_sampled_data(data_path, data, sampled_num_points, aligned_dim, num_points);
+                        std::cout << "[TieredIndex] Loaded " << sampled_num_points << " sampled points from " << data_path << std::endl;
+                        pca_utils->construct_pca_from_data(data, sampled_num_points, aligned_dim, disk_index_prefix);
                         diskann::aligned_free(data);
                     }
                 } else {
