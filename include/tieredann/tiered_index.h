@@ -129,16 +129,25 @@ namespace tieredann {
             }
 
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
+                // Use backend to fetch vectors by IDs
+                std::vector<std::vector<T>> fetched_vectors = disk_backend->fetch_vectors_by_ids(to_be_inserted);
+                
+                // Allocate aligned memory for vectors and copy from fetched vectors
                 std::vector<T*> vectors;
                 vectors.reserve(to_be_inserted.size());
-                size_t successful_inserts = 0;
-                for (size_t i = 0; i < to_be_inserted.size(); ++i) {
+                for (size_t i = 0; i < fetched_vectors.size(); ++i) {
                     T* vector = nullptr;
                     diskann::alloc_aligned((void**)&vector, aligned_dim * sizeof(T), 8 * sizeof(T));
-                    diskann::load_vector_by_index(data_path, vector, dim, to_be_inserted[i]);
+                    // Copy the fetched vector data
+                    std::memcpy(vector, fetched_vectors[i].data(), dim * sizeof(T));
+                    // Zero out padding if needed
+                    if (aligned_dim > dim) {
+                        std::memset(vector + dim, 0, (aligned_dim - dim) * sizeof(T));
+                    }
                     vectors.push_back(vector);
                 }
-
+                
+                size_t successful_inserts = 0;
                 // Insert the new vectors into the provided index (which should be the current active one)
                 for (size_t i = 0; i < to_be_inserted.size(); ++i) {
                     int ret = index->insert_point(vectors[i], 1 + to_be_inserted[i]);
