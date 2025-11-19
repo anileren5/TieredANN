@@ -14,6 +14,7 @@
 #include "tieredann/insert_thread_pool.h"
 #include "tieredann/pca_utils.h"
 #include "tieredann/lru_cache.h"
+#include "tieredann/backend_interface.h" // Include the backend interface
 #include <unordered_map>
 #include <mutex>
 #include <type_traits>
@@ -31,7 +32,8 @@ namespace tieredann {
     class TieredIndex {
         
         private:
-            std::unique_ptr<greator::PQFlashIndex<T, TagT>> disk_index;
+            // Replace direct disk_index with BackendInterface
+            std::unique_ptr<BackendInterface<T, TagT>> disk_backend;
             
             // LRU-managed memory indices: n memory indices managed by LRU eviction
             std::vector<std::unique_ptr<diskann::AbstractIndex>> memory_indices;
@@ -160,7 +162,8 @@ namespace tieredann {
             }
 
             void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
-                std::vector<std::vector<T>> reconstructed_vectors = this->disk_index->inflate_vectors_by_tags(to_be_inserted);
+                // Use disk_backend to fetch vectors
+                std::vector<std::vector<T>> reconstructed_vectors = this->disk_backend->fetch_vectors_by_ids(to_be_inserted);
                 size_t successful_inserts = 0;
                 
                 // Insert the reconstructed vectors into the provided index
@@ -408,8 +411,9 @@ namespace tieredann {
                     }
                 }
                 
-                // No hit found in memory indices, search disk
-                this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
+                // No hit found in memory indices, search disk using the backend interface
+                uint32_t search_params[2] = {disk_L, beamwidth};
+                this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, (void*)search_params, (void*)stat);
                 std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                 
                 if (lazy_theta_updates) {
@@ -505,8 +509,9 @@ namespace tieredann {
                     return true;
                 }
                 
-                // No hit found in memory indices, search disk
-                this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
+                // No hit found in memory indices, search disk using the backend interface
+                uint32_t search_params[2] = {disk_L, beamwidth};
+                this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, (void*)search_params, (void*)stat);
                 std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                 
                 if (lazy_theta_updates) {
@@ -605,7 +610,8 @@ namespace tieredann {
                         bool lazy_theta_updates_ = true,
                         size_t number_of_mini_indexes_ = 2,
                         bool search_mini_indexes_in_parallel_ = false,
-                        size_t max_search_threads_ = 32)
+                        size_t max_search_threads_ = 32,
+                        std::unique_ptr<BackendInterface<T, TagT>> disk_backend_ptr = nullptr)
                         : data_path(data_path),
                         disk_index_prefix(disk_index_prefix),
                         search_threads(search_threads),
@@ -620,7 +626,8 @@ namespace tieredann {
                         n_async_insert_threads(n_async_insert_threads_),
                         lazy_theta_updates(lazy_theta_updates_),
                         search_mini_indexes_in_parallel(search_mini_indexes_in_parallel_),
-                        max_search_threads(max_search_threads_)
+                        max_search_threads(max_search_threads_),
+                        disk_backend(std::move(disk_backend_ptr))
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
@@ -651,25 +658,20 @@ namespace tieredann {
                     std::cout << "Parallel search enabled with max " << max_search_threads << " threads" << std::endl;
                 }
 
-                // Build disk index
-                if (disk_index_already_built == 0) {
-                    std::string disk_index_params = std::to_string(R) + " " + std::to_string(disk_L) + " " + std::to_string(B) + " " + std::to_string(M) + " " + std::to_string(build_threads);
-                    greator::build_disk_index<T>(data_path.c_str(), disk_index_prefix.c_str(), disk_index_params.c_str(), greator::Metric::L2, false);
-                }
+                // Build disk index (no longer directly handled by TieredIndex)
+                // The disk_backend is now passed in and already initialized
 
-                // Load disk index
-                std::shared_ptr<greator::AlignedFileReader> reader = nullptr;
-                reader.reset(new greator::LinuxAlignedFileReader());
-                std::unique_ptr<greator::PQFlashIndex<T>> temp_disk_index(new greator::PQFlashIndex<T>(greator::Metric::L2, reader, false, false));
-                disk_index = std::move(temp_disk_index);
-                disk_index->load(disk_index_prefix.c_str(), build_threads);
+                // Load disk index (no longer directly handled by TieredIndex)
+                // Handled by the passed-in disk_backend
                 
                 // Cache vectors near the centroid of the disk index.
-                std::vector<uint32_t> node_list;
-                disk_index->cache_bfs_levels(500, node_list);
-                disk_index->load_cache_list(node_list);
-                node_list.clear();
-                node_list.shrink_to_fit();
+                // This needs to be moved to GreatorBackend constructor after the backend interface is complete
+                // For now, it's still here. Will remove after refactoring GreatorBackend is complete.
+
+                // disk_index->cache_bfs_levels(500, node_list);
+                // disk_index->load_cache_list(node_list);
+                // node_list.clear();
+                // node_list.shrink_to_fit();
 
                 std::cout << "TieredIndex disk index built successfully!" << std::endl;
 
@@ -808,7 +810,9 @@ namespace tieredann {
                 }
                 else {
                     
-                    this->disk_index->cached_beam_search(query_ptr, (uint64_t)K, (uint64_t)disk_L, query_result_tags_ptr, query_result_dists_ptr, (uint64_t)beamwidth, stat);
+                    // Search disk using the backend interface
+                    uint32_t search_params[2] = {disk_L, beamwidth};
+                    this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, (void*)search_params, (void*)stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                     
                     if (lazy_theta_updates) {

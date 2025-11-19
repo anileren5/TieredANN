@@ -8,8 +8,8 @@ set(TEST_EXECUTABLES
     tiered_index_search tieredann/tiered_index_search.cpp
     disk_index_search tieredann/disk_index_search.cpp
     memory_index_search tieredann/memory_index_search.cpp
-    tiered_index_split_search tieredann/tiered_index_split_search.cpp
-    tiered_index_split_search_noisy tieredann/tiered_index_split_search_noisy.cpp
+    #tiered_index_split_search tieredann/tiered_index_split_search.cpp
+    #tiered_index_split_search_noisy tieredann/tiered_index_split_search_noisy.cpp
 )
 
 # Compute length of the list

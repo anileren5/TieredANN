@@ -10,6 +10,7 @@
 
 // TieredANN headers
 #include "tieredann/tiered_index.h"
+#include "tieredann/greator_backend.h"
 // Include for SECTOR_LEN setting
 #include "greator/pq_flash_index.h"
 
@@ -162,6 +163,104 @@ std::vector<bool> hybrid_search(
 }
 
 template <typename T = float, typename TagT = uint32_t>
+void experiment_with_backend(
+    const std::string& data_type,
+    const std::string& data_path,
+    const std::string& query_path,
+    const std::string& groundtruth_path,
+    const std::string& disk_index_prefix,
+    uint32_t R, uint32_t memory_L, uint32_t disk_L, uint32_t K,
+    uint32_t B, uint32_t M,
+    float alpha,
+    uint32_t build_threads,
+    uint32_t search_threads,
+    int disk_index_already_built,
+    uint32_t beamwidth, 
+    int use_reconstructed_vectors,
+    double p,
+    double deviation_factor,
+    int n_search_iter,
+    size_t memory_index_max_points,
+    bool use_regional_theta,
+    uint32_t pca_dim,
+    uint32_t buckets_per_dim,
+    uint32_t n_async_insert_threads,
+    bool lazy_theta_updates,
+    size_t number_of_mini_indexes,
+    bool search_mini_indexes_in_parallel,
+    size_t max_search_threads,
+    const std::string& search_strategy,
+    std::unique_ptr<tieredann::BackendInterface<T, TagT>> greator_backend
+) {
+       // Create a tiered index
+   tieredann::TieredIndex<T> tiered_index(
+       data_path, disk_index_prefix,
+       R, memory_L, disk_L, B, M, alpha, 
+       build_threads, search_threads,
+       disk_index_already_built, (bool)use_reconstructed_vectors,
+       p, deviation_factor,
+       memory_index_max_points,
+       use_regional_theta,
+       pca_dim,
+       buckets_per_dim,
+       n_async_insert_threads,
+       lazy_theta_updates,
+       number_of_mini_indexes,
+       search_mini_indexes_in_parallel,
+       max_search_threads,
+       std::move(greator_backend)
+    );
+
+    // Set the search strategy
+    if (search_strategy == "SEQUENTIAL_LRU_STOP_FIRST_HIT") {
+        tiered_index.set_search_strategy(tieredann::TieredIndex<T>::SearchStrategy::SEQUENTIAL_LRU_STOP_FIRST_HIT);
+    } else if (search_strategy == "SEQUENTIAL_LRU_ADAPTIVE") {
+        tiered_index.set_search_strategy(tieredann::TieredIndex<T>::SearchStrategy::SEQUENTIAL_LRU_ADAPTIVE);
+        // Enable adaptive behavior and set parameters
+        tiered_index.enable_adaptive_strategy(true);
+        tiered_index.set_hit_ratio_window_size(100);  // Monitor last 100 queries
+        tiered_index.set_hit_ratio_threshold(0.90);   // Switch to SEQUENTIAL_ALL when hit ratio < 90%
+    } else if (search_strategy == "SEQUENTIAL_ALL") {
+        tiered_index.set_search_strategy(tieredann::TieredIndex<T>::SearchStrategy::SEQUENTIAL_ALL);
+    } else if (search_strategy == "PARALLEL") {
+        tiered_index.set_search_strategy(tieredann::TieredIndex<T>::SearchStrategy::PARALLEL);
+    } else {
+        std::cerr << "Unknown search strategy: " << search_strategy << std::endl;
+        std::cerr << "Available strategies: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL" << std::endl;
+        exit(1);
+    }
+
+    // Load groundtruth ids for the results
+    TagT *groundtruth_ids = nullptr;
+    float *groundtruth_dists = nullptr;
+    size_t n_groundtruth, groundtruth_dim;
+    diskann::load_truthset(groundtruth_path, groundtruth_ids, groundtruth_dists, n_groundtruth, groundtruth_dim);
+
+    // Load queries
+    size_t query_num, query_dim, query_aligned_dim;
+    T *query = nullptr;
+    diskann::load_aligned_bin<T>(query_path, query, query_num, query_dim, query_aligned_dim);
+
+    // I don't know why it is need but it is somehow necessary to call seach_with_tags.
+    std::vector<T *> res = std::vector<T *>();
+
+    // Allocate the space to store result of the queries
+    std::vector<TagT> query_result_tags(query_num * K);
+
+    for (int i = 0; i < n_search_iter; i++) {
+        std::vector<bool> hit_results = hybrid_search(tiered_index, query, query_num, query_aligned_dim, K, memory_L, search_threads, query_result_tags, res, beamwidth, data_path);
+        calculate_recall<T, TagT>(K, groundtruth_ids, query_result_tags, query_num, groundtruth_dim); 
+        calculate_hit_recall<T, TagT>(K, groundtruth_ids, query_result_tags, hit_results, query_num, groundtruth_dim);
+        query_result_tags.clear();
+    }
+
+    if (groundtruth_dists) delete[] groundtruth_dists;
+    if (groundtruth_ids) delete[] groundtruth_ids;
+}
+
+// Remove the old experiment function
+/*
+template <typename T = float, typename TagT = uint32_t>
 void experiment(
     const std::string& data_type,
     const std::string& data_path,
@@ -254,6 +353,7 @@ void experiment(
     if (groundtruth_dists) delete[] groundtruth_dists;
     if (groundtruth_ids) delete[] groundtruth_ids;
 }
+*/
 
 int main(int argc, char **argv) {
     std::string data_type, data_path, query_path, groundtruth_path, disk_index_prefix;
@@ -377,11 +477,17 @@ int main(int argc, char **argv) {
         data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_search_iter, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
 
     if (data_type == "float") {
-        experiment<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
+        std::unique_ptr<tieredann::BackendInterface<float, uint32_t>> greator_backend = std::make_unique<tieredann::GreatorBackend<float>>(
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built);
+        experiment_with_backend<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
     } else if (data_type == "int8") {
-        experiment<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
+        std::unique_ptr<tieredann::BackendInterface<int8_t, uint32_t>> greator_backend = std::make_unique<tieredann::GreatorBackend<int8_t>>(
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built);
+        experiment_with_backend<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
     } else if (data_type == "uint8") {
-        experiment<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
+        std::unique_ptr<tieredann::BackendInterface<uint8_t, uint32_t>> greator_backend = std::make_unique<tieredann::GreatorBackend<uint8_t>>(
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built);
+        experiment_with_backend<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }
