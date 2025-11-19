@@ -56,7 +56,6 @@ namespace tieredann {
             std::mutex theta_map_mutex;
             double p, deviation_factor;
             uint32_t memory_L; 
-            uint32_t disk_L;    
             bool use_regional_theta = true;
 
             uint32_t n_async_insert_threads = 4;
@@ -421,8 +420,7 @@ namespace tieredann {
                 }
                 
                 // No hit found in memory indices, search disk using the backend interface
-                uint32_t search_params[2] = {disk_L, beamwidth};
-                this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, (void*)search_params, (void*)stat);
+                this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, (void*)stat);
                 std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                 
                 if (lazy_theta_updates) {
@@ -519,8 +517,7 @@ namespace tieredann {
                 }
                 
                 // No hit found in memory indices, search disk using the backend interface
-                uint32_t search_params[2] = {disk_L, beamwidth};
-                this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, (void*)search_params, (void*)stat);
+                this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, (void*)stat);
                 std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                 
                 if (lazy_theta_updates) {
@@ -602,7 +599,7 @@ namespace tieredann {
             template <typename... Args>
             TieredIndex(const std::string& data_path,
                         const std::string& disk_index_prefix,
-                        uint32_t R, uint32_t memory_L, uint32_t disk_L,
+                        uint32_t R, uint32_t memory_L,
                         uint32_t B, uint32_t M,
                         float alpha,
                         uint32_t build_threads,
@@ -628,7 +625,6 @@ namespace tieredann {
                         p(p),
                         deviation_factor(deviation_factor),
                         memory_L(memory_L),
-                        disk_L(disk_L),
                         use_regional_theta(use_regional_theta),
                         number_of_mini_indexes(number_of_mini_indexes_),
                         memory_index_max_points_per_index(memory_index_max_points / number_of_mini_indexes_), // Equal capacity per index
@@ -805,8 +801,7 @@ namespace tieredann {
                 else {
                     
                     // Search disk using the backend interface
-                    uint32_t search_params[2] = {disk_L, beamwidth};
-                    this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, (void*)search_params, (void*)stat);
+                    this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, (void*)stat);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                     
                     if (lazy_theta_updates) {

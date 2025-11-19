@@ -169,7 +169,7 @@ void experiment_with_backend(
     const std::string& query_path,
     const std::string& groundtruth_path,
     const std::string& disk_index_prefix,
-    uint32_t R, uint32_t memory_L, uint32_t disk_L, uint32_t K,
+    uint32_t R, uint32_t memory_L, uint32_t K,
     uint32_t B, uint32_t M,
     float alpha,
     uint32_t build_threads,
@@ -195,7 +195,7 @@ void experiment_with_backend(
        // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
        data_path, disk_index_prefix,
-       R, memory_L, disk_L, B, M, alpha, 
+       R, memory_L, B, M, alpha, 
        build_threads, search_threads,
        disk_index_already_built, (bool)use_reconstructed_vectors,
        p, deviation_factor,
@@ -267,7 +267,7 @@ void experiment(
     const std::string& query_path,
     const std::string& groundtruth_path,
     const std::string& disk_index_prefix,
-    uint32_t R, uint32_t memory_L, uint32_t disk_L, uint32_t K,
+    uint32_t R, uint32_t memory_L, uint32_t K,
     uint32_t B, uint32_t M,
     float alpha,
     uint32_t build_threads,
@@ -292,7 +292,7 @@ void experiment(
        // Create a tiered index
    tieredann::TieredIndex<T> tiered_index(
        data_path, disk_index_prefix,
-       R, memory_L, disk_L, B, M, alpha, 
+       R, memory_L, B, M, alpha, 
        build_threads, search_threads,
        disk_index_already_built, (bool)use_reconstructed_vectors,
        p, deviation_factor,
@@ -474,20 +474,20 @@ int main(int argc, char **argv) {
         "  \"max_search_threads\": {},\n"
         "  \"search_strategy\": \"{}\"\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_search_iter, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_search_iter, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
 
     if (data_type == "float") {
         std::unique_ptr<tieredann::BackendInterface<float, uint32_t>> greator_backend = std::make_unique<tieredann::GreatorBackend<float>>(
-            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built);
-        experiment_with_backend<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
+        experiment_with_backend<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
     } else if (data_type == "int8") {
         std::unique_ptr<tieredann::BackendInterface<int8_t, uint32_t>> greator_backend = std::make_unique<tieredann::GreatorBackend<int8_t>>(
-            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built);
-        experiment_with_backend<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
+        experiment_with_backend<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
     } else if (data_type == "uint8") {
         std::unique_ptr<tieredann::BackendInterface<uint8_t, uint32_t>> greator_backend = std::make_unique<tieredann::GreatorBackend<uint8_t>>(
-            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built);
-        experiment_with_backend<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
+        experiment_with_backend<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_search_iter, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }

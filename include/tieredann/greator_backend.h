@@ -15,14 +15,15 @@ public:
     std::string data_path;
     std::string disk_index_prefix;
     uint32_t R, disk_L, B, M, build_threads;
+    uint32_t beamwidth;
     int disk_index_already_built;
 
     GreatorBackend(const std::string& data_path, const std::string& disk_index_prefix, 
                    uint32_t R, uint32_t disk_L, uint32_t B, uint32_t M, 
-                   uint32_t build_threads, int disk_index_already_built)
+                   uint32_t build_threads, int disk_index_already_built, uint32_t beamwidth)
         : data_path(data_path), disk_index_prefix(disk_index_prefix),
           R(R), disk_L(disk_L), B(B), M(M), build_threads(build_threads),
-          disk_index_already_built(disk_index_already_built)
+          disk_index_already_built(disk_index_already_built), beamwidth(beamwidth)
     {
         // Build disk index if not already built
         if (disk_index_already_built == 0) {
@@ -55,12 +56,10 @@ public:
         void* search_parameters = nullptr,
         void* stats = nullptr) override {
         
-        uint32_t* params = static_cast<uint32_t*>(search_parameters);
-        uint32_t disk_L_search = params[0];
-        uint32_t beamwidth = params[1];
         greator::QueryStats* greator_stats = static_cast<greator::QueryStats*>(stats);
 
-        disk_index->cached_beam_search(query, K, disk_L_search, result_tags, result_distances, beamwidth, greator_stats);
+        // Use stored disk_L and beamwidth from constructor
+        disk_index->cached_beam_search(query, K, disk_L, result_tags, result_distances, beamwidth, greator_stats);
     }
 
     std::vector<std::vector<T>> fetch_vectors_by_ids(
