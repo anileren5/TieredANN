@@ -128,7 +128,7 @@ namespace tieredann {
                 return index;
             }
 
-            void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
+            void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted) {
                 // Use backend to fetch vectors by IDs
                 std::vector<std::vector<T>> fetched_vectors = disk_backend->fetch_vectors_by_ids(to_be_inserted);
                 
@@ -170,7 +170,7 @@ namespace tieredann {
                 }
             }
 
-            void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const size_t dim, uint32_t K = 0, float query_distance = 0.0f) {
+            void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted) {
                 // Use disk_backend to fetch vectors
                 std::vector<std::vector<T>> reconstructed_vectors = this->disk_backend->fetch_vectors_by_ids(to_be_inserted);
                 size_t successful_inserts = 0;
@@ -667,27 +667,12 @@ namespace tieredann {
                     std::cout << "Parallel search enabled with max " << max_search_threads << " threads" << std::endl;
                 }
 
-                // Build disk index (no longer directly handled by TieredIndex)
-                // The disk_backend is now passed in and already initialized
-
-                // Load disk index (no longer directly handled by TieredIndex)
-                // Handled by the passed-in disk_backend
-                
-                // Cache vectors near the centroid of the disk index.
-                // This needs to be moved to GreatorBackend constructor after the backend interface is complete
-                // For now, it's still here. Will remove after refactoring GreatorBackend is complete.
-
-                // disk_index->cache_bfs_levels(500, node_list);
-                // disk_index->load_cache_list(node_list);
-                // node_list.clear();
-                // node_list.shrink_to_fit();
-
                 std::cout << "TieredIndex disk index built successfully!" << std::endl;
 
                 // Initialize insert thread pool for async insertions
                 if (use_reconstructed_vectors) {
                     auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K, float query_distance) {
-                        this->memory_index_insert_reconstructed_sync(index, to_be_inserted, dim, K, query_distance);
+                        this->memory_index_insert_reconstructed_sync(index, to_be_inserted);
                     };
                     if (lazy_theta_updates) {
                         auto theta_update_task = [this](T* query_ptr, uint32_t K, float query_distance) {
@@ -699,7 +684,7 @@ namespace tieredann {
                     }
                 } else {
                     auto task = [this](std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted, const std::string& data_path, const size_t dim, uint32_t K, float query_distance) {
-                        this->memory_index_insert_sync(index, to_be_inserted, data_path, dim, K, query_distance);
+                        this->memory_index_insert_sync(index, to_be_inserted);
                     };
                     if (lazy_theta_updates) {
                         auto theta_update_task = [this](T* query_ptr, uint32_t K, float query_distance) {
