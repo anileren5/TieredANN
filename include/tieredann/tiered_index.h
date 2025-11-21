@@ -28,7 +28,7 @@ namespace tieredann {
         
         private:
             // Backend vector database
-            std::unique_ptr<BackendInterface<T, TagT>> disk_backend;
+            std::unique_ptr<BackendInterface<T, TagT>> backend;
             
             // LRU-managed memory indices: n memory indices managed by LRU eviction
             std::vector<std::unique_ptr<diskann::AbstractIndex>> memory_indices;
@@ -120,7 +120,7 @@ namespace tieredann {
 
             void memory_index_insert_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted) {
                 // Use backend to fetch vectors by IDs
-                std::vector<std::vector<T>> fetched_vectors = disk_backend->fetch_vectors_by_ids(to_be_inserted);
+                std::vector<std::vector<T>> fetched_vectors = backend->fetch_vectors_by_ids(to_be_inserted);
                 
                 // Allocate aligned memory for vectors and copy from fetched vectors
                 std::vector<T*> vectors;
@@ -162,7 +162,7 @@ namespace tieredann {
 
             void memory_index_insert_reconstructed_sync(std::unique_ptr<diskann::AbstractIndex>& index, std::vector<TagT> to_be_inserted) {
                 // Use disk_backend to fetch vectors
-                std::vector<std::vector<T>> reconstructed_vectors = this->disk_backend->fetch_vectors_by_ids(to_be_inserted);
+                std::vector<std::vector<T>> reconstructed_vectors = this->backend->fetch_vectors_by_ids(to_be_inserted);
                 size_t successful_inserts = 0;
                 
                 // Insert the reconstructed vectors into the provided index
@@ -414,7 +414,7 @@ namespace tieredann {
                 }
                 
                 // No hit found in memory indices, search disk using the backend interface
-                this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, backend_stats);
+                this->backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, backend_stats);
                 std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                 
                 if (lazy_theta_updates) {
@@ -511,7 +511,7 @@ namespace tieredann {
                 }
                 
                 // No hit found in memory indices, search disk using the backend interface
-                this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, backend_stats);
+                this->backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, backend_stats);
                 std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                 
                 if (lazy_theta_updates) {
@@ -625,7 +625,7 @@ namespace tieredann {
                         lazy_theta_updates(lazy_theta_updates_),
                         search_mini_indexes_in_parallel(search_mini_indexes_in_parallel_),
                         max_search_threads(max_search_threads_),
-                        disk_backend(std::move(disk_backend_ptr))
+                        backend(std::move(disk_backend_ptr))
             {                
                 // Read metadata
                 diskann::get_bin_metadata(data_path, num_points, dim);
@@ -794,7 +794,7 @@ namespace tieredann {
                 else {
                     
                     // Search disk using the backend interface
-                    this->disk_backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, backend_stats);
+                    this->backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, backend_stats);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                     
                     if (lazy_theta_updates) {
