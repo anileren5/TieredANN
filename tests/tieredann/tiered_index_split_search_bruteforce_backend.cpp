@@ -3,7 +3,6 @@
 #include <omp.h>
 #include <boost/program_options.hpp>
 #include <atomic>
-#include <iomanip>
 #include <chrono>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
