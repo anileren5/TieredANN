@@ -13,7 +13,7 @@
 #include <cmath>
 
 //  Include Brute-force backend implementation
-#include "tieredann/bruteforce_backend.h"
+#include "bruteforce_backend.h"
 
 // Include TieredIndex
 #include "tieredann/tiered_index.h"

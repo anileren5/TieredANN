@@ -10,6 +10,7 @@ add_library(tieredann STATIC ${CPP_SOURCES})
 target_include_directories(tieredann
     PUBLIC
         ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/backends
         ${BOOST_ROOT}
         ${PROJECT_SOURCE_DIR}/Greator/include
         ${PROJECT_SOURCE_DIR}/DiskANN/include
