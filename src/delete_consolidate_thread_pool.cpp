@@ -1,6 +1,6 @@
-#include "tieredann/delete_consolidate_thread_pool.h"
+#include "qvcache/delete_consolidate_thread_pool.h"
 
-namespace tieredann {
+namespace qvcache {
 
 template <typename T, typename TagT>
 DeleteConsolidateThreadPool<T, TagT>::DeleteConsolidateThreadPool(size_t thread_count, TaskFn task_fn)
@@ -47,8 +47,8 @@ DeleteConsolidateThreadPool<T, TagT>::~DeleteConsolidateThreadPool() {
         thread.join();
 }
 
-template class tieredann::DeleteConsolidateThreadPool<float, uint32_t>;
-template class tieredann::DeleteConsolidateThreadPool<int8_t, uint32_t>;
-template class tieredann::DeleteConsolidateThreadPool<uint8_t, uint32_t>;
+template class qvcache::DeleteConsolidateThreadPool<float, uint32_t>;
+template class qvcache::DeleteConsolidateThreadPool<int8_t, uint32_t>;
+template class qvcache::DeleteConsolidateThreadPool<uint8_t, uint32_t>;
 
 } 

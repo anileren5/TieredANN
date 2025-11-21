@@ -33,5 +33,5 @@ install:
 	pip install -e .
 
 test-install:
-	pip install --index-url https://test.pypi.org/simple/ tieredann
+	pip install --index-url https://test.pypi.org/simple/ qvcache
 

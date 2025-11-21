@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tieredann/backend_interface.h"
+#include "qvcache/backend_interface.h"
 #include <Python.h>
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
@@ -11,7 +11,7 @@
 #include <limits>
 #include <cstring>
 
-namespace tieredann {
+namespace qvcache {
 
 // Python backend wrapper that allows implementing backends in Python
 template <typename T, typename TagT = uint32_t>
@@ -393,5 +393,5 @@ public:
     }
 };
 
-}  // namespace tieredann
+}  // namespace qvcache
 

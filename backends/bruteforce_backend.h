@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tieredann/backend_interface.h"
+#include "qvcache/backend_interface.h"
 #include "diskann/utils.h"
 #include <vector>
 #include <cstdint>
@@ -12,7 +12,7 @@
 #include <limits>
 #include <stdexcept>
 
-namespace tieredann {
+namespace qvcache {
 
 template <typename T, typename TagT = uint32_t>
 class BruteforceBackend : public BackendInterface<T, TagT> {

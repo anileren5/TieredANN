@@ -5,12 +5,12 @@ set(TEST_EXECUTABLES
     search_memory_index diskann/search_memory_index.cpp
     batch_delete_reinsert_memory_index diskann/batch_delete_reinsert_memory_index.cpp
     concurrent_insert_delete_memory_index diskann/concurrent_insert_delete_memory_index.cpp
-    tiered_index_search tieredann/tiered_index_search.cpp
-    disk_index_search tieredann/disk_index_search.cpp
-    memory_index_search tieredann/memory_index_search.cpp
-    tiered_index_split_search tieredann/tiered_index_split_search.cpp
-    tiered_index_split_search_noisy tieredann/tiered_index_split_search_noisy.cpp
-    tiered_index_split_search_bruteforce_backend tieredann/tiered_index_split_search_bruteforce_backend.cpp
+    qvcache_search qvcache/qvcache_search.cpp
+    disk_index_search qvcache/disk_index_search.cpp
+    memory_index_search qvcache/memory_index_search.cpp
+    qvcache_split_search qvcache/qvcache_split_search.cpp
+    qvcache_split_search_noisy qvcache/qvcache_split_search_noisy.cpp
+    qvcache_split_search_bruteforce_backend qvcache/qvcache_split_search_bruteforce_backend.cpp
 )
 
 # Compute length of the list
@@ -29,7 +29,7 @@ foreach(i RANGE 0 ${max_index} 2)
         PRIVATE
             greator
             diskann
-            tieredann
+            qvcache
             TBB::tbb
             OpenMP::OpenMP_CXX
             Boost::program_options

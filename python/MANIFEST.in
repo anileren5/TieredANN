@@ -5,7 +5,7 @@ include CMakeLists.txt
 include *.cpp
 include *.h
 include *.py
-recursive-include tieredann *.py *.pyi
+recursive-include qvcache *.py *.pyi
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 

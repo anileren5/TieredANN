@@ -1,8 +1,9 @@
 version: '3.8'
 
 services:
-  tieredann:
-    container_name: tieredann
+  qvcache:
+    container_name: qvcache
+    image: qvcache:latest
     build: .
     volumes:
       - .:/app

@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel", "cmake>=3.12", "ninja", "pybind11>=2.10
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tieredann"
+name = "qvcache"
 version = "0.1.0"
-description = "Python bindings for TieredANN - A tiered memory/disk approximate nearest neighbor search library"
+description = "Python bindings for QVCache - A tiered memory/disk approximate nearest neighbor search library"
 readme = "README.md"
 requires-python = ">=3.7"
 license = {text = "MIT"}
 authors = [
-    {name = "TieredANN", email = ""}
+    {name = "QVCache", email = ""}
 ]
 keywords = ["ann", "nearest-neighbor", "search", "vector-search", "approximate-nearest-neighbor"]
 classifiers = [
@@ -39,9 +39,9 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["tieredann"]
+packages = ["qvcache"]
 package-dir = {"" = "."}
 
 [tool.setuptools.package-data]
-tieredann = ["*.py"]
+qvcache = ["*.py"]
 

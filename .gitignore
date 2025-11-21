@@ -1,21 +1,64 @@
-build
+# Build artifacts
+build/
+*.so
+*.a
+*.o
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+*.egg
 
+# Python virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data directories (usually large)
 DiskANN/data
 DiskANN/plot
 DiskANN/index
 DiskANN/results
-DiskANN/.vscode
 
 Greator/data
 Greator/index
 Greator/results
-Greator/.vscode
 
-.vscode
+results/
+index/
+data/
+plot/
 
-results
-index
-data
-plot
-venv
-*.py
+# Python compiled files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Compiled extensions (will be rebuilt)
+*.so
+tieredann*.so
+qvcache*.so
+*.cpython-*.so
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log

@@ -1,6 +1,6 @@
-# Publishing TieredANN to PyPI
+# Publishing QVCache to PyPI
 
-This guide explains how to publish the TieredANN Python package to PyPI (Python Package Index).
+This guide explains how to publish the QVCache Python package to PyPI (Python Package Index).
 
 ## Prerequisites
 
@@ -33,8 +33,8 @@ python -m build
 ```
 
 This creates:
-- `dist/tieredann-<version>-py3-none-any.whl` (wheel)
-- `dist/tieredann-<version>.tar.gz` (source distribution)
+- `dist/qvcache-<version>-py3-none-any.whl` (wheel)
+- `dist/qvcache-<version>.tar.gz` (source distribution)
 
 ### 3. Check the Package
 
@@ -63,7 +63,7 @@ twine upload --repository testpypi dist/*
 Test installation from Test PyPI:
 
 ```bash
-pip install --index-url https://test.pypi.org/simple/ tieredann
+pip install --index-url https://test.pypi.org/simple/ qvcache
 ```
 
 ### 5. Upload to Production PyPI
@@ -84,8 +84,8 @@ twine upload dist/*
 After publishing, verify the package is available:
 
 ```bash
-pip install tieredann
-python -c "import tieredann; print(tieredann.__version__)"
+pip install qvcache
+python -c "import qvcache; print(qvcache.__version__)"
 ```
 
 ## Using API Tokens (Recommended)
@@ -172,7 +172,7 @@ Store your PyPI API token in GitHub Secrets:
 - [ ] Test on Test PyPI
 - [ ] Create git tag
 - [ ] Publish to PyPI
-- [ ] Verify installation: `pip install tieredann`
+- [ ] Verify installation: `pip install qvcache`
 
 ## Troubleshooting
 

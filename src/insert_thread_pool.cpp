@@ -1,6 +1,6 @@
-#include "tieredann/insert_thread_pool.h"
+#include "qvcache/insert_thread_pool.h"
 
-namespace tieredann {
+namespace qvcache {
 
 template <typename T, typename TagT>
 InsertThreadPool<T, TagT>::InsertThreadPool(size_t thread_count, TaskFn task_fn, ThetaUpdateFn theta_update_fn)
@@ -65,9 +65,9 @@ InsertThreadPool<T, TagT>::~InsertThreadPool() {
         thread.join();
 }
 
-template class tieredann::InsertThreadPool<float, uint32_t>;
-template class tieredann::InsertThreadPool<int8_t, uint32_t>;
-template class tieredann::InsertThreadPool<uint8_t, uint32_t>;
+template class qvcache::InsertThreadPool<float, uint32_t>;
+template class qvcache::InsertThreadPool<int8_t, uint32_t>;
+template class qvcache::InsertThreadPool<uint8_t, uint32_t>;
 
 
 } 

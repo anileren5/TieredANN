@@ -1,6 +1,6 @@
-# TieredANN Python Bindings
+# QVCache Python Bindings
 
-Python bindings for TieredANN - A tiered memory/disk approximate nearest neighbor search library.
+Python bindings for QVCache - A tiered memory/disk approximate nearest neighbor search library.
 
 ## Installation
 
@@ -23,7 +23,7 @@ pip install numpy pybind11
 3. Clone the repository and install:
 ```bash
 git clone <repository-url>
-cd TieredANN/python
+cd QVCache/python
 pip install .
 ```
 
@@ -38,15 +38,15 @@ pip install -e .
 ## Usage
 
 ```python
-import tieredann
+import qvcache
 from bruteforce_backend import BruteforceBackend
 import numpy as np
 
 # Create a backend
 backend = BruteforceBackend('data/sift/sift_base.bin')
 
-# Create TieredIndex
-index = tieredann.TieredIndex(
+# Create QVCache
+index = qvcache.QVCache(
     data_path='data/sift/sift_base.bin',
     pca_prefix='./index/sift/sift',
     R=64, memory_L=128, B=8, M=8, alpha=1.2,
@@ -57,7 +57,7 @@ index = tieredann.TieredIndex(
 )
 
 # Search
-queries, _, _ = tieredann.load_aligned_binary_data('data/sift/sift_query.bin')
+queries, _, _ = qvcache.load_aligned_binary_data('data/sift/sift_query.bin')
 query = queries[0].astype(np.float32)
 hit, tags, dists = index.search(query, 10)
 ```
