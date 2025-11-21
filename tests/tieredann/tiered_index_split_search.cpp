@@ -13,17 +13,13 @@
 #include <iostream>
 #include <cmath>
 
-// Include for SECTOR_LEN setting
-#include "greator/pq_flash_index.h"
-// TieredANN headers
+// Backend header
 #include "greator_backend.h"
+
+// TieredIndex header
 #include "tieredann/tiered_index.h"
 
 namespace po = boost::program_options;
-
-// ... existing code ...
-// Copy recall and hybrid_search helpers from tiered_index_search.cpp
-// ... existing code ...
 
 template <typename T, typename TagT = uint32_t>
 void calculate_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, size_t query_num, size_t groundtruth_dim) {

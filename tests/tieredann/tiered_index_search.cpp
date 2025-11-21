@@ -8,10 +8,10 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-// Include for SECTOR_LEN setting
-#include "greator/pq_flash_index.h"
-// TieredANN headers
+// Backend header
 #include "greator_backend.h"
+
+// TieredIndex header
 #include "tieredann/tiered_index.h"
 
 namespace po = boost::program_options;
