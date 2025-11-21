@@ -3,16 +3,23 @@
 # Change to project root
 cd "$(dirname "$0")/../.." || exit 1
 
-# Define variables
+# Dataset parameters
 DATASET="sift"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
+K=100
+
+# Experiment parameters
+N_ITERATION_PER_SPLIT=100 # Number of search iterations per split
+N_SPLITS=30 # Number of splits for queries
+N_ROUNDS=1 # Number of rounds to repeat all splits
+
+# Tiered index parameters
 PCA_PREFIX="./index/${DATASET}/${DATASET}"
 R=64
 MEMORY_L=128  
-K=100
 B=8
 M=8
 ALPHA=1.2
@@ -22,9 +29,6 @@ BEAMWIDTH=2
 USE_RECONSTRUCTED_VECTORS=0
 P=0.90
 DEVIATION_FACTOR=0.025
-N_ITERATION_PER_SPLIT=100 # Number of search iterations per split
-N_SPLITS=30 # Number of splits for queries
-N_ROUNDS=1 # Number of rounds to repeat all splits
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
