@@ -41,6 +41,6 @@ foreach(i RANGE 0 ${max_index} 2)
             ${PROJECT_SOURCE_DIR}/include
             ${PROJECT_SOURCE_DIR}/backends
             ${PROJECT_SOURCE_DIR}/backends/Greator/include
-            ${PROJECT_SOURCE_DIR}/DiskANN/include
+            ${PROJECT_SOURCE_DIR}/external/DiskANN/include
     )
 endforeach()

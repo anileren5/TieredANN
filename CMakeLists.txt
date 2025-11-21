@@ -40,6 +40,6 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 
 # Then add subdirectories
 add_subdirectory(backends/Greator)
-add_subdirectory(DiskANN)
+add_subdirectory(external/DiskANN)
 add_subdirectory(tests)
 add_subdirectory(src)

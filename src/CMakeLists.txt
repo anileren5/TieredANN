@@ -11,5 +11,5 @@ target_include_directories(tieredann
     PUBLIC
         ${PROJECT_SOURCE_DIR}/include
         ${BOOST_ROOT}
-        ${PROJECT_SOURCE_DIR}/DiskANN/include
+        ${PROJECT_SOURCE_DIR}/external/DiskANN/include
 )
