@@ -51,6 +51,7 @@ namespace tieredann {
             std::mutex theta_map_mutex;
             double p, deviation_factor;
             uint32_t memory_L; 
+            uint32_t beamwidth;
             bool use_regional_theta = true;
 
             uint32_t n_async_insert_threads = 4;
@@ -285,11 +286,11 @@ namespace tieredann {
             }
 
             // Helper function to search a single memory index
-            bool search_single_index(size_t index_id, const T* query_ptr, uint32_t K, uint32_t L, 
+            bool search_single_index(size_t index_id, const T* query_ptr, uint32_t K,  
                                    uint32_t* query_result_tags_ptr, std::vector<T*>& res, 
                                    float* query_result_dists_ptr) {
                 if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
-                    memory_indices[index_id]->search_with_tags(query_ptr, K, L, query_result_tags_ptr, query_result_dists_ptr, res);
+                    memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
                     bool is_hit = this->isHit(query_ptr, K, query_result_dists_ptr);
                     
                     // Only update LRU cache if this search resulted in a hit
@@ -303,12 +304,12 @@ namespace tieredann {
             }
 
             // Parallel search across all memory indices using thread pool
-            bool parallel_search_memory_indices(const T* query_ptr, uint32_t K, uint32_t L,
+            bool parallel_search_memory_indices(const T* query_ptr, uint32_t K, 
                                               uint32_t* query_result_tags_ptr, std::vector<T*>& res,
                                               float* query_result_dists_ptr) {
                 if (number_of_mini_indexes == 1) {
                     // Single index case - no need for parallelization
-                    return search_single_index(0, query_ptr, K, L, query_result_tags_ptr, res, query_result_dists_ptr);
+                    return search_single_index(0, query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr);
                 }
 
                 // Prepare results for each index
@@ -328,7 +329,7 @@ namespace tieredann {
                         std::vector<T*> temp_res;
 
                         // Search in this index
-                        memory_indices[index_id]->search_with_tags(query_ptr, K, L, temp_tags.data(), temp_dists.data(), temp_res);
+                        memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
                         
                         // Check if this is a hit
                         bool is_hit = this->isHit(query_ptr, K, temp_dists.data());
@@ -392,7 +393,7 @@ namespace tieredann {
 
 
             // Problematic search strategy: stop at first hit in LRU order (causes recall drops)
-            bool search_sequential_lru_stop_first_hit(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, void* backend_stats) {
+            bool search_sequential_lru_stop_first_hit(const T* query_ptr, uint32_t K, uint32_t* query_result_tags_ptr, std::vector<T *>& res, float* query_result_dists_ptr, void* backend_stats) {
                 // Get current active insert index ID (atomic read)
                 size_t current_active_id = active_insert_index_id.load();
                 
@@ -436,7 +437,7 @@ namespace tieredann {
             }
 
             // Adaptive search strategy: monitor hit ratio and switch to SEQUENTIAL_ALL when low
-            bool search_adaptive_hit_ratio(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, void* backend_stats) {
+            bool search_adaptive_hit_ratio(const T* query_ptr, uint32_t K, uint32_t* query_result_tags_ptr, std::vector<T *>& res, float* query_result_dists_ptr, void* backend_stats) {
                 // Check if we should use adaptive strategy (hit ratio is low)
                 bool use_adaptive = should_use_adaptive_strategy();
                 
@@ -444,10 +445,10 @@ namespace tieredann {
                 
                 if (use_adaptive) {
                     // Use SEQUENTIAL_ALL strategy when hit ratio is low
-                    was_hit = search_sequential_all_impl(query_ptr, K, L, query_result_tags_ptr, res, beamwidth, query_result_dists_ptr, backend_stats);
+                    was_hit = search_sequential_all_impl(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
                 } else {
                     // Use SEQUENTIAL_LRU_STOP_FIRST_HIT strategy when hit ratio is good
-                    was_hit = search_sequential_lru_stop_first_hit(query_ptr, K, L, query_result_tags_ptr, res, beamwidth, query_result_dists_ptr, backend_stats);
+                    was_hit = search_sequential_lru_stop_first_hit(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
                 }
                 
                 // Update hit history for monitoring
@@ -457,7 +458,7 @@ namespace tieredann {
             }
             
             // Helper method for SEQUENTIAL_ALL implementation
-            bool search_sequential_all_impl(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, void* backend_stats) {
+            bool search_sequential_all_impl(const T* query_ptr, uint32_t K, uint32_t* query_result_tags_ptr, std::vector<T *>& res, float* query_result_dists_ptr, void* backend_stats) {
                 // Get current active insert index ID (atomic read)
                 size_t current_active_id = active_insert_index_id.load();
                 
@@ -602,6 +603,7 @@ namespace tieredann {
                         double p,
                         double deviation_factor, 
                         size_t memory_index_max_points,
+                        uint32_t beamwidth_,
                         bool use_regional_theta = true,
                         size_t pca_dim = 16,
                         size_t buckets_per_dim = 4,
@@ -618,6 +620,7 @@ namespace tieredann {
                         p(p),
                         deviation_factor(deviation_factor),
                         memory_L(memory_L),
+                        beamwidth(beamwidth_),
                         use_regional_theta(use_regional_theta),
                         number_of_mini_indexes(number_of_mini_indexes_),
                         memory_index_max_points_per_index(memory_index_max_points / number_of_mini_indexes_), // Equal capacity per index
@@ -723,7 +726,7 @@ namespace tieredann {
             }
 
 
-            bool search(const T* query_ptr, uint32_t K, uint32_t L, uint32_t* query_result_tags_ptr, std::vector<T *>& res, uint32_t beamwidth, float* query_result_dists_ptr, void* backend_stats) {
+            bool search(const T* query_ptr, uint32_t K, uint32_t* query_result_tags_ptr, std::vector<T *>& res, float* query_result_dists_ptr, void* backend_stats) {
                 // Get current active insert index ID (atomic read)
                 size_t current_active_id = active_insert_index_id.load();
                 
@@ -731,12 +734,12 @@ namespace tieredann {
                 bool is_hit = false;
                 
                 if (search_strategy == SearchStrategy::PARALLEL && search_mini_indexes_in_parallel && number_of_mini_indexes > 1) {
-                    is_hit = parallel_search_memory_indices(query_ptr, K, memory_L, query_result_tags_ptr, res, query_result_dists_ptr);
+                    is_hit = parallel_search_memory_indices(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr);
 
                 } else if (search_strategy == SearchStrategy::SEQUENTIAL_LRU_STOP_FIRST_HIT) {
-                    return search_sequential_lru_stop_first_hit(query_ptr, K, L, query_result_tags_ptr, res, beamwidth, query_result_dists_ptr, backend_stats);
+                    return search_sequential_lru_stop_first_hit(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
                 } else if (search_strategy == SearchStrategy::SEQUENTIAL_LRU_ADAPTIVE) {
-                    return search_adaptive_hit_ratio(query_ptr, K, L, query_result_tags_ptr, res, beamwidth, query_result_dists_ptr, backend_stats);
+                    return search_adaptive_hit_ratio(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
                 } else {
                     // Sequential search in LRU order (most recently used first)
                     std::vector<size_t> lru_order = lru_cache->get_all_tags();

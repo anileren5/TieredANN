@@ -90,10 +90,8 @@ std::vector<bool> hybrid_search(
         bool hit = tiered_index.search(
             query + i * query_aligned_dim,
             K,
-            L,
             query_result_tags.data() + i * K,
             res,
-            beamwidth,
             query_result_dists.data() + i * K,
             stats + i
         );
@@ -196,6 +194,7 @@ void experiment_split_noisy(
        (bool)use_reconstructed_vectors,
        p, deviation_factor,
        memory_index_max_points,
+       beamwidth,
        use_regional_theta,
        pca_dim,
        buckets_per_dim,
