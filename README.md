@@ -1,6 +1,6 @@
 # QVCache
 
-QVCache - A tiered memory/disk approximate nearest neighbor search library.
+QVCache - The World's First Vector Cache
 
 ## License
 
