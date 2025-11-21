@@ -1,11 +1,8 @@
-// Greator (Disk index) headers
-#include "greator/pq_flash_index.h"
-#include "greator/aux_utils.h"
-#include "greator/linux_aligned_file_reader.h"
-#include "greator/utils.h"
+// Greator headers
 #include "greator/ctpl_stl.h"
 
 // DiskANN (Memory index) headers
+#include "diskann/utils.h"
 #include "diskann/index_factory.h"
 
 // TieredANN headers

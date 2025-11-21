@@ -13,11 +13,11 @@
 #include <iostream>
 #include <cmath>
 
-// TieredANN headers
-#include "tieredann/tiered_index.h"
-#include "tieredann/greator_backend.h"
 // Include for SECTOR_LEN setting
 #include "greator/pq_flash_index.h"
+// TieredANN headers
+#include "tieredann/greator_backend.h"
+#include "tieredann/tiered_index.h"
 
 namespace po = boost::program_options;
 

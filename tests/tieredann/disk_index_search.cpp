@@ -9,10 +9,12 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+// Include for SECTOR_LEN setting and disk index helpers
+#include "greator/pq_flash_index.h"
+#include "greator/aux_utils.h"
+#include "greator/linux_aligned_file_reader.h"
 // TieredANN headers (for Greator disk index and DiskANN utils)
 #include "tieredann/tiered_index.h"
-// Include for SECTOR_LEN setting
-#include "greator/pq_flash_index.h"
 
 namespace po = boost::program_options;
 
