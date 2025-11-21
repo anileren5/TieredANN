@@ -193,7 +193,7 @@ void experiment_split_noisy(
        data_path, disk_index_prefix,
        R, memory_L, B, M, alpha, 
        build_threads, search_threads,
-       disk_index_already_built, (bool)use_reconstructed_vectors,
+       (bool)use_reconstructed_vectors,
        p, deviation_factor,
        memory_index_max_points,
        use_regional_theta,

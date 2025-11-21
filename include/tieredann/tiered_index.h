@@ -44,7 +44,7 @@ namespace tieredann {
 
             // --- Index parameters ---
             std::string data_path;
-            std::string disk_index_prefix;
+            std::string pca_prefix;
             size_t dim, aligned_dim;
             size_t num_points;
             size_t memory_index_max_points_per_index; // Capacity per index
@@ -598,13 +598,12 @@ namespace tieredann {
         public:
             template <typename... Args>
             TieredIndex(const std::string& data_path,
-                        const std::string& disk_index_prefix,
+                        const std::string& pca_prefix,
                         uint32_t R, uint32_t memory_L,
                         uint32_t B, uint32_t M,
                         float alpha,
                         uint32_t build_threads,
                         uint32_t search_threads,
-                        int disk_index_already_built,
                         bool use_reconstructed_vectors,
                         double p,
                         double deviation_factor, 
@@ -619,7 +618,7 @@ namespace tieredann {
                         size_t max_search_threads_ = 32,
                         std::unique_ptr<BackendInterface<T, TagT>> disk_backend_ptr = nullptr)
                         : data_path(data_path),
-                        disk_index_prefix(disk_index_prefix),
+                        pca_prefix(pca_prefix),
                         search_threads(search_threads),
                         use_reconstructed_vectors(use_reconstructed_vectors),
                         p(p),
@@ -696,7 +695,7 @@ namespace tieredann {
 
                 // PCA is constructed at construction time using Eigen. Eigen is required.
                 if (use_regional_theta) {
-                    pca_utils = std::make_unique<PCAUtils<T>>(dim, pca_dim, buckets_per_dim, disk_index_prefix);
+                    pca_utils = std::make_unique<PCAUtils<T>>(dim, pca_dim, buckets_per_dim, pca_prefix);
                     bool loaded = false;
                     if constexpr (std::is_floating_point<T>::value) {
                         loaded = pca_utils->load_pca_from_file(false);
@@ -713,7 +712,7 @@ namespace tieredann {
                         aligned_dim = ROUND_UP(dim, 8);
                         load_sampled_data(data_path, data, sampled_num_points, aligned_dim, num_points);
                         std::cout << "[TieredIndex] Loaded " << sampled_num_points << " sampled points from " << data_path << std::endl;
-                        pca_utils->construct_pca_from_data(data, sampled_num_points, aligned_dim, disk_index_prefix);
+                        pca_utils->construct_pca_from_data(data, sampled_num_points, aligned_dim, pca_prefix);
                         diskann::aligned_free(data);
                     }
                 } else {
