@@ -10,6 +10,7 @@ set(TEST_EXECUTABLES
     memory_index_search tieredann/memory_index_search.cpp
     tiered_index_split_search tieredann/tiered_index_split_search.cpp
     tiered_index_split_search_noisy tieredann/tiered_index_split_search_noisy.cpp
+    tiered_index_split_search_bruteforce_backend tieredann/tiered_index_split_search_bruteforce_backend.cpp
 )
 
 # Compute length of the list
