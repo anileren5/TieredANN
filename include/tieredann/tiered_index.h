@@ -1,6 +1,3 @@
-// Greator headers
-#include "greator/ctpl_stl.h"
-
 // DiskANN (Memory index) headers
 #include "diskann/utils.h"
 #include "diskann/index_factory.h"
@@ -67,10 +64,6 @@ namespace tieredann {
 
             // --- PCA utilities ---
             std::unique_ptr<PCAUtils<T>> pca_utils;
-
-            // --- Thread pool for parallel search ---
-            std::unique_ptr<ctpl::thread_pool> search_thread_pool;
-            std::mutex search_pool_mutex;
 
         public:
             // Configuration option to choose search strategy
@@ -317,19 +310,6 @@ namespace tieredann {
                     return search_single_index(0, query_ptr, K, L, query_result_tags_ptr, res, query_result_dists_ptr);
                 }
 
-                // Ensure thread pool is initialized
-                {
-                    std::lock_guard<std::mutex> lock(search_pool_mutex);
-                    if (!search_thread_pool) {
-                        // Create thread pool with enough threads to handle concurrent searches
-                        // The pool should be sized to handle the maximum number of concurrent searches
-                        // For n memory indices, we need at least n threads to search them all in parallel
-                        // The max_search_threads parameter provides an upper limit
-                        size_t pool_size = std::min(max_search_threads, std::max(number_of_mini_indexes, static_cast<size_t>(8)));
-                        search_thread_pool = std::make_unique<ctpl::thread_pool>(static_cast<int>(pool_size));
-                    }
-                }
-
                 // Prepare results for each index
                 std::vector<std::vector<uint32_t>> all_tags(number_of_mini_indexes);
                 std::vector<std::vector<float>> all_dists(number_of_mini_indexes);
@@ -339,7 +319,7 @@ namespace tieredann {
                 std::vector<std::future<void>> futures;
 
                 // Lambda function for parallel search
-                auto search_worker = [&](int thread_id, size_t index_id) {
+                auto search_worker = [&](size_t index_id) {
                     if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
                         // Allocate temporary storage for this thread
                         std::vector<uint32_t> temp_tags(K);
@@ -369,8 +349,24 @@ namespace tieredann {
                 };
 
                 // Submit tasks to thread pool
-                for (size_t i = 0; i < number_of_mini_indexes; ++i) {
-                    futures.push_back(search_thread_pool->push(search_worker, i));
+                size_t worker_count = std::min(max_search_threads, number_of_mini_indexes);
+                if (worker_count == 0) {
+                    return false;
+                }
+
+                std::atomic<size_t> next_index{0};
+                auto worker_loop = [&]() {
+                    while (true) {
+                        size_t index_id = next_index.fetch_add(1, std::memory_order_relaxed);
+                        if (index_id >= number_of_mini_indexes) {
+                            break;
+                        }
+                        search_worker(index_id);
+                    }
+                };
+
+                for (size_t i = 0; i < worker_count; ++i) {
+                    futures.emplace_back(std::async(std::launch::async, worker_loop));
                 }
 
                 // Wait for all tasks to complete
