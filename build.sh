@@ -4,4 +4,4 @@ set -e
 mkdir -p build
 cd build
 cmake ..
-make -j"$(nproc)"
+make -j"$(nproc)" tieredann_python_module

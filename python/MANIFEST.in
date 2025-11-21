@@ -1,0 +1,11 @@
+include README.md
+include LICENSE
+include pyproject.toml
+include CMakeLists.txt
+include *.cpp
+include *.h
+include *.py
+recursive-include tieredann *.py *.pyi
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+

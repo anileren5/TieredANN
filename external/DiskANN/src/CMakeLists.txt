@@ -9,6 +9,11 @@ set(CPP_SOURCES abstract_data_store.cpp ann_exception.cpp disk_utils.cpp
 
 add_library(diskann STATIC ${CPP_SOURCES})
 
+# Add -fPIC for shared library linking (needed for Python module)
+set_target_properties(diskann PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
 # Include dirs
 target_include_directories(diskann
     PUBLIC

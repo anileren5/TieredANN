@@ -800,6 +800,12 @@ namespace tieredann {
                     this->backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, backend_stats);
                     std::vector<uint32_t> tags_to_insert(query_result_tags_ptr, query_result_tags_ptr + K);
                     
+                    // DEBUG: Check what tags_to_insert contains
+                    // std::cerr << "DEBUG TieredIndex: tags_to_insert size=" << tags_to_insert.size() 
+                    //           << ", first 3: " << tags_to_insert[0] << ", " 
+                    //           << (tags_to_insert.size() > 1 ? tags_to_insert[1] : 0) << ", "
+                    //           << (tags_to_insert.size() > 2 ? tags_to_insert[2] : 0) << std::endl;
+                    
                     if (lazy_theta_updates) {
                         // Copy query pointer for async insertion and theta update
                         T* query_copy = nullptr;
