@@ -45,7 +45,6 @@ plot/
 Thumbs.db
 
 # Old build artifacts (if any)
-tieredann*.so
 qvcache*.so
 *.cpython-*.so
 
@@ -54,6 +53,3 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
-
-# External dependencies (already in Dockerfile)
-external/
