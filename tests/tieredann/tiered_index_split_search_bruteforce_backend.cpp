@@ -12,58 +12,16 @@
 #include <iostream>
 #include <cmath>
 
-// TieredANN headers
+//  Include Brute-force backend implementation
 #include "tieredann/bruteforce_backend.h"
+
+// Include TieredIndex
 #include "tieredann/tiered_index.h"
 
+// Utils for benchmarking
+#include "tieredann/utils.h"
+
 namespace po = boost::program_options;
-
-template <typename T, typename TagT = uint32_t>
-void calculate_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, size_t query_num, size_t groundtruth_dim) {
-    double total_recall = 0.0;
-    for (int32_t i = 0; i < query_num; i++) {
-        std::set<uint32_t> groundtruth_closest_neighbors;
-        std::set<uint32_t> calculated_closest_neighbors;
-        for (int32_t j = 0; j < K; j++) {
-            calculated_closest_neighbors.insert(*(query_result_tags.data() + i * K + j));
-            groundtruth_closest_neighbors.insert(*(groundtruth_ids + i * groundtruth_dim + j));
-        }
-        uint32_t matching_neighbors = 0;
-        for (uint32_t x : calculated_closest_neighbors) if (groundtruth_closest_neighbors.count(x - 1)) matching_neighbors++;
-        double recall = matching_neighbors / (double)K;
-        total_recall += recall;
-    }
-    double average_recall = total_recall / (query_num);
-    spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": {}, \"type\": \"all\"}}", K, average_recall);
-}
-
-template <typename T, typename TagT = uint32_t>
-void calculate_hit_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, 
-                         const std::vector<bool>& hit_results, size_t query_num, size_t groundtruth_dim) {
-    double total_recall = 0.0;
-    size_t hit_count = 0;
-    for (int32_t i = 0; i < query_num; i++) {
-        if (hit_results[i]) {
-            std::set<uint32_t> groundtruth_closest_neighbors;
-            std::set<uint32_t> calculated_closest_neighbors;
-            for (int32_t j = 0; j < K; j++) {
-                calculated_closest_neighbors.insert(*(query_result_tags.data() + i * K + j));
-                groundtruth_closest_neighbors.insert(*(groundtruth_ids + i * groundtruth_dim + j));
-            }
-            uint32_t matching_neighbors = 0;
-            for (uint32_t x : calculated_closest_neighbors) if (groundtruth_closest_neighbors.count(x - 1)) matching_neighbors++;
-            double recall = matching_neighbors / (double)K;
-            total_recall += recall;
-            hit_count++;
-        }
-    }
-    if (hit_count > 0) {
-        double average_recall = total_recall / hit_count;
-        spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": {}, \"type\": \"cache_hits\", \"hit_count\": {}}}", K, average_recall, hit_count);
-    } else {
-        spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": null, \"type\": \"cache_hits\", \"hit_count\": 0}}", K);
-    }
-}
 
 template <typename T, typename TagT = uint32_t>
 std::vector<bool> hybrid_search(
@@ -217,10 +175,12 @@ void experiment_split(
     TagT *groundtruth_ids = nullptr;
     float *groundtruth_dists = nullptr;
     size_t n_groundtruth, groundtruth_dim;
-    diskann::load_truthset(groundtruth_path, groundtruth_ids, groundtruth_dists, n_groundtruth, groundtruth_dim);
+    load_ground_truth_data(groundtruth_path, groundtruth_ids, groundtruth_dists, n_groundtruth, groundtruth_dim);
+
     size_t query_num, query_dim, query_aligned_dim;
     T *query = nullptr;
-    diskann::load_aligned_bin<T>(query_path, query, query_num, query_dim, query_aligned_dim);
+    load_aligned_binary_data(query_path, query, query_num, query_dim, query_aligned_dim);
+
     std::vector<T *> res = std::vector<T *>();
     // Split queries
     size_t split_size = (query_num + n_splits - 1) / n_splits;
