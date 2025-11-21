@@ -1,5 +1,6 @@
-include README.md
-include LICENSE
+include ../README.md
+include ../LICENSE
+recursive-include .. LICENSE
 include pyproject.toml
 include CMakeLists.txt
 include *.cpp

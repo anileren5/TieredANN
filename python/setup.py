@@ -119,8 +119,10 @@ package_files = ['bruteforce_backend.py']
 setup(
     name="qvcache",
     version="0.1.0",
-    author="QVCache",
-    description="Python bindings for QVCache - A tiered memory/disk approximate nearest neighbor search library",
+    author="Anıl Eren Göçer",
+    author_email="agoecer@ethz.ch",
+    license="MIT",
+    description="Python bindings for QVCache - A vector cache",
     long_description=long_description,
     long_description_content_type="text/markdown",
     ext_modules=[CMakeExtension('qvcache')],
