@@ -19,10 +19,6 @@
 
 namespace po = boost::program_options;
 
-// ... existing code ...
-// Copy recall and hybrid_search helpers from tiered_index_search.cpp
-// ... existing code ...
-
 template <typename T, typename TagT = uint32_t>
 void calculate_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, size_t query_num, size_t groundtruth_dim) {
     double total_recall = 0.0;
@@ -151,21 +147,17 @@ std::vector<bool> hybrid_search(
     return hit_results;
 }
 
-// Main experiment logic for split search
-
 template <typename T = float, typename TagT = uint32_t>
 void experiment_split(
-    const std::string& data_type,
     const std::string& data_path,
     const std::string& query_path,
     const std::string& groundtruth_path,
-    const std::string& disk_index_prefix,
+    const std::string& pca_prefix,
     uint32_t R, uint32_t memory_L, uint32_t K,
     uint32_t B, uint32_t M,
     float alpha,
     uint32_t build_threads,
     uint32_t search_threads,
-    int disk_index_already_built,
     uint32_t beamwidth, 
     int use_reconstructed_vectors,
     double p,
@@ -183,10 +175,10 @@ void experiment_split(
     bool search_mini_indexes_in_parallel,
     size_t max_search_threads,
     const std::string& search_strategy,
-    std::unique_ptr<tieredann::BackendInterface<T, TagT>> greator_backend
+    std::unique_ptr<tieredann::BackendInterface<T, TagT>> backend
 ) {
    tieredann::TieredIndex<T> tiered_index(
-       data_path, disk_index_prefix,
+       data_path, pca_prefix,
        R, memory_L, B, M, alpha, 
        build_threads, search_threads,
        (bool)use_reconstructed_vectors,
@@ -201,7 +193,7 @@ void experiment_split(
        number_of_mini_indexes,
        search_mini_indexes_in_parallel,
        max_search_threads,
-       std::move(greator_backend)
+       std::move(backend)
     );
 
     // Set the search strategy
@@ -343,15 +335,13 @@ void experiment_split(
 }
 
 int main(int argc, char **argv) {
-    std::string data_type, data_path, query_path, groundtruth_path, disk_index_prefix;
-    uint32_t R, memory_L, disk_L, K, B, M;
+    std::string data_type, data_path, query_path, groundtruth_path, pca_prefix;
+    uint32_t R, memory_L, K, B, M;
     uint32_t build_threads, search_threads, beamwidth;
     float alpha;
-    int single_file_index, disk_index_already_built, use_reconstructed_vectors;
-    double hit_rate;
+    int use_reconstructed_vectors;
     double p, deviation_factor;
     int n_iteration_per_split;
-    uint32_t sector_len = 4096;
     bool use_regional_theta = true;
     uint32_t pca_dim, buckets_per_dim;
     size_t memory_index_max_points;
@@ -372,23 +362,20 @@ int main(int argc, char **argv) {
             ("data_path", po::value<std::string>(&data_path)->required(), "Path to data")
             ("query_path", po::value<std::string>(&query_path)->required(), "Path to query")
             ("groundtruth_path", po::value<std::string>(&groundtruth_path)->required(), "Path to groundtruth")
-            ("disk_index_prefix", po::value<std::string>(&disk_index_prefix)->required(), "Prefix to index")
+            ("pca_prefix", po::value<std::string>(&pca_prefix)->required(), "Prefix for PCA files")
             ("R", po::value<uint32_t>(&R)->required(), "Value of R")
             ("memory_L", po::value<uint32_t>(&memory_L)->required(), "Value of memory L")
-            ("disk_L", po::value<uint32_t>(&disk_L)->required(), "Value of disk L")
             ("K", po::value<uint32_t>(&K)->required(), "Value of K")
             ("B", po::value<uint32_t>(&B)->default_value(8), "Value of B")
             ("M", po::value<uint32_t>(&M)->default_value(8), "Value of M")
             ("build_threads", po::value<uint32_t>(&build_threads)->required(), "Threads for building")
             ("search_threads", po::value<uint32_t>(&search_threads)->required(), "Threads for searching")
             ("alpha", po::value<float>(&alpha)->required(), "Alpha parameter")
-            ("use_reconstructed_vectors", po::value<int>(&use_reconstructed_vectors)->default_value(true), "Use reconstructed vectors for insertion to memory index")
-            ("disk_index_already_built", po::value<int>(&disk_index_already_built)->default_value(1), "Disk index already built (0/1)")
+            ("use_reconstructed_vectors", po::value<int>(&use_reconstructed_vectors)->default_value(0), "Use reconstructed vectors for insertion to memory index")
             ("beamwidth", po::value<uint32_t>(&beamwidth)->default_value(2), "Beamwidth")
             ("p", po::value<double>(&p)->default_value(0.75), "Value of p")
             ("deviation_factor", po::value<double>(&deviation_factor)->default_value(0.05), "Value of deviation factor")
             ("n_iteration_per_split", po::value<int>(&n_iteration_per_split)->required(), "Number of search iterations per split")
-            ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes")
             ("use_regional_theta", po::value<bool>(&use_regional_theta)->default_value(true), "Use regional theta (true) or global theta (false)")
             ("pca_dim", po::value<uint32_t>(&pca_dim)->required(), "Value of PCA dimension")
             ("buckets_per_dim", po::value<uint32_t>(&buckets_per_dim)->required(), "Value of buckets per dimension")
@@ -420,10 +407,9 @@ int main(int argc, char **argv) {
         "  \"data_path\": \"{}\",\n"
         "  \"query_path\": \"{}\",\n"
         "  \"groundtruth_path\": \"{}\",\n"
-        "  \"disk_index_prefix\": \"{}\",\n"
+        "  \"pca_prefix\": \"{}\",\n"
         "  \"R\": {},\n"
         "  \"memory_L\": {},\n"
-        "  \"disk_L\": {},\n"
         "  \"K\": {},\n"
         "  \"B\": {},\n"
         "  \"M\": {},\n"
@@ -431,12 +417,10 @@ int main(int argc, char **argv) {
         "  \"search_threads\": {},\n"
         "  \"alpha\": {},\n"
         "  \"use_reconstructed_vectors\": {},\n"
-        "  \"disk_index_already_built\": {},\n"
         "  \"beamwidth\": {},\n"
         "  \"p\": {},\n"
         "  \"deviation_factor\": {},\n"
         "  \"n_iteration_per_split\": {},\n"
-        "  \"sector_len\": {},\n"
         "  \"use_regional_theta\": {},\n"
         "  \"pca_dim\": {},\n"
         "  \"buckets_per_dim\": {},\n"
@@ -450,18 +434,33 @@ int main(int argc, char **argv) {
         "  \"max_search_threads\": {},\n"
         "  \"search_strategy\": \"{}\"\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
+        data_type, data_path, query_path, groundtruth_path, pca_prefix, R, memory_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, beamwidth, p, deviation_factor, n_iteration_per_split, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
     if (data_type == "float") {
         std::unique_ptr<tieredann::BackendInterface<float, uint32_t>> backend = std::make_unique<tieredann::BruteforceBackend<float>>(data_path);
-        experiment_split<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(backend));
+        experiment_split<float>(
+            data_path, query_path, groundtruth_path, pca_prefix, R, memory_L, K, B, M, alpha, 
+            build_threads, search_threads, beamwidth, use_reconstructed_vectors, p, deviation_factor, 
+            n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, 
+            n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, 
+            search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(backend));
     } else if (data_type == "int8") {
         std::unique_ptr<tieredann::BackendInterface<int8_t, uint32_t>> backend = std::make_unique<tieredann::BruteforceBackend<int8_t>>(data_path);
-        experiment_split<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(backend));
+        experiment_split<int8_t>(
+            data_path, query_path, groundtruth_path, pca_prefix, R, memory_L, K, B, M, alpha, 
+            build_threads, search_threads, beamwidth, use_reconstructed_vectors, p, deviation_factor, 
+            n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, 
+            n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, 
+            search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(backend));
     } else if (data_type == "uint8") {
         std::unique_ptr<tieredann::BackendInterface<uint8_t, uint32_t>> backend = std::make_unique<tieredann::BruteforceBackend<uint8_t>>(data_path);
-        experiment_split<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(backend));
+        experiment_split<uint8_t>(
+            data_path, query_path, groundtruth_path, pca_prefix, R, memory_L, K, B, M, alpha, 
+            build_threads, search_threads, beamwidth, use_reconstructed_vectors, p, deviation_factor, 
+            n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, 
+            n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, 
+            search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(backend));
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }
     return 0;
-} 
+}
