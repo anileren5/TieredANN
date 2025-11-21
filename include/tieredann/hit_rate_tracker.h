@@ -1,7 +1,6 @@
 #pragma once
 
 #include <deque>
-#include <atomic>
 #include <mutex>
 #include <functional>
 #include <cstddef>
@@ -174,23 +173,3 @@ private:
 };
 
 } // namespace tieredann
-
-/*
-Example usage:
-#include "hit_rate_tracker.h"
-
-// Create tracker with consolidation callback
-auto tracker = std::make_unique<tieredann::HitRateTracker>(
-    1000,  // Track last 1000 requests
-    0.9,   // Consolidate if hit rate < 90%
-    []() { std::cout << "Hit rate below 90%, triggering consolidation!" << std::endl; }
-);
-
-// Record request results
-bool was_hit = tracker->record_request(true);   // Record a hit
-bool should_consolidate = tracker->record_request(false); // Record a miss
-
-// Get current statistics
-auto stats = tracker->get_statistics();
-std::cout << "Hit rate: " << (stats.hit_rate * 100) << "%" << std::endl;
-*/ 

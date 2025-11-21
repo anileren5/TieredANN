@@ -27,7 +27,7 @@ namespace tieredann {
     class TieredIndex {
         
         private:
-            // Replace direct disk_index with BackendInterface
+            // Backend vector database
             std::unique_ptr<BackendInterface<T, TagT>> disk_backend;
             
             // LRU-managed memory indices: n memory indices managed by LRU eviction
