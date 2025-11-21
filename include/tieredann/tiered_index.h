@@ -259,11 +259,11 @@ namespace tieredann {
                 eviction_in_progress.store(false);
             }
 
-            bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances) {
+            bool isHit(const T* query_ptr, uint32_t K, const float* distances) {
                 std::lock_guard<std::mutex> lock(theta_map_mutex);
                 
                 if (use_regional_theta) {
-                    return pca_utils->isHit(query_ptr, K, L, distances, this->get_number_of_vectors_in_memory_index(), deviation_factor);
+                    return pca_utils->isHit(query_ptr, K, distances, this->get_number_of_vectors_in_memory_index(), deviation_factor);
                 } else {
                     if (this->get_number_of_vectors_in_memory_index() < K){
                         return false;
@@ -290,7 +290,7 @@ namespace tieredann {
                                    float* query_result_dists_ptr) {
                 if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
                     memory_indices[index_id]->search_with_tags(query_ptr, K, L, query_result_tags_ptr, query_result_dists_ptr, res);
-                    bool is_hit = this->isHit(query_ptr, K, L, query_result_dists_ptr);
+                    bool is_hit = this->isHit(query_ptr, K, query_result_dists_ptr);
                     
                     // Only update LRU cache if this search resulted in a hit
                     if (is_hit) {
@@ -331,7 +331,7 @@ namespace tieredann {
                         memory_indices[index_id]->search_with_tags(query_ptr, K, L, temp_tags.data(), temp_dists.data(), temp_res);
                         
                         // Check if this is a hit
-                        bool is_hit = this->isHit(query_ptr, K, L, temp_dists.data());
+                        bool is_hit = this->isHit(query_ptr, K, temp_dists.data());
                         
                         // Only update LRU cache if this search resulted in a hit
                         if (is_hit) {
@@ -403,7 +403,7 @@ namespace tieredann {
                 for (size_t index_id : lru_order) {
                     if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
                         memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
-                        bool is_hit = this->isHit(query_ptr, K, memory_L, query_result_dists_ptr);
+                        bool is_hit = this->isHit(query_ptr, K, query_result_dists_ptr);
                         
                         // Only update LRU cache if this search resulted in a hit
                         if (is_hit) {
@@ -481,7 +481,7 @@ namespace tieredann {
                         std::vector<T*> temp_res;
                         
                         memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
-                        bool is_hit = this->isHit(query_ptr, K, memory_L, temp_dists.data());
+                        bool is_hit = this->isHit(query_ptr, K, temp_dists.data());
                         
                         if (is_hit) {
                             found_hit = true;
@@ -758,7 +758,7 @@ namespace tieredann {
                             std::vector<T*> temp_res;
                             
                             memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
-                            bool is_hit = this->isHit(query_ptr, K, memory_L, temp_dists.data());
+                            bool is_hit = this->isHit(query_ptr, K, temp_dists.data());
                             
                             if (is_hit) {
                                 found_hit = true;

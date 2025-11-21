@@ -232,7 +232,7 @@ namespace tieredann {
         }
 
         // Check if query is a hit using regional theta
-        bool isHit(const T* query_ptr, uint32_t K, uint32_t L, const float* distances, size_t num_vectors_in_memory, double deviation_factor) {
+        bool isHit(const T* query_ptr, uint32_t K, const float* distances, size_t num_vectors_in_memory, double deviation_factor) {
             if (num_vectors_in_memory < K) {
                 return false;
             }
