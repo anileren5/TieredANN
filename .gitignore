@@ -53,7 +53,7 @@ qvcache*.so
 
 # CMake
 CMakeCache.txt
-CMakeFiles/
+CMakeFiles
 cmake_install.cmake
 
 # OS
