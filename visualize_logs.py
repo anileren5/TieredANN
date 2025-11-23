@@ -87,6 +87,7 @@ def create_latency_plot(metrics: List[Dict], output_dir: Path):
     iterations = np.arange(len(metrics))
     avg_latency = [m['avg_latency_ms'] for m in metrics]
     avg_hit_latency = [m['avg_hit_latency_ms'] if m['avg_hit_latency_ms'] > 0 else None for m in metrics]
+    p50_latency = [m['tail_latency_ms']['p50'] for m in metrics]
     p90_latency = [m['tail_latency_ms']['p90'] for m in metrics]
     p95_latency = [m['tail_latency_ms']['p95'] for m in metrics]
     p99_latency = [m['tail_latency_ms']['p99'] for m in metrics]
@@ -94,6 +95,7 @@ def create_latency_plot(metrics: List[Dict], output_dir: Path):
     fig, ax = plt.subplots(figsize=(10, 6))
     
     ax.plot(iterations, avg_latency, 'b-', linewidth=1.5, label='Average Latency', marker='o', markersize=3, markevery=max(1, len(iterations)//20))
+    ax.plot(iterations, p50_latency, 'cyan', linestyle='--', linewidth=1.2, label='P50 Latency (Median)', alpha=0.8)
     ax.plot(iterations, p90_latency, 'g--', linewidth=1.2, label='P90 Latency', alpha=0.8)
     ax.plot(iterations, p95_latency, 'orange', linestyle='--', linewidth=1.2, label='P95 Latency', alpha=0.8)
     ax.plot(iterations, p99_latency, 'r--', linewidth=1.2, label='P99 Latency', alpha=0.8)
@@ -231,8 +233,10 @@ def create_comprehensive_plot(metrics: List[Dict], output_dir: Path):
     # Latency
     ax2 = fig.add_subplot(gs[0, 1])
     avg_latency = [m['avg_latency_ms'] for m in metrics]
+    p50_latency = [m['tail_latency_ms']['p50'] for m in metrics]
     p99_latency = [m['tail_latency_ms']['p99'] for m in metrics]
     ax2.plot(iterations, avg_latency, 'b-', linewidth=1.5, label='Avg', marker='o', markersize=2, markevery=max(1, len(iterations)//30))
+    ax2.plot(iterations, p50_latency, 'cyan', linestyle='--', linewidth=1.2, label='P50', alpha=0.8)
     ax2.plot(iterations, p99_latency, 'r--', linewidth=1.2, label='P99', alpha=0.8)
     ax2.set_ylabel('Latency (ms)', fontsize=11)
     ax2.set_title('Query Latency', fontsize=12, fontweight='bold')

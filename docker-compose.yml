@@ -8,6 +8,8 @@ services:
     volumes:
       - .:/app
       - qdrant_storage:/qdrant/storage
+      - /scratch/goecer/bigann_data:/app/data/bigann  
+      - /scratch2/bigann/index:/app/index/bigann 
     working_dir: /app
     entrypoint: bash
     stdin_open: true
