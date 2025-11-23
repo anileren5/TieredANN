@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Python version of qvcache_split_search_bruteforce_backend.cpp
+Python version of qvcache_split_search_bruteforce_backend.py using Pinecone backend
 
 This script allows running the same test as the C++ version but using
-a Python-implemented bruteforce backend.
+a Python-implemented Pinecone backend.
 """
 
 import argparse
@@ -11,7 +11,9 @@ import time
 import numpy as np
 import json
 import sys
+import os
 from typing import List, Tuple
+from pathlib import Path
 
 # Import the compiled qvcache module
 try:
@@ -21,7 +23,7 @@ except ImportError:
     print("Run: cd build && cmake .. && make")
     sys.exit(1)
 
-from bruteforce_backend import BruteforceBackend
+from pinecone_backend import PineconeBackend
 
 
 def hybrid_search(
@@ -100,7 +102,7 @@ def hybrid_search(
     p95 = get_percentile(0.95) if query_num > 0 else 0.0
     p99 = get_percentile(0.99) if query_num > 0 else 0.0
     
-    # Build mini index vector counts
+    # Get memory stats from qvcache
     num_mini_indexes = qvcache.get_number_of_mini_indexes()
     mini_index_counts = {}
     for i in range(num_mini_indexes):
@@ -212,10 +214,13 @@ def experiment_split(
     search_mini_indexes_in_parallel: bool,
     max_search_threads: int,
     search_strategy: str,
-    backend: BruteforceBackend
+    backend: PineconeBackend,
+    index_name: str,
+    api_key: str = None,
+    environment: str = None
 ):
-    """Run the split search experiment."""
-    # Create QVCache with Python backend
+    """Run the split search experiment with Pinecone backend."""
+    # Create QVCache with Pinecone backend
     qvcache = qvc.QVCache(
         data_path=data_path,
         pca_prefix=pca_prefix,
@@ -255,14 +260,12 @@ def experiment_split(
     elif search_strategy == "PARALLEL":
         qvcache.set_search_strategy(qvc.SearchStrategy.PARALLEL)
     else:
-        print(f"Unknown search strategy: {search_strategy}", file=sys.stderr)
-        print("Available strategies: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL", file=sys.stderr)
-        sys.exit(1)
+        print(f"Warning: Unknown search strategy '{search_strategy}', using default", file=sys.stderr)
     
     # Load ground truth
     groundtruth_ids, groundtruth_dists = qvc.load_ground_truth_data(groundtruth_path)
     n_groundtruth, groundtruth_dim = groundtruth_ids.shape
-    
+
     # Load queries
     queries, query_dim, query_aligned_dim = qvc.load_aligned_binary_data(query_path)
     query_num = queries.shape[0]
@@ -355,56 +358,70 @@ def experiment_split(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="QVCache split search with Python backend")
+    parser = argparse.ArgumentParser(description="QVCache split search experiment with Pinecone backend")
+    parser.add_argument("--data_path", type=str, required=True, help="Path to base data file")
+    parser.add_argument("--query_path", type=str, required=True, help="Path to query data file")
+    parser.add_argument("--groundtruth_path", type=str, required=True, help="Path to groundtruth file")
+    parser.add_argument("--pca_prefix", type=str, required=True, help="PCA index prefix")
+    parser.add_argument("--index_name", type=str, default="vectors",
+                       help="Pinecone index name (default: vectors). "
+                            "For cloud: Check your Pinecone dashboard for the exact index name")
+    parser.add_argument("--api_key", type=str, default=None,
+                       help="Pinecone API key (default: from PINECONE_API_KEY env var). "
+                            "For cloud: Your API key (starts with 'pcsk_'). "
+                            "For local: Use 'pclocal' or 'local'")
+    parser.add_argument("--environment", type=str, default=None,
+                       help="Pinecone environment/region. "
+                            "For cloud: REQUIRED! (e.g., 'us-east-1', 'us-west-2', 'eu-west-1'). "
+                            "For local: Not needed")
+    parser.add_argument("--host", type=str, default=None,
+                       help="Pinecone host. "
+                            "For cloud: Not needed (leave as None). "
+                            "For local Docker: Use service name like 'pinecone'")
     
-    parser.add_argument("--data_type", required=True, choices=["float", "int8", "uint8"],
-                       help="Type of data")
-    parser.add_argument("--data_path", required=True, help="Path to data")
-    parser.add_argument("--query_path", required=True, help="Path to query")
-    parser.add_argument("--groundtruth_path", required=True, help="Path to groundtruth")
-    parser.add_argument("--pca_prefix", required=True, help="Prefix for PCA files")
-    parser.add_argument("--R", type=int, required=True, help="Value of R")
-    parser.add_argument("--memory_L", type=int, required=True, help="Value of memory L")
-    parser.add_argument("--K", type=int, required=True, help="Value of K")
-    parser.add_argument("--B", type=int, default=8, help="Value of B")
-    parser.add_argument("--M", type=int, default=8, help="Value of M")
-    parser.add_argument("--build_threads", type=int, required=True, help="Threads for building")
-    parser.add_argument("--search_threads", type=int, required=True, help="Threads for searching")
-    parser.add_argument("--alpha", type=float, required=True, help="Alpha parameter")
-    parser.add_argument("--use_reconstructed_vectors", type=int, default=0,
-                       help="Use reconstructed vectors for insertion to memory index")
+    # QVCache parameters
+    parser.add_argument("--R", type=int, default=64, help="R parameter")
+    parser.add_argument("--memory_L", type=int, default=128, help="Memory L parameter")
+    parser.add_argument("--K", type=int, default=100, help="Number of nearest neighbors")
+    parser.add_argument("--B", type=int, default=8, help="B parameter")
+    parser.add_argument("--M", type=int, default=8, help="M parameter")
+    parser.add_argument("--alpha", type=float, default=1.2, help="Alpha parameter")
+    parser.add_argument("--build_threads", type=int, default=8, help="Build threads")
+    parser.add_argument("--search_threads", type=int, default=24, help="Search threads")
     parser.add_argument("--beamwidth", type=int, default=2, help="Beamwidth")
-    parser.add_argument("--p", type=float, default=0.75, help="Value of p")
-    parser.add_argument("--deviation_factor", type=float, default=0.05, help="Value of deviation factor")
-    parser.add_argument("--n_iteration_per_split", type=int, required=True,
-                       help="Number of search iterations per split")
-    parser.add_argument("--use_regional_theta", type=lambda x: (str(x).lower() == 'true'), default=True,
-                       help="Use regional theta (True/False)")
-    parser.add_argument("--pca_dim", type=int, required=True, help="Value of PCA dimension")
-    parser.add_argument("--buckets_per_dim", type=int, required=True, help="Value of buckets per dimension")
-    parser.add_argument("--memory_index_max_points", type=int, required=True,
-                       help="Max points for memory index")
-    parser.add_argument("--n_splits", type=int, required=True, help="Number of splits for queries")
-    parser.add_argument("--n_rounds", type=int, default=1, help="Number of rounds to repeat all splits")
-    parser.add_argument("--n_async_insert_threads", type=int, default=4, help="Number of async insert threads")
-    parser.add_argument("--lazy_theta_updates", type=lambda x: (str(x).lower() == 'true'), default=True,
-                       help="Enable lazy theta updates (True/False)")
-    parser.add_argument("--number_of_mini_indexes", type=int, default=2,
-                       help="Number of mini indexes for shadow cycling")
-    parser.add_argument("--search_mini_indexes_in_parallel", type=lambda x: (str(x).lower() == 'true'), default=False,
-                       help="Search mini indexes in parallel (True/False)")
-    parser.add_argument("--max_search_threads", type=int, default=32,
-                       help="Maximum threads for parallel search")
-    parser.add_argument("--search_strategy", type=str, default="SEQUENTIAL_LRU_STOP_FIRST_HIT",
+    parser.add_argument("--use_reconstructed_vectors", type=int, default=0, help="Use reconstructed vectors")
+    parser.add_argument("--p", type=float, default=0.9, help="P parameter")
+    parser.add_argument("--deviation_factor", type=float, default=0.025, help="Deviation factor")
+    parser.add_argument("--n_iteration_per_split", type=int, default=100, help="Iterations per split")
+    parser.add_argument("--memory_index_max_points", type=int, default=200000, help="Max points in memory index")
+    parser.add_argument("--use_regional_theta", type=bool, default=True, help="Use regional theta")
+    parser.add_argument("--pca_dim", type=int, default=16, help="PCA dimension")
+    parser.add_argument("--buckets_per_dim", type=int, default=8, help="Buckets per dimension")
+    parser.add_argument("--n_splits", type=int, default=30, help="Number of splits")
+    parser.add_argument("--n_rounds", type=int, default=1, help="Number of rounds")
+    parser.add_argument("--n_async_insert_threads", type=int, default=16, help="Async insert threads")
+    parser.add_argument("--lazy_theta_updates", type=bool, default=True, help="Lazy theta updates")
+    parser.add_argument("--number_of_mini_indexes", type=int, default=4, help="Number of mini indexes")
+    parser.add_argument("--search_mini_indexes_in_parallel", type=bool, default=False, help="Search mini indexes in parallel")
+    parser.add_argument("--max_search_threads", type=int, default=32, help="Max search threads")
+    parser.add_argument("--search_strategy", type=str, default="SEQUENTIAL_LRU_ADAPTIVE",
                        choices=["SEQUENTIAL_LRU_STOP_FIRST_HIT", "SEQUENTIAL_LRU_ADAPTIVE",
                                "SEQUENTIAL_ALL", "PARALLEL"],
                        help="Search strategy")
+    parser.add_argument("--data_type", type=str, default="float", help="Data type")
     
     args = parser.parse_args()
+    
+    # Get API key from environment if not provided
+    api_key = args.api_key or os.getenv("PINECONE_API_KEY", "local")  # "local" will be converted to "pclocal" in backend
     
     # Print parameters
     params = {
         "event": "params",
+        "backend": "Pinecone",
+        "index_name": args.index_name,
+        "api_key": api_key[:10] + "..." if len(api_key) > 10 else "***",
+        "environment": args.environment,
         "data_type": args.data_type,
         "data_path": args.data_path,
         "query_path": args.query_path,
@@ -438,13 +455,22 @@ def main():
     }
     print(json.dumps(params))
     
-    # Create Python backend
-    if args.data_type == "float":
-        backend = BruteforceBackend(args.data_path)
-    else:
-        print(f"Unsupported data type for Python backend: {args.data_type}", file=sys.stderr)
-        print("Note: Python backend currently only supports float32", file=sys.stderr)
-        sys.exit(1)
+    # Get vector dimension from data file
+    with open(args.data_path, 'rb') as f:
+        num_vectors = np.frombuffer(f.read(4), dtype=np.uint32)[0]
+        dimension = int(np.frombuffer(f.read(4), dtype=np.uint32)[0])  # Convert to Python int
+    
+    # Create Pinecone backend (assumes index already exists)
+    print(f"\nConnecting to Pinecone...")
+    backend = PineconeBackend(
+        index_name=args.index_name,
+        dimension=dimension,
+        api_key=api_key,
+        environment=args.environment,
+        host=args.host,
+        data_path=None,  # Don't load data here, should already be indexed
+        recreate_index=False
+    )
     
     # Run experiment
     experiment_split(
@@ -457,7 +483,7 @@ def main():
         args.n_splits, args.n_rounds, args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
-        args.search_strategy, backend
+        args.search_strategy, backend, args.index_name, api_key, args.environment
     )
 
 

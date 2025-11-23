@@ -13,6 +13,6 @@ RUN apt update && \
         libspdlog-dev && \
     # Install Python dependencies for bindings
     python3 -m pip install --upgrade pip setuptools wheel && \
-    python3 -m pip install pybind11 numpy qdrant-client
+    python3 -m pip install pybind11 numpy qdrant-client pymilvus pinecone psycopg2-binary
 
 WORKDIR /app
