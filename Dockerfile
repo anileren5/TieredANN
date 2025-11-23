@@ -13,6 +13,7 @@ RUN apt update && \
         libspdlog-dev && \
     # Install Python dependencies for bindings
     python3 -m pip install --upgrade pip setuptools wheel && \
-    python3 -m pip install pybind11 numpy qdrant-client pymilvus pinecone psycopg2-binary
+    python3 -m pip install "protobuf<5.0.0" && \
+    python3 -m pip install pybind11 numpy matplotlib qdrant-client pinecone psycopg2-binary faiss-cpu
 
 WORKDIR /app

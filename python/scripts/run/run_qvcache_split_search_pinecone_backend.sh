@@ -1,11 +1,13 @@
 #!/bin/bash
 
-# Script to run QVCache split search experiment with Qdrant backend
+# Script to run QVCache split search experiment with Pinecone backend
 
-# Change to project root
-cd "$(dirname "$0")/.." || exit 1
+# Change to project root (go up 3 levels from scripts/run/)
+cd "$(dirname "$0")/../../.." || exit 1
 
-# Dataset parameters
+# ============================================================================
+# DATASET CONFIGURATION
+# ============================================================================
 DATASET="sift"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
@@ -13,23 +15,32 @@ QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 K=100
 
-# Qdrant parameters
-COLLECTION_NAME="vectors"  # Qdrant collection name
+# ============================================================================
+# CLOUD PINECONE CONFIGURATION - UPDATE THESE VALUES FOR YOUR SETUP
+# ============================================================================
+# Your Pinecone API Key (starts with "pcsk_")
+# Get this from your Pinecone dashboard: https://app.pinecone.io/
+PINECONE_API_KEY="pcsk_5A9fQ3_9rJt2c14Ugs1yA99yRzARcNhPqbLxc99S18NVL863yerADFekcqwHf8RxXbtkcW"
 
-# Detect if running inside Docker and set Qdrant URL accordingly
-if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
-    QDRANT_URL="http://qdrant:6333"  # Docker internal network
-else
-    QDRANT_URL="http://localhost:6333"  # Local machine
-fi
+# Your Pinecone region/environment (e.g., "us-east-1", "us-west-2", "eu-west-1")
+# Check your Pinecone dashboard for the correct region
+PINECONE_ENVIRONMENT="us-east-1"
 
-# Allow override via environment variable
-if [ -n "$QDRANT_URL_ENV" ]; then
-    QDRANT_URL="$QDRANT_URL_ENV"
+# Your Pinecone index name (check your Pinecone dashboard)
+INDEX_NAME="pinecone-sift-index"
+
+# Not needed for cloud Pinecone (only used for local Docker setup)
+PINECONE_HOST=""
+
+# Validate API key is set
+if [ "$PINECONE_API_KEY" = "YOUR_PINECONE_API_KEY_HERE" ] || [ -z "$PINECONE_API_KEY" ]; then
+    echo "ERROR: Pinecone API key is not set!"
+    echo "Please update PINECONE_API_KEY in this script with your actual API key from https://app.pinecone.io/"
+    exit 1
 fi
 
 # Experiment parameters
-N_ITERATION_PER_SPLIT=100 # Number of search iterations per split
+N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
 N_SPLITS=30 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
 
@@ -82,19 +93,34 @@ if [ ! -f "$GROUNDTRUTH_PATH" ]; then
 fi
 
 # Run the Python test with all parameters
-echo "Running QVCache split search experiment with Qdrant backend..."
-echo "Qdrant collection: $COLLECTION_NAME"
-echo "Qdrant URL: $QDRANT_URL"
+echo "Running QVCache split search experiment with Pinecone backend..."
+echo "Pinecone index: $INDEX_NAME"
+echo "API key: ${PINECONE_API_KEY:0:10}..."  # Show first 10 chars only
+
+ENV_FLAG=""
+if [ -n "$PINECONE_ENVIRONMENT" ]; then
+    ENV_FLAG="--environment $PINECONE_ENVIRONMENT"
+    echo "Environment: $PINECONE_ENVIRONMENT"
+fi
+
+HOST_FLAG=""
+if [ -n "$PINECONE_HOST" ]; then
+    HOST_FLAG="--host $PINECONE_HOST"
+    echo "Host: $PINECONE_HOST"
+fi
+
 echo ""
 
-python3 python/qvcache_split_search_qdrant_backend.py \
+python3 python/benchmarks/qvcache_split_search_pinecone_backend.py \
   --data_type "$DATA_TYPE" \
   --data_path "$DATA_PATH" \
   --query_path "$QUERY_PATH" \
   --groundtruth_path "$GROUNDTRUTH_PATH" \
   --pca_prefix "$PCA_PREFIX" \
-  --collection_name "$COLLECTION_NAME" \
-  --qdrant_url "$QDRANT_URL" \
+  --index_name "$INDEX_NAME" \
+  --api_key "$PINECONE_API_KEY" \
+  $ENV_FLAG \
+  $HOST_FLAG \
   --R "$R" \
   --memory_L "$MEMORY_L" \
   --K "$K" \

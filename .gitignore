@@ -62,3 +62,6 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Python files
+*.py

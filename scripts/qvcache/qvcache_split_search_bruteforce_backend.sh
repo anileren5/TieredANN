@@ -12,7 +12,7 @@ GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 K=100
 
 # Experiment parameters
-N_ITERATION_PER_SPLIT=100 # Number of search iterations per split
+N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
 N_SPLITS=30 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
 

@@ -12,6 +12,9 @@
 #include <set>
 #include <iostream>
 #include <cmath>
+#include <map>
+#include <limits>
+#include <utility>
 
 // Backend header
 #include "greator_backend.h"
@@ -21,55 +24,201 @@
 
 namespace po = boost::program_options;
 
+// Metrics structures to match Python format
+struct HybridMetrics {
+    double hit_ratio;
+    size_t hits;
+    size_t total_queries;
+    uint32_t threads;
+    double avg_latency_ms;
+    double avg_hit_latency_ms;
+    double qps;
+    double qps_per_thread;
+    size_t memory_active_vectors;
+    size_t memory_max_points;
+    size_t pca_active_regions;
+    std::map<size_t, size_t> index_vectors;  // index_id -> vector_count
+    double p90;
+    double p95;
+    double p99;
+};
+
+struct RecallAllMetrics {
+    double recall_all;
+    uint32_t K;
+    size_t low_recall_queries;
+    size_t very_low_recall_queries;
+};
+
+struct RecallHitMetrics {
+    double recall_cache_hits;  // Use -1.0 to represent null
+    size_t cache_hit_count;
+};
+
 template <typename T, typename TagT = uint32_t>
-void calculate_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, size_t query_num, size_t groundtruth_dim) {
+RecallAllMetrics calculate_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, size_t query_num, size_t groundtruth_dim) {
     double total_recall = 0.0;
+    std::vector<double> recall_by_query;
+    const TagT INVALID_ID = std::numeric_limits<TagT>::max();
+    
     for (int32_t i = 0; i < query_num; i++) {
         std::set<uint32_t> groundtruth_closest_neighbors;
         std::set<uint32_t> calculated_closest_neighbors;
         for (int32_t j = 0; j < K; j++) {
-            calculated_closest_neighbors.insert(*(query_result_tags.data() + i * K + j));
             groundtruth_closest_neighbors.insert(*(groundtruth_ids + i * groundtruth_dim + j));
         }
+        // Filter out invalid IDs (padded results)
+        for (int32_t j = 0; j < K; j++) {
+            TagT tag = *(query_result_tags.data() + i * K + j);
+            if (tag != INVALID_ID) {
+                calculated_closest_neighbors.insert(tag);
+            }
+        }
         uint32_t matching_neighbors = 0;
-        for (uint32_t x : calculated_closest_neighbors) if (groundtruth_closest_neighbors.count(x - 1)) matching_neighbors++;
+        for (uint32_t x : calculated_closest_neighbors) {
+            if (groundtruth_closest_neighbors.count(x - 1)) matching_neighbors++;
+        }
         double recall = matching_neighbors / (double)K;
+        recall_by_query.push_back(recall);
         total_recall += recall;
     }
     double average_recall = total_recall / (query_num);
-    spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": {}, \"type\": \"all\"}}", K, average_recall);
+    
+    // Count queries with low recall
+    size_t low_recall_count = 0;
+    size_t very_low_recall_count = 0;
+    for (double r : recall_by_query) {
+        if (r < 0.5) low_recall_count++;
+        if (r < 0.1) very_low_recall_count++;
+    }
+    
+    RecallAllMetrics metrics;
+    metrics.recall_all = average_recall;
+    metrics.K = K;
+    metrics.low_recall_queries = low_recall_count;
+    metrics.very_low_recall_queries = very_low_recall_count;
+    
+    return metrics;
 }
 
 template <typename T, typename TagT = uint32_t>
-void calculate_hit_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, 
+RecallHitMetrics calculate_hit_recall(size_t K, TagT* groundtruth_ids, std::vector<TagT>& query_result_tags, 
                          const std::vector<bool>& hit_results, size_t query_num, size_t groundtruth_dim) {
     double total_recall = 0.0;
     size_t hit_count = 0;
+    const TagT INVALID_ID = std::numeric_limits<TagT>::max();
+    
     for (int32_t i = 0; i < query_num; i++) {
         if (hit_results[i]) {
             std::set<uint32_t> groundtruth_closest_neighbors;
             std::set<uint32_t> calculated_closest_neighbors;
             for (int32_t j = 0; j < K; j++) {
-                calculated_closest_neighbors.insert(*(query_result_tags.data() + i * K + j));
                 groundtruth_closest_neighbors.insert(*(groundtruth_ids + i * groundtruth_dim + j));
             }
+            // Filter out invalid IDs (padded results)
+            for (int32_t j = 0; j < K; j++) {
+                TagT tag = *(query_result_tags.data() + i * K + j);
+                if (tag != INVALID_ID) {
+                    calculated_closest_neighbors.insert(tag);
+                }
+            }
             uint32_t matching_neighbors = 0;
-            for (uint32_t x : calculated_closest_neighbors) if (groundtruth_closest_neighbors.count(x - 1)) matching_neighbors++;
+            for (uint32_t x : calculated_closest_neighbors) {
+                if (groundtruth_closest_neighbors.count(x - 1)) matching_neighbors++;
+            }
             double recall = matching_neighbors / (double)K;
             total_recall += recall;
             hit_count++;
         }
     }
+    
+    RecallHitMetrics metrics;
     if (hit_count > 0) {
-        double average_recall = total_recall / hit_count;
-        spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": {}, \"type\": \"cache_hits\", \"hit_count\": {}}}", K, average_recall, hit_count);
+        metrics.recall_cache_hits = total_recall / hit_count;
     } else {
-        spdlog::info("{{\"event\": \"recall\", \"K\": {}, \"recall\": null, \"type\": \"cache_hits\", \"hit_count\": 0}}", K);
+        metrics.recall_cache_hits = -1.0;  // Use -1.0 to represent null
+    }
+    metrics.cache_hit_count = hit_count;
+    
+    return metrics;
+}
+
+template <typename T, typename TagT = uint32_t>
+void log_split_metrics(const HybridMetrics& hybrid_metrics, const RecallAllMetrics& recall_all_metrics, const RecallHitMetrics& recall_hit_metrics) {
+    // Build mini index vector counts string
+    std::string mini_index_counts = "";
+    for (const auto& [idx, count] : hybrid_metrics.index_vectors) {
+        if (!mini_index_counts.empty()) mini_index_counts += ", ";
+        mini_index_counts += "\"index_" + std::to_string(idx) + "_vectors\": " + std::to_string(count);
+    }
+    
+    // Log combined metrics in single JSON line (matching Python format)
+    if (recall_hit_metrics.recall_cache_hits < 0) {
+        // null case
+        spdlog::info("{{\"event\": \"split_metrics\", "
+                  "\"hit_ratio\": {}, "
+                  "\"hits\": {}, "
+                  "\"total_queries\": {}, "
+                  "\"threads\": {}, "
+                  "\"avg_latency_ms\": {}, "
+                  "\"avg_hit_latency_ms\": {}, "
+                  "\"qps\": {}, "
+                  "\"qps_per_thread\": {}, "
+                  "\"memory_active_vectors\": {}, "
+                  "\"memory_max_points\": {}, "
+                  "\"pca_active_regions\": {}, "
+                  "{}, "
+                  "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}, "
+                  "\"recall_all\": {}, "
+                  "\"K\": {}, "
+                  "\"low_recall_queries\": {}, "
+                  "\"very_low_recall_queries\": {}, "
+                  "\"recall_cache_hits\": null, "
+                  "\"cache_hit_count\": {}}}",
+                  hybrid_metrics.hit_ratio, hybrid_metrics.hits, hybrid_metrics.total_queries,
+                  hybrid_metrics.threads, hybrid_metrics.avg_latency_ms, hybrid_metrics.avg_hit_latency_ms,
+                  hybrid_metrics.qps, hybrid_metrics.qps_per_thread,
+                  hybrid_metrics.memory_active_vectors, hybrid_metrics.memory_max_points,
+                  hybrid_metrics.pca_active_regions, mini_index_counts,
+                  hybrid_metrics.p90, hybrid_metrics.p95, hybrid_metrics.p99,
+                  recall_all_metrics.recall_all, recall_all_metrics.K,
+                  recall_all_metrics.low_recall_queries, recall_all_metrics.very_low_recall_queries,
+                  recall_hit_metrics.cache_hit_count);
+    } else {
+        spdlog::info("{{\"event\": \"split_metrics\", "
+                  "\"hit_ratio\": {}, "
+                  "\"hits\": {}, "
+                  "\"total_queries\": {}, "
+                  "\"threads\": {}, "
+                  "\"avg_latency_ms\": {}, "
+                  "\"avg_hit_latency_ms\": {}, "
+                  "\"qps\": {}, "
+                  "\"qps_per_thread\": {}, "
+                  "\"memory_active_vectors\": {}, "
+                  "\"memory_max_points\": {}, "
+                  "\"pca_active_regions\": {}, "
+                  "{}, "
+                  "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}, "
+                  "\"recall_all\": {}, "
+                  "\"K\": {}, "
+                  "\"low_recall_queries\": {}, "
+                  "\"very_low_recall_queries\": {}, "
+                  "\"recall_cache_hits\": {}, "
+                  "\"cache_hit_count\": {}}}",
+                  hybrid_metrics.hit_ratio, hybrid_metrics.hits, hybrid_metrics.total_queries,
+                  hybrid_metrics.threads, hybrid_metrics.avg_latency_ms, hybrid_metrics.avg_hit_latency_ms,
+                  hybrid_metrics.qps, hybrid_metrics.qps_per_thread,
+                  hybrid_metrics.memory_active_vectors, hybrid_metrics.memory_max_points,
+                  hybrid_metrics.pca_active_regions, mini_index_counts,
+                  hybrid_metrics.p90, hybrid_metrics.p95, hybrid_metrics.p99,
+                  recall_all_metrics.recall_all, recall_all_metrics.K,
+                  recall_all_metrics.low_recall_queries, recall_all_metrics.very_low_recall_queries,
+                  recall_hit_metrics.recall_cache_hits, recall_hit_metrics.cache_hit_count);
     }
 }
 
 template <typename T, typename TagT = uint32_t>
-std::vector<bool> hybrid_search(
+std::pair<std::vector<bool>, HybridMetrics> hybrid_search(
     qvcache::QVCache<T>& qvcache,
     const T* query, size_t query_num, uint32_t query_aligned_dim,
     uint32_t K, uint32_t L, uint32_t search_threads,
@@ -108,7 +257,6 @@ std::vector<bool> hybrid_search(
     }
     double avg_hit_latency_ms = (actual_hit_count > 0) ? total_hit_latency_ms / actual_hit_count : 0.0;
     double final_ratio = static_cast<double>(hit_count.load(std::memory_order_relaxed)) / query_num;
-    spdlog::info("{{\"event\": \"hit_ratio\", \"hit_ratio\": {}, \"hits\": {}, \"total\": {}}}", final_ratio, hit_count, query_num);
     auto global_end = std::chrono::high_resolution_clock::now();
     double total_time_ms = std::chrono::duration<double, std::milli>(global_end - global_start).count();
     double total_time_sec = total_time_ms / 1000.0;
@@ -127,28 +275,33 @@ std::vector<bool> hybrid_search(
     double p90 = get_percentile(0.90);
     double p95 = get_percentile(0.95);
     double p99 = get_percentile(0.99);
-    // Build mini index vector counts string
-    std::string mini_index_counts = "";
+    
+    // Build index vector counts map
+    std::map<size_t, size_t> index_vectors;
     size_t num_mini_indexes = qvcache.get_number_of_mini_indexes();
     for (size_t i = 0; i < num_mini_indexes; ++i) {
-        if (i > 0) mini_index_counts += ", ";
-        mini_index_counts += "\"index_" + std::to_string(i) + "_vectors\": " + std::to_string(qvcache.get_index_vector_count(i));
+        index_vectors[i] = qvcache.get_index_vector_count(i);
     }
     
-    spdlog::info("{{\"event\": \"latency\", "
-              "\"threads\": {}, "
-              "\"avg_latency_ms\": {}, "
-              "\"avg_hit_latency_ms\": {}, "
-              "\"qps\": {}, "
-              "\"qps_per_thread\": {}, "
-              "\"memory_active_vectors\": {}, "
-              "\"memory_max_points\": {}, "
-              "\"pca_active_regions\": {}, "
-              "{}, "
-              "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}}}",
-              search_threads, avg_latency_ms, avg_hit_latency_ms, qps, qps_per_thread, qvcache.get_number_of_vectors_in_memory_index(), qvcache.get_number_of_max_points_in_memory_index(), qvcache.get_number_of_active_pca_regions(), mini_index_counts, p90, p95, p99);
+    HybridMetrics metrics;
+    metrics.hit_ratio = final_ratio;
+    metrics.hits = hit_count.load(std::memory_order_relaxed);
+    metrics.total_queries = query_num;
+    metrics.threads = search_threads;
+    metrics.avg_latency_ms = avg_latency_ms;
+    metrics.avg_hit_latency_ms = avg_hit_latency_ms;
+    metrics.qps = qps;
+    metrics.qps_per_thread = qps_per_thread;
+    metrics.memory_active_vectors = qvcache.get_number_of_vectors_in_memory_index();
+    metrics.memory_max_points = qvcache.get_number_of_max_points_in_memory_index();
+    metrics.pca_active_regions = qvcache.get_number_of_active_pca_regions();
+    metrics.index_vectors = index_vectors;
+    metrics.p90 = p90;
+    metrics.p95 = p95;
+    metrics.p99 = p99;
+    
     delete[] stats;
-    return hit_results;
+    return std::make_pair(hit_results, metrics);
 }
 
 // Main experiment logic for split search
@@ -244,7 +397,7 @@ void experiment_split(
                 size_t this_split_size = end - start;
                 std::vector<TagT> query_result_tags(this_split_size * K);
                 for (int iter = 0; iter < n_iteration_per_split; ++iter) {
-                    std::vector<bool> hit_results = hybrid_search(
+                    auto [hit_results, hybrid_metrics] = hybrid_search(
                         qvcache,
                         query + start * query_aligned_dim,
                         this_split_size,
@@ -257,8 +410,9 @@ void experiment_split(
                         beamwidth,
                         data_path
                     );
-                    calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
-                    calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
+                    RecallAllMetrics recall_all = calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
+                    RecallHitMetrics recall_hits = calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
+                    log_split_metrics<T, TagT>(hybrid_metrics, recall_all, recall_hits);
                     query_result_tags.clear();
                 }
             }
@@ -270,7 +424,7 @@ void experiment_split(
                 size_t this_split_size2 = end2 - start2;
                 std::vector<TagT> query_result_tags2(this_split_size2 * K);
                 for (int iter = 0; iter < n_iteration_per_split; ++iter) {
-                    std::vector<bool> hit_results2 = hybrid_search(
+                    auto [hit_results2, hybrid_metrics2] = hybrid_search(
                         qvcache,
                         query + start2 * query_aligned_dim,
                         this_split_size2,
@@ -283,8 +437,9 @@ void experiment_split(
                         beamwidth,
                         data_path
                     );
-                    calculate_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, this_split_size2, groundtruth_dim);
-                    calculate_hit_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, hit_results2, this_split_size2, groundtruth_dim);
+                    RecallAllMetrics recall_all2 = calculate_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, this_split_size2, groundtruth_dim);
+                    RecallHitMetrics recall_hits2 = calculate_hit_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, hit_results2, this_split_size2, groundtruth_dim);
+                    log_split_metrics<T, TagT>(hybrid_metrics2, recall_all2, recall_hits2);
                     query_result_tags2.clear();
                 }
             }
@@ -294,7 +449,7 @@ void experiment_split(
                 size_t this_split_size2 = end2 - start2;
                 std::vector<TagT> query_result_tags2(this_split_size2 * K);
                 for (int iter = 0; iter < n_iteration_per_split; ++iter) {
-                    std::vector<bool> hit_results2 = hybrid_search(
+                    auto [hit_results2, hybrid_metrics2] = hybrid_search(
                         qvcache,
                         query + start2 * query_aligned_dim,
                         this_split_size2,
@@ -307,8 +462,9 @@ void experiment_split(
                         beamwidth,
                         data_path
                     );
-                    calculate_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, this_split_size2, groundtruth_dim);
-                    calculate_hit_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, hit_results2, this_split_size2, groundtruth_dim);
+                    RecallAllMetrics recall_all2 = calculate_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, this_split_size2, groundtruth_dim);
+                    RecallHitMetrics recall_hits2 = calculate_hit_recall<T, TagT>(K, groundtruth_ids + start2 * groundtruth_dim, query_result_tags2, hit_results2, this_split_size2, groundtruth_dim);
+                    log_split_metrics<T, TagT>(hybrid_metrics2, recall_all2, recall_hits2);
                     query_result_tags2.clear();
                 }
             }
@@ -318,7 +474,7 @@ void experiment_split(
                 size_t this_split_size = end - start;
                 std::vector<TagT> query_result_tags(this_split_size * K);
                 for (int iter = 0; iter < n_iteration_per_split; ++iter) {
-                    std::vector<bool> hit_results = hybrid_search(
+                    auto [hit_results, hybrid_metrics] = hybrid_search(
                         qvcache,
                         query + start * query_aligned_dim,
                         this_split_size,
@@ -331,8 +487,9 @@ void experiment_split(
                         beamwidth,
                         data_path
                     );
-                    calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
-                    calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
+                    RecallAllMetrics recall_all = calculate_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, this_split_size, groundtruth_dim);
+                    RecallHitMetrics recall_hits = calculate_hit_recall<T, TagT>(K, groundtruth_ids + start * groundtruth_dim, query_result_tags, hit_results, this_split_size, groundtruth_dim);
+                    log_split_metrics<T, TagT>(hybrid_metrics, recall_all, recall_hits);
                     query_result_tags.clear();
                 }
             }

@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Change to project root
-cd "$(dirname "$0")/.." || exit 1
+# Script to run QVCache split search experiment with Qdrant backend
+
+# Change to project root (go up 3 levels from scripts/run/)
+cd "$(dirname "$0")/../../.." || exit 1
 
 # Dataset parameters
 DATASET="sift"
@@ -11,8 +13,23 @@ QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 K=100
 
+# Qdrant parameters
+COLLECTION_NAME="vectors"  # Qdrant collection name
+
+# Detect if running inside Docker and set Qdrant URL accordingly
+if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
+    QDRANT_URL="http://qdrant:6333"  # Docker internal network
+else
+    QDRANT_URL="http://localhost:6333"  # Local machine
+fi
+
+# Allow override via environment variable
+if [ -n "$QDRANT_URL_ENV" ]; then
+    QDRANT_URL="$QDRANT_URL_ENV"
+fi
+
 # Experiment parameters
-N_ITERATION_PER_SPLIT=100 # Number of search iterations per split
+N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
 N_SPLITS=30 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
 
@@ -48,13 +65,36 @@ fi
 # Add python directory to PYTHONPATH
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/python"
 
+# Check if required files exist
+if [ ! -f "$DATA_PATH" ]; then
+    echo "Error: Data file not found: $DATA_PATH"
+    exit 1
+fi
+
+if [ ! -f "$QUERY_PATH" ]; then
+    echo "Error: Query file not found: $QUERY_PATH"
+    exit 1
+fi
+
+if [ ! -f "$GROUNDTRUTH_PATH" ]; then
+    echo "Error: Groundtruth file not found: $GROUNDTRUTH_PATH"
+    exit 1
+fi
+
 # Run the Python test with all parameters
-python3 python/qvcache_split_search_bruteforce_backend.py \
+echo "Running QVCache split search experiment with Qdrant backend..."
+echo "Qdrant collection: $COLLECTION_NAME"
+echo "Qdrant URL: $QDRANT_URL"
+echo ""
+
+python3 python/benchmarks/qvcache_split_search_qdrant_backend.py \
   --data_type "$DATA_TYPE" \
   --data_path "$DATA_PATH" \
   --query_path "$QUERY_PATH" \
   --groundtruth_path "$GROUNDTRUTH_PATH" \
   --pca_prefix "$PCA_PREFIX" \
+  --collection_name "$COLLECTION_NAME" \
+  --qdrant_url "$QDRANT_URL" \
   --R "$R" \
   --memory_L "$MEMORY_L" \
   --K "$K" \

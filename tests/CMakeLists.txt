@@ -2,12 +2,7 @@
 set(TEST_EXECUTABLES
     build_disk_index greator/build_disk_index.cpp
     search_disk_index greator/search_disk_index.cpp
-    search_memory_index diskann/search_memory_index.cpp
-    batch_delete_reinsert_memory_index diskann/batch_delete_reinsert_memory_index.cpp
-    concurrent_insert_delete_memory_index diskann/concurrent_insert_delete_memory_index.cpp
     qvcache_search qvcache/qvcache_search.cpp
-    disk_index_search qvcache/disk_index_search.cpp
-    memory_index_search qvcache/memory_index_search.cpp
     qvcache_split_search qvcache/qvcache_split_search.cpp
     qvcache_split_search_noisy qvcache/qvcache_split_search_noisy.cpp
     qvcache_split_search_bruteforce_backend qvcache/qvcache_split_search_bruteforce_backend.cpp

@@ -2,8 +2,8 @@
 
 # Script to run QVCache split search experiment with pgvector backend
 
-# Change to project root
-cd "$(dirname "$0")/.." || exit 1
+# Change to project root (go up 3 levels from scripts/run/)
+cd "$(dirname "$0")/../../.." || exit 1
 
 # ============================================================================
 # DATASET CONFIGURATION
@@ -36,7 +36,7 @@ if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
 fi
 
 # Experiment parameters
-N_ITERATION_PER_SPLIT=100 # Number of search iterations per split
+N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
 N_SPLITS=30 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
 
@@ -81,7 +81,7 @@ echo "Database: $DB_NAME"
 echo "User: $DB_USER"
 echo ""
 
-python3 python/qvcache_split_search_pgvector_backend.py \
+python3 python/benchmarks/qvcache_split_search_pgvector_backend.py \
   --data_path "$DATA_PATH" \
   --query_path "$QUERY_PATH" \
   --groundtruth_path "$GROUNDTRUTH_PATH" \

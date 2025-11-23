@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Script to run QVCache split search experiment with Milvus backend
-
 # Change to project root
-cd "$(dirname "$0")/.." || exit 1
+# Change to project root (go up 3 levels from scripts/run/)
+cd "$(dirname "$0")/../../.." || exit 1
 
 # Dataset parameters
 DATASET="sift"
@@ -12,26 +11,6 @@ DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 K=100
-
-# Milvus parameters
-COLLECTION_NAME="vectors"  # Milvus collection name
-
-# Detect if running inside Docker and set Milvus host/port accordingly
-if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
-    MILVUS_HOST="milvus"  # Docker internal network
-    MILVUS_PORT=19530
-else
-    MILVUS_HOST="localhost"  # Local machine
-    MILVUS_PORT=19530
-fi
-
-# Allow override via environment variables
-if [ -n "$MILVUS_HOST_ENV" ]; then
-    MILVUS_HOST="$MILVUS_HOST_ENV"
-fi
-if [ -n "$MILVUS_PORT_ENV" ]; then
-    MILVUS_PORT="$MILVUS_PORT_ENV"
-fi
 
 # Experiment parameters
 N_ITERATION_PER_SPLIT=100 # Number of search iterations per split
@@ -70,38 +49,13 @@ fi
 # Add python directory to PYTHONPATH
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/python"
 
-# Check if required files exist
-if [ ! -f "$DATA_PATH" ]; then
-    echo "Error: Data file not found: $DATA_PATH"
-    exit 1
-fi
-
-if [ ! -f "$QUERY_PATH" ]; then
-    echo "Error: Query file not found: $QUERY_PATH"
-    exit 1
-fi
-
-if [ ! -f "$GROUNDTRUTH_PATH" ]; then
-    echo "Error: Groundtruth file not found: $GROUNDTRUTH_PATH"
-    exit 1
-fi
-
 # Run the Python test with all parameters
-echo "Running QVCache split search experiment with Milvus backend..."
-echo "Milvus collection: $COLLECTION_NAME"
-echo "Milvus host: $MILVUS_HOST"
-echo "Milvus port: $MILVUS_PORT"
-echo ""
-
-python3 python/qvcache_split_search_milvus_backend.py \
+python3 python/benchmarks/qvcache_split_search_bruteforce_backend.py \
   --data_type "$DATA_TYPE" \
   --data_path "$DATA_PATH" \
   --query_path "$QUERY_PATH" \
   --groundtruth_path "$GROUNDTRUTH_PATH" \
   --pca_prefix "$PCA_PREFIX" \
-  --collection_name "$COLLECTION_NAME" \
-  --milvus_host "$MILVUS_HOST" \
-  --milvus_port "$MILVUS_PORT" \
   --R "$R" \
   --memory_L "$MEMORY_L" \
   --K "$K" \

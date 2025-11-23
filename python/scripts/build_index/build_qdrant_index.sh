@@ -2,8 +2,8 @@
 
 # Script to build Qdrant index from binary data files
 
-# Change to project root
-cd "$(dirname "$0")/.." || exit 1
+# Change to project root (go up 3 levels from scripts/build_index/)
+cd "$(dirname "$0")/../../.." || exit 1
 
 # Configuration
 DATASET="sift"
@@ -23,7 +23,7 @@ if [ -n "$QDRANT_URL_ENV" ]; then
 fi
 
 # Options
-RECREATE=false  # Set to true to recreate collection even if it exists
+RECREATE=true  # Set to true to recreate collection even if it exists
 
 # Check if data file exists
 if [ ! -f "$DATA_PATH" ]; then
@@ -51,7 +51,7 @@ if [ "$RECREATE" = true ]; then
     echo "Recreating collection..."
 fi
 
-python3 python/build_qdrant_index.py \
+python3 python/scripts/build_index/build_qdrant_index.py \
     --data_path "$DATA_PATH" \
     --collection_name "$COLLECTION_NAME" \
     --qdrant_url "$QDRANT_URL" \

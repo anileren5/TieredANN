@@ -2,8 +2,8 @@
 
 # Script to build Pinecone index from binary data files
 
-# Change to project root
-cd "$(dirname "$0")/.." || exit 1
+# Change to project root (go up 3 levels from scripts/build_index/)
+cd "$(dirname "$0")/../../.." || exit 1
 
 # ============================================================================
 # DATASET CONFIGURATION
@@ -36,7 +36,7 @@ if [ "$PINECONE_API_KEY" = "YOUR_PINECONE_API_KEY_HERE" ] || [ -z "$PINECONE_API
 fi
 
 # Options
-RECREATE=false  # Set to true to recreate index even if it exists
+RECREATE=true  # Set to true to recreate index even if it exists
 
 # Check if data file exists
 if [ ! -f "$DATA_PATH" ]; then
@@ -74,7 +74,7 @@ if [ -n "$PINECONE_HOST" ]; then
     HOST_FLAG="--host $PINECONE_HOST"
 fi
 
-python3 python/build_pinecone_index.py \
+python3 python/scripts/build_index/build_pinecone_index.py \
     --data_path "$DATA_PATH" \
     --index_name "$INDEX_NAME" \
     --api_key "$PINECONE_API_KEY" \

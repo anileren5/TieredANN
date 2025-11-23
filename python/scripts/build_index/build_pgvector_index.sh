@@ -2,8 +2,8 @@
 
 # Script to build pgvector index from binary data files
 
-# Change to project root
-cd "$(dirname "$0")/.." || exit 1
+# Change to project root (go up 3 levels from scripts/build_index/)
+cd "$(dirname "$0")/../../.." || exit 1
 
 # ============================================================================
 # DATASET CONFIGURATION
@@ -63,7 +63,7 @@ if [ "$RECREATE" = true ]; then
     echo "Recreating table..."
 fi
 
-python3 python/build_pgvector_index.py \
+python3 python/scripts/build_index/build_pgvector_index.py \
     --data_path "$DATA_PATH" \
     --table_name "$TABLE_NAME" \
     --db_host "$DB_HOST" \
