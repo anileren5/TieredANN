@@ -38,6 +38,7 @@ struct HybridMetrics {
     size_t memory_max_points;
     size_t pca_active_regions;
     std::map<size_t, size_t> index_vectors;  // index_id -> vector_count
+    double p50;
     double p90;
     double p95;
     double p99;
@@ -168,7 +169,7 @@ void log_split_metrics(const HybridMetrics& hybrid_metrics, const RecallAllMetri
                   "\"memory_max_points\": {}, "
                   "\"pca_active_regions\": {}, "
                   "{}, "
-                  "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}, "
+                  "\"tail_latency_ms\": {{\"p50\": {}, \"p90\": {}, \"p95\": {}, \"p99\": {}}}, "
                   "\"recall_all\": {}, "
                   "\"K\": {}, "
                   "\"low_recall_queries\": {}, "
@@ -180,7 +181,7 @@ void log_split_metrics(const HybridMetrics& hybrid_metrics, const RecallAllMetri
                   hybrid_metrics.qps, hybrid_metrics.qps_per_thread,
                   hybrid_metrics.memory_active_vectors, hybrid_metrics.memory_max_points,
                   hybrid_metrics.pca_active_regions, mini_index_counts,
-                  hybrid_metrics.p90, hybrid_metrics.p95, hybrid_metrics.p99,
+                  hybrid_metrics.p50, hybrid_metrics.p90, hybrid_metrics.p95, hybrid_metrics.p99,
                   recall_all_metrics.recall_all, recall_all_metrics.K,
                   recall_all_metrics.low_recall_queries, recall_all_metrics.very_low_recall_queries,
                   recall_hit_metrics.cache_hit_count);
@@ -198,7 +199,7 @@ void log_split_metrics(const HybridMetrics& hybrid_metrics, const RecallAllMetri
                   "\"memory_max_points\": {}, "
                   "\"pca_active_regions\": {}, "
                   "{}, "
-                  "\"tail_latency_ms\": {{\"p90\": {}, \"p95\": {}, \"p99\": {}}}, "
+                  "\"tail_latency_ms\": {{\"p50\": {}, \"p90\": {}, \"p95\": {}, \"p99\": {}}}, "
                   "\"recall_all\": {}, "
                   "\"K\": {}, "
                   "\"low_recall_queries\": {}, "
@@ -210,7 +211,7 @@ void log_split_metrics(const HybridMetrics& hybrid_metrics, const RecallAllMetri
                   hybrid_metrics.qps, hybrid_metrics.qps_per_thread,
                   hybrid_metrics.memory_active_vectors, hybrid_metrics.memory_max_points,
                   hybrid_metrics.pca_active_regions, mini_index_counts,
-                  hybrid_metrics.p90, hybrid_metrics.p95, hybrid_metrics.p99,
+                  hybrid_metrics.p50, hybrid_metrics.p90, hybrid_metrics.p95, hybrid_metrics.p99,
                   recall_all_metrics.recall_all, recall_all_metrics.K,
                   recall_all_metrics.low_recall_queries, recall_all_metrics.very_low_recall_queries,
                   recall_hit_metrics.recall_cache_hits, recall_hit_metrics.cache_hit_count);
@@ -272,6 +273,7 @@ std::pair<std::vector<bool>, HybridMetrics> hybrid_search(
         if (idx >= query_num) idx = query_num - 1;
         return sorted_latencies[idx];
     };
+    double p50 = get_percentile(0.50);
     double p90 = get_percentile(0.90);
     double p95 = get_percentile(0.95);
     double p99 = get_percentile(0.99);
@@ -296,6 +298,7 @@ std::pair<std::vector<bool>, HybridMetrics> hybrid_search(
     metrics.memory_max_points = qvcache.get_number_of_max_points_in_memory_index();
     metrics.pca_active_regions = qvcache.get_number_of_active_pca_regions();
     metrics.index_vectors = index_vectors;
+    metrics.p50 = p50;
     metrics.p90 = p90;
     metrics.p95 = p95;
     metrics.p99 = p99;

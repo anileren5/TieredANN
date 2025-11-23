@@ -91,6 +91,7 @@ def hybrid_search(
     
     sorted_latencies = sorted(latencies_ms)
     get_percentile = lambda p: sorted_latencies[int(np.ceil(p * query_num)) - 1] if query_num > 0 else 0.0
+    p50 = get_percentile(0.50) if query_num > 0 else 0.0
     p90 = get_percentile(0.90) if query_num > 0 else 0.0
     p95 = get_percentile(0.95) if query_num > 0 else 0.0
     p99 = get_percentile(0.99) if query_num > 0 else 0.0
@@ -116,6 +117,7 @@ def hybrid_search(
         "pca_active_regions": qvcache.get_number_of_active_pca_regions(),
         **mini_index_counts,
         "tail_latency_ms": {
+            "p50": p50,
             "p90": p90,
             "p95": p95,
             "p99": p99
