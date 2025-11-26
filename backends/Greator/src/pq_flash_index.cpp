@@ -992,7 +992,6 @@ void PQFlashIndex<T, TagT>::disk_iterate_to_fixed_point(
   }
 
   if (data_is_normalized) {
-    std::cout << "data_is_normalized start" << std::endl;
     // Data has been normalized. Normalize search vector too.
     float norm = greator::compute_l2_norm(query1, this->data_dim);
     for (uint32_t i = 0; i < this->data_dim; i++) {
@@ -1001,7 +1000,6 @@ void PQFlashIndex<T, TagT>::disk_iterate_to_fixed_point(
     for (uint32_t i = 0; i < this->data_dim; i++) {
       data.scratch.aligned_query_T[i] = (T)data.scratch.aligned_query_float[i];
     }
-    std::cout << "data_is_normalized end" << std::endl;
   } else {
     for (uint32_t i = 0; i < this->data_dim; i++) {
       data.scratch.aligned_query_float[i] = query1[i];
