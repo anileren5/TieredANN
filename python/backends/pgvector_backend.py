@@ -26,7 +26,8 @@ class PgVectorBackend:
                  db_user: str = "postgres",
                  db_password: str = "postgres",
                  data_path: str = None,
-                 recreate_table: bool = False):
+                 recreate_table: bool = False,
+                 metric: str = "l2"):
         """
         Initialize the pgvector backend.
         
@@ -40,6 +41,7 @@ class PgVectorBackend:
             db_password: Database password (default: postgres)
             data_path: Optional path to binary data file to load vectors from (DiskANN format)
             recreate_table: If True, recreate the table even if it exists
+            metric: Distance metric to use - "l2" or "cosine" (default: "l2")
         """
         # Store connection parameters
         self.table_name = table_name
@@ -49,6 +51,12 @@ class PgVectorBackend:
         self.db_name = db_name
         self.db_user = db_user
         self.db_password = db_password
+        
+        # Normalize metric to lowercase
+        metric_lower = metric.lower()
+        if metric_lower not in ["l2", "cosine"]:
+            raise ValueError(f"Unsupported metric: {metric}. Supported metrics: 'l2', 'cosine'")
+        self.metric = metric_lower
         
         # Connect to PostgreSQL with retry logic
         import time
@@ -144,14 +152,15 @@ class PgVectorBackend:
                         cur.execute(f"SELECT COUNT(*) FROM {table_name}")
                         num_vectors = cur.fetchone()[0]
                         num_lists = max(100, min(1000, num_vectors // 1000))
+                        ops = "vector_cosine_ops" if self.metric == "cosine" else "vector_l2_ops"
                         cur.execute(f"""
                             CREATE INDEX ON {self.table_name} 
-                            USING ivfflat (vector vector_l2_ops)
+                            USING ivfflat (vector {ops})
                             WITH (lists = {num_lists})
                         """)
-                    print(f"Created IVFFlat index with {num_lists} lists")
+                    print(f"Created IVFFlat index with {num_lists} lists using {ops}")
         
-        print(f"PgVectorBackend initialized with table '{table_name}'")
+        print(f"PgVectorBackend initialized with table '{table_name}' (metric: {self.metric})")
     
     def _load_data_from_file(self, data_path: str, batch_size: int = 1000):
         """
@@ -206,16 +215,17 @@ class PgVectorBackend:
             
             # Create HNSW index after data is loaded for optimal recall
             # HNSW generally provides better recall than IVFFlat
-            print(f"Creating HNSW index (better recall than IVFFlat)...")
+            ops = "vector_cosine_ops" if self.metric == "cosine" else "vector_l2_ops"
+            print(f"Creating HNSW index (better recall than IVFFlat) using {ops}...")
             with self.conn.cursor() as cur:
                 # HNSW parameters: m=16 (connections per layer), ef_construction=64 (build quality)
                 # Higher ef_construction = better recall but slower build
                 cur.execute(f"""
                     CREATE INDEX ON {self.table_name} 
-                    USING hnsw (vector vector_l2_ops)
+                    USING hnsw (vector {ops})
                     WITH (m = 16, ef_construction = 64)
                 """)
-            print(f"Created HNSW index with m=16, ef_construction=64")
+            print(f"Created HNSW index with m=16, ef_construction=64 using {ops}")
             
             print(f"\nLoaded {num_vectors} vectors into PostgreSQL")
     
@@ -230,7 +240,7 @@ class PgVectorBackend:
         Returns:
             Tuple of (tags, distances) where:
             - tags: numpy array of shape (K,) containing vector IDs
-            - distances: numpy array of shape (K,) containing L2 distances
+            - distances: numpy array of shape (K,) containing distances (L2^2 for l2, cosine distance for cosine)
         """
         if query.ndim != 1 or query.shape[0] != self.dim:
             raise ValueError(f"Query must be 1D array of shape ({self.dim},), got {query.shape}")
@@ -249,10 +259,9 @@ class PgVectorBackend:
             raise ValueError("Query vector contains NaN or Inf values")
         
         try:
-            # Perform search using pgvector L2 distance
+            # Perform search using pgvector distance metric
             # For HNSW index, set ef_search parameter for better recall
             # Higher ef_search = better recall but slower queries
-            # pgvector's <-> operator returns actual L2 distance (with square root)
             # Check if HNSW index exists and set ef_search if needed
             cur_check = self.conn.cursor()
             has_hnsw = False
@@ -280,11 +289,18 @@ class PgVectorBackend:
                 # Format vector as string that pgvector expects: '[1.0,2.0,3.0]'
                 vector_str = '[' + ','.join(f'{float(x):.6f}' for x in query_vector) + ']'
                 
+                # Use appropriate operator based on metric
+                # <-> for L2 distance, <=> for cosine distance
+                if self.metric == "cosine":
+                    distance_op = "<=>"
+                else:  # l2
+                    distance_op = "<->"
+                
                 # Execute query
                 query_sql = f"""
-                    SELECT id, vector <-> '{vector_str}'::vector AS distance
+                    SELECT id, vector {distance_op} '{vector_str}'::vector AS distance
                     FROM {self.table_name}
-                    ORDER BY vector <-> '{vector_str}'::vector
+                    ORDER BY vector {distance_op} '{vector_str}'::vector
                     LIMIT {K}
                 """
                 cur.execute(query_sql)
@@ -295,8 +311,8 @@ class PgVectorBackend:
             raise RuntimeError(f"Failed to search PostgreSQL table: {e}")
         
         # Extract tags and distances
-        # IMPORTANT: pgvector's <-> operator returns actual L2 distance (with square root),
-        # but BruteforceBackend returns squared L2 distance (L2^2). We need to square it to match.
+        # For L2: pgvector's <-> returns actual L2 distance (with square root)
+        # For cosine: pgvector's <=> returns cosine distance (1 - cosine similarity)
         tags = []
         distances = []
         
@@ -314,9 +330,16 @@ class PgVectorBackend:
                     continue
                 
                 tags.append(vec_id_int)
-                # Square the distance to match BruteforceBackend format (L2^2)
-                squared_distance = distance_float * distance_float
-                distances.append(float(squared_distance))
+                
+                # Handle distance based on metric
+                if self.metric == "cosine":
+                    # Cosine distance: pgvector returns 1 - cosine_similarity
+                    # Return as-is (cosine distance)
+                    distances.append(float(distance_float))
+                else:  # l2
+                    # Square the L2 distance to match BruteforceBackend format (L2^2)
+                    squared_distance = distance_float * distance_float
+                    distances.append(float(squared_distance))
             except (ValueError, TypeError, OverflowError):
                 continue
         
