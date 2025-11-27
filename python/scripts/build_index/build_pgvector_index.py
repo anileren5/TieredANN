@@ -17,8 +17,8 @@ def main():
     parser = argparse.ArgumentParser(description="Build pgvector index from binary data")
     parser.add_argument("--data_path", type=str, required=True,
                        help="Path to binary data file (DiskANN format)")
-    parser.add_argument("--table_name", type=str, default="vectors",
-                       help="Name of the PostgreSQL table (default: vectors)")
+    parser.add_argument("--table_name", type=str, required=True,
+                       help="Name of the PostgreSQL table (should match dataset name)")
     parser.add_argument("--db_host", type=str, default="localhost",
                        help="Host of the PostgreSQL service (default: localhost)")
     parser.add_argument("--db_port", type=int, default=5432,
@@ -29,6 +29,8 @@ def main():
                        help="Database user (default: postgres)")
     parser.add_argument("--db_password", type=str, default="postgres",
                        help="Database password (default: postgres)")
+    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine"],
+                       help="Distance metric (default: l2)")
     parser.add_argument("--recreate", action="store_true",
                        help="Recreate table even if it exists")
     parser.add_argument("--dimension", type=int, default=None,
@@ -56,7 +58,8 @@ def main():
         db_user=args.db_user,
         db_password=args.db_password,
         data_path=args.data_path,
-        recreate_table=args.recreate
+        recreate_table=args.recreate,
+        metric=args.metric
     )
     
     # Verify the table
@@ -66,6 +69,7 @@ def main():
     print(f"\nIndex built successfully!")
     print(f"Table '{args.table_name}' contains {num_entities} vectors")
     print(f"Vector dimension: {dimension}")
+    print(f"Distance metric: {args.metric}")
 
 
 if __name__ == "__main__":

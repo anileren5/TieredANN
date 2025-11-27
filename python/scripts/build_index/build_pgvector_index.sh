@@ -23,8 +23,11 @@ DB_NAME="${DB_NAME:-postgres}"   # Default database name
 DB_USER="${DB_USER:-postgres}"   # Default user
 DB_PASSWORD="${DB_PASSWORD:-postgres}"  # Default password
 
-# Table name for storing vectors
-TABLE_NAME="vectors"  # PostgreSQL table name
+# Table name is derived from dataset name
+TABLE_NAME="$DATASET"
+
+# Distance metric for the index (l2 or cosine)
+METRIC="l2"  # Default: l2 
 
 # Detect if running inside Docker and set PostgreSQL host accordingly
 if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
@@ -52,6 +55,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/python"
 echo "Building pgvector index..."
 echo "Data file: $DATA_PATH"
 echo "Table name: $TABLE_NAME"
+echo "Metric: $METRIC"
 echo "PostgreSQL host: $DB_HOST"
 echo "PostgreSQL port: $DB_PORT"
 echo "Database: $DB_NAME"
@@ -66,6 +70,7 @@ fi
 python3 python/scripts/build_index/build_pgvector_index.py \
     --data_path "$DATA_PATH" \
     --table_name "$TABLE_NAME" \
+    --metric "$METRIC" \
     --db_host "$DB_HOST" \
     --db_port "$DB_PORT" \
     --db_name "$DB_NAME" \

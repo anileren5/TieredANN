@@ -212,7 +212,7 @@ def main():
     parser.add_argument("--groundtruth_path", type=str, required=True, help="Path to groundtruth file")
     parser.add_argument("--pca_prefix", type=str, required=True, help="PCA index prefix")
     parser.add_argument("--table_name", type=str, default="vectors",
-                       help="PostgreSQL table name (default: vectors)")
+                       help="PostgreSQL table name (should match dataset name, default: vectors)")
     parser.add_argument("--db_host", type=str, default="localhost",
                        help="PostgreSQL service host (default: localhost)")
     parser.add_argument("--db_port", type=int, default=5432,
