@@ -48,6 +48,13 @@ PYBIND11_MODULE(qvcache, m) {
 
     m.doc() = "QVCache Python bindings";
 
+    // Bind DiskANN Metric enum
+    py::enum_<diskann::Metric>(m, "Metric")
+        .value("L2", diskann::Metric::L2)
+        .value("COSINE", diskann::Metric::COSINE)
+        .value("INNER_PRODUCT", diskann::Metric::INNER_PRODUCT)
+        .value("FAST_L2", diskann::Metric::FAST_L2);
+
     // Bind SearchStrategy enum
     py::enum_<QVCache<float>::SearchStrategy>(m, "SearchStrategy")
         .value("SEQUENTIAL_LRU_STOP_FIRST_HIT", QVCache<float>::SearchStrategy::SEQUENTIAL_LRU_STOP_FIRST_HIT)
@@ -66,7 +73,8 @@ PYBIND11_MODULE(qvcache, m) {
                          bool use_regional_theta, size_t pca_dim, size_t buckets_per_dim,
                          uint32_t n_async_insert_threads, bool lazy_theta_updates,
                          size_t number_of_mini_indexes, bool search_mini_indexes_in_parallel,
-                         size_t max_search_threads, py::object python_backend) {
+                         size_t max_search_threads, diskann::Metric metric,
+                         py::object python_backend) {
             if (python_backend.is_none()) {
                 return std::make_unique<QVCache<float>>(
                     data_path, pca_prefix, R, memory_L, B, M, alpha,
@@ -75,7 +83,7 @@ PYBIND11_MODULE(qvcache, m) {
                     use_regional_theta, pca_dim, buckets_per_dim,
                     n_async_insert_threads, lazy_theta_updates,
                     number_of_mini_indexes, search_mini_indexes_in_parallel,
-                    max_search_threads, nullptr
+                    max_search_threads, metric, nullptr
                 );
             } else {
                 size_t dim = get_dim_from_data_path(data_path);
@@ -87,7 +95,7 @@ PYBIND11_MODULE(qvcache, m) {
                     use_regional_theta, pca_dim, buckets_per_dim,
                     n_async_insert_threads, lazy_theta_updates,
                     number_of_mini_indexes, search_mini_indexes_in_parallel,
-                    max_search_threads, std::move(backend)
+                    max_search_threads, metric, std::move(backend)
                 );
             }
         }),
@@ -113,6 +121,7 @@ PYBIND11_MODULE(qvcache, m) {
             py::arg("number_of_mini_indexes") = 2,
             py::arg("search_mini_indexes_in_parallel") = false,
             py::arg("max_search_threads") = 32,
+            py::arg("metric") = diskann::Metric::L2,
             py::arg("backend") = py::none(),
             "Construct QVCache with optional Python backend")
         .def("search", [](QVCache<float>& index, 
@@ -169,7 +178,8 @@ PYBIND11_MODULE(qvcache, m) {
            bool use_regional_theta, size_t pca_dim, size_t buckets_per_dim,
            uint32_t n_async_insert_threads, bool lazy_theta_updates,
            size_t number_of_mini_indexes, bool search_mini_indexes_in_parallel,
-           size_t max_search_threads, py::object python_backend) {
+           size_t max_search_threads, diskann::Metric metric,
+           py::object python_backend) {
             
             size_t dim = get_dim_from_data_path(data_path);
             auto backend = create_python_backend<float>(python_backend, dim);
@@ -181,7 +191,7 @@ PYBIND11_MODULE(qvcache, m) {
                 use_regional_theta, pca_dim, buckets_per_dim,
                 n_async_insert_threads, lazy_theta_updates,
                 number_of_mini_indexes, search_mini_indexes_in_parallel,
-                max_search_threads, std::move(backend)
+                max_search_threads, metric, std::move(backend)
             );
         },
         "Create QVCache with a Python backend implementation");

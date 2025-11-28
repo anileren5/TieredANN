@@ -5,15 +5,16 @@
 cd "$(dirname "$0")/../../.." || exit 1
 
 # Dataset parameters
-DATASET="sift"
+DATASET="glove"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 K=100
+METRIC="cosine"  # Distance metric: "l2" or "cosine" (use "cosine" for glove dataset)
 
 # Experiment parameters
-N_ITERATION_PER_SPLIT=100 # Number of search iterations per split
+N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
 N_SPLITS=30 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
 
@@ -33,7 +34,7 @@ DEVIATION_FACTOR=0.025
 USE_REGIONAL_THETA=True # Set to False to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
-MEMORY_INDEX_MAX_POINTS=200000 # Set to desired max points for memory index
+MEMORY_INDEX_MAX_POINTS=370000 # Set to desired max points for memory index
 N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
 LAZY_THETA_UPDATES=True # Set to True to enable lazy theta updates, False for immediate updates
 NUMBER_OF_MINI_INDEXES=4 # Number of mini indexes for shadow cycling
@@ -80,5 +81,6 @@ python3 python/benchmarks/qvcache_split_search_bruteforce_backend.py \
   --number_of_mini_indexes "$NUMBER_OF_MINI_INDEXES" \
   --search_mini_indexes_in_parallel "$SEARCH_MINI_INDEXES_IN_PARALLEL" \
   --max_search_threads "$MAX_SEARCH_THREADS" \
-  --search_strategy "$SEARCH_STRATEGY"
+  --search_strategy "$SEARCH_STRATEGY" \
+  --metric "$METRIC"
 

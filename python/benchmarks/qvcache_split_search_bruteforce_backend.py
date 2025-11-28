@@ -55,9 +55,18 @@ def experiment_split(
     search_mini_indexes_in_parallel: bool,
     max_search_threads: int,
     search_strategy: str,
-    backend: BruteforceBackend
+    backend: BruteforceBackend,
+    metric: str = "l2"
 ):
     """Run the split search experiment."""
+    # Convert metric string to enum
+    if metric.lower() == "cosine":
+        metric_enum = qvc.Metric.COSINE
+    elif metric.lower() == "l2":
+        metric_enum = qvc.Metric.L2
+    else:
+        raise ValueError(f"Unsupported metric: {metric}. Supported: l2, cosine")
+    
     # Create QVCache with Python backend
     qvcache = qvc.QVCache(
         data_path=data_path,
@@ -82,6 +91,7 @@ def experiment_split(
         number_of_mini_indexes=number_of_mini_indexes,
         search_mini_indexes_in_parallel=search_mini_indexes_in_parallel,
         max_search_threads=max_search_threads,
+        metric=metric_enum,
         backend=backend
     )
     
@@ -246,6 +256,8 @@ def main():
                        choices=["SEQUENTIAL_LRU_STOP_FIRST_HIT", "SEQUENTIAL_LRU_ADAPTIVE",
                                "SEQUENTIAL_ALL", "PARALLEL"],
                        help="Search strategy")
+    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine"],
+                       help="Distance metric (default: l2)")
     
     args = parser.parse_args()
     
@@ -281,13 +293,14 @@ def main():
         "number_of_mini_indexes": args.number_of_mini_indexes,
         "search_mini_indexes_in_parallel": args.search_mini_indexes_in_parallel,
         "max_search_threads": args.max_search_threads,
-        "search_strategy": args.search_strategy
+        "search_strategy": args.search_strategy,
+        "metric": args.metric
     }
     print(json.dumps(params))
     
     # Create Python backend
     if args.data_type == "float":
-        backend = BruteforceBackend(args.data_path)
+        backend = BruteforceBackend(args.data_path, metric=args.metric)
     else:
         print(f"Unsupported data type for Python backend: {args.data_type}", file=sys.stderr)
         print("Note: Python backend currently only supports float32", file=sys.stderr)
@@ -304,7 +317,7 @@ def main():
         args.n_splits, args.n_rounds, args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
-        args.search_strategy, backend
+        args.search_strategy, backend, args.metric
     )
 
 

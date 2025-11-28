@@ -18,6 +18,9 @@
 //  Include Brute-force backend implementation
 #include "bruteforce_backend.h"
 
+// DiskANN headers
+#include "diskann/distance.h"
+
 // Include QVCache
 #include "qvcache/qvcache.h"
 
@@ -258,6 +261,7 @@ void experiment_split(
        number_of_mini_indexes,
        search_mini_indexes_in_parallel,
        max_search_threads,
+       diskann::Metric::L2,
        std::move(backend)
     );
 

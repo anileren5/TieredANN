@@ -16,12 +16,13 @@ class BruteforceBackend:
     and performs linear search.
     """
     
-    def __init__(self, data_path: str):
+    def __init__(self, data_path: str, metric: str = "l2"):
         """
         Initialize the backend by loading data from a binary file.
         
         Args:
             data_path: Path to the binary data file (DiskANN format)
+            metric: Distance metric to use - "l2" or "cosine" (default: "l2")
         """
         # Read metadata (first 2 uint32_t: num_vectors, dim)
         with open(data_path, 'rb') as f:
@@ -34,13 +35,17 @@ class BruteforceBackend:
         
         self.num_vectors = num_vectors
         self.dim = dim
+        self.metric = metric.lower()
         
-        print(f"BruteforceBackend initialized.")
+        if self.metric not in ["l2", "cosine"]:
+            raise ValueError(f"Unsupported metric: {metric}. Must be 'l2' or 'cosine'")
+        
+        print(f"BruteforceBackend initialized with metric: {self.metric}")
         print(f"Loaded {self.num_vectors} vectors of dimension {self.dim} from {data_path}")
     
     def search(self, query: np.ndarray, K: int) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Search for K nearest neighbors using bruteforce L2 distance.
+        Search for K nearest neighbors using bruteforce distance.
         
         Args:
             query: Query vector as numpy array (1D, shape=(dim,))
@@ -49,16 +54,46 @@ class BruteforceBackend:
         Returns:
             Tuple of (tags, distances) where:
             - tags: numpy array of shape (K,) containing vector IDs
-            - distances: numpy array of shape (K,) containing L2 distances
+            - distances: numpy array of shape (K,) containing distances
+                - For L2: squared L2 distances
+                - For cosine: cosine distances (1 - cosine_similarity), matching DiskANN formula
         """
         if query.ndim != 1 or query.shape[0] != self.dim:
             raise ValueError(f"Query must be 1D array of shape ({self.dim},), got {query.shape}")
         
-        # Compute L2 distances to all vectors
-        # query shape: (dim,), data shape: (num_vectors, dim)
-        # We want to compute ||query - data[i]||^2 for each i
-        diff = self.data - query  # Broadcasting: (num_vectors, dim)
-        distances = np.sum(diff ** 2, axis=1)  # (num_vectors,)
+        if self.metric == "cosine":
+            # Implement exact DiskANN cosine distance formula:
+            # cosine_distance = 1.0 - (dot(a,b) / (sqrt(||a||^2) * sqrt(||b||^2)))
+            # This matches DiskANN's DistanceCosineFloat::compare() on Linux
+            
+            # Compute magnitudes and dot products for all vectors
+            query_squared = np.sum(query ** 2)  # ||query||^2
+            data_squared = np.sum(self.data ** 2, axis=1)  # ||data[i]||^2 for each i
+            dot_products = np.dot(self.data, query)  # dot(data[i], query) for each i
+            
+            # Compute cosine distances using DiskANN's exact formula
+            # Avoid division by zero by checking magnitudes
+            query_mag = np.sqrt(query_squared)
+            data_mags = np.sqrt(data_squared)
+            
+            # Handle zero vectors (should not happen, but be safe)
+            valid_mask = (query_mag > 0) & (data_mags > 0)
+            distances = np.full(self.num_vectors, np.finfo(np.float32).max, dtype=np.float32)
+            
+            if query_mag > 0:
+                # Compute cosine similarity: dot(a,b) / (||a|| * ||b||)
+                cosine_similarities = np.zeros(self.num_vectors, dtype=np.float32)
+                cosine_similarities[valid_mask] = dot_products[valid_mask] / (query_mag * data_mags[valid_mask])
+                
+                # Cosine distance = 1 - cosine_similarity (matching DiskANN)
+                distances[valid_mask] = 1.0 - cosine_similarities[valid_mask]
+        
+        else:  # L2
+            # Compute L2 distances to all vectors
+            # query shape: (dim,), data shape: (num_vectors, dim)
+            # We want to compute ||query - data[i]||^2 for each i
+            diff = self.data - query  # Broadcasting: (num_vectors, dim)
+            distances = np.sum(diff ** 2, axis=1)  # (num_vectors,)
         
         # Get top K indices
         top_k_indices = np.argpartition(distances, K)[:K]

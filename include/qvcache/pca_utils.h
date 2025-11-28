@@ -10,6 +10,8 @@
 #include <mutex>
 #include <cstdint>
 #include <iostream>
+#include <limits>
+#include "diskann/distance.h"
 
 namespace qvcache {
 
@@ -29,6 +31,7 @@ namespace qvcache {
         size_t PCA_DIM;
         size_t BUCKETS_PER_DIM;
         std::string disk_index_prefix;
+        diskann::Metric metric = diskann::L2; // Distance metric (default: L2)
         
         using RegionKey = std::vector<uint8_t>;
         // Map: region -> (K -> theta)
@@ -56,8 +59,8 @@ namespace qvcache {
         }
 
     public:
-        PCAUtils(size_t dim, size_t pca_dim, size_t buckets_per_dim, const std::string& disk_index_prefix)
-            : dim(dim), PCA_DIM(pca_dim), BUCKETS_PER_DIM(buckets_per_dim), disk_index_prefix(disk_index_prefix) {}
+        PCAUtils(size_t dim, size_t pca_dim, size_t buckets_per_dim, const std::string& disk_index_prefix, diskann::Metric metric_ = diskann::L2)
+            : dim(dim), PCA_DIM(pca_dim), BUCKETS_PER_DIM(buckets_per_dim), disk_index_prefix(disk_index_prefix), metric(metric_) {}
 
         // Save PCA data to file
         void save_pca_to_file(bool is_float) {
@@ -223,11 +226,15 @@ namespace qvcache {
         void lazy_init_region(const RegionKey& key) {
             std::lock_guard<std::mutex> lock(region_theta_map_mutex);
             if (region_theta_map.find(key) == region_theta_map.end()) {
-                // Default values
-                region_theta_map[key][1] = 0;
-                region_theta_map[key][5] = 0;
-                region_theta_map[key][10] = 0;
-                region_theta_map[key][100] = 0;
+                // Initialize so that initially everything is a miss
+                // For cosine: use negative infinity so that distances[K-1] > -infinity is always true (MISS)
+                // For L2: use max double so that distances[K-1] > max is always false initially,
+                //   but we'll check for uninitialized and force MISS anyway
+                double init_value = (metric == diskann::COSINE) ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::max();
+                region_theta_map[key][1] = init_value;
+                region_theta_map[key][5] = init_value;
+                region_theta_map[key][10] = init_value;
+                region_theta_map[key][100] = init_value;
             }
         }
 
@@ -241,7 +248,25 @@ namespace qvcache {
             lazy_init_region(region);
             
             std::lock_guard<std::mutex> lock(region_theta_map_mutex);
-            if (distances[K - 1] > (1 + deviation_factor) * region_theta_map[region][K]) {
+            double threshold = region_theta_map[region][K];
+            
+            // Handle uninitialized thresholds
+            // For cosine: if threshold is -infinity, it means it hasn't been updated yet, so always miss
+            // For L2: if threshold is max, it means it hasn't been updated yet, so always miss
+            bool is_uninitialized = (metric == diskann::COSINE) 
+                ? (threshold == -std::numeric_limits<double>::infinity()) 
+                : (threshold >= std::numeric_limits<double>::max() * 0.5);
+            
+            if (is_uninitialized) {
+                return false;
+            }
+            
+            // Use multiplicative tolerance for both L2 and cosine
+            double cache_distance = static_cast<double>(distances[K - 1]);
+            double tolerance_threshold = (1.0 + deviation_factor) * threshold;
+            
+            // Check: if cache distance is worse than tolerance threshold, it's a miss
+            if (cache_distance > tolerance_threshold) {
                 return false;
             }
             return true;
@@ -253,7 +278,18 @@ namespace qvcache {
             lazy_init_region(region);
             
             std::lock_guard<std::mutex> lock(region_theta_map_mutex);
-            region_theta_map[region][K] = p * query_distance + (1 - p) * region_theta_map[region][K];
+            double current_theta = region_theta_map[region][K];
+            
+            // Handle initialization: if current_theta is the uninitialized value, replace it completely
+            bool is_uninitialized = (metric == diskann::COSINE)
+                ? (current_theta == -std::numeric_limits<double>::infinity())
+                : (current_theta >= std::numeric_limits<double>::max() * 0.5);
+            
+            if (is_uninitialized) {
+                region_theta_map[region][K] = static_cast<double>(query_distance);
+            } else {
+                region_theta_map[region][K] = p * static_cast<double>(query_distance) + (1 - p) * current_theta;
+            }
         }
 
         // Get PCA filename for logging

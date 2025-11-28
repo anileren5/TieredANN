@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../../.." || exit 1
 # ============================================================================
 # DATASET CONFIGURATION
 # ============================================================================
-DATASET="sift"
+DATASET="glove"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 
 # ============================================================================
@@ -27,7 +27,7 @@ DB_PASSWORD="${DB_PASSWORD:-postgres}"  # Default password
 TABLE_NAME="$DATASET"
 
 # Distance metric for the index (l2 or cosine)
-METRIC="l2"  # Default: l2 
+METRIC="cosine"  # Default: l2 
 
 # Detect if running inside Docker and set PostgreSQL host accordingly
 if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then

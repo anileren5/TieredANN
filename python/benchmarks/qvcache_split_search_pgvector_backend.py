@@ -62,9 +62,18 @@ def experiment_split(
     db_port: int = 5432,
     db_name: str = "postgres",
     db_user: str = "postgres",
-    db_password: str = "postgres"
+    db_password: str = "postgres",
+    metric: str = "l2"
 ):
     """Run the split search experiment with pgvector backend."""
+    # Convert metric string to enum
+    if metric.lower() == "cosine":
+        metric_enum = qvc.Metric.COSINE
+    elif metric.lower() == "l2":
+        metric_enum = qvc.Metric.L2
+    else:
+        raise ValueError(f"Unsupported metric: {metric}. Supported: l2, cosine")
+    
     # Create QVCache with pgvector backend
     qvcache = qvc.QVCache(
         data_path=data_path,
@@ -89,6 +98,7 @@ def experiment_split(
         number_of_mini_indexes=number_of_mini_indexes,
         search_mini_indexes_in_parallel=search_mini_indexes_in_parallel,
         max_search_threads=max_search_threads,
+        metric=metric_enum,
         backend=backend
     )
     
@@ -223,6 +233,8 @@ def main():
                        help="Database user (default: postgres)")
     parser.add_argument("--db_password", type=str, default="postgres",
                        help="Database password (default: postgres)")
+    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine"],
+                       help="Distance metric (default: l2)")
     
     # QVCache parameters
     parser.add_argument("--R", type=int, default=64, help="R parameter")
@@ -295,7 +307,8 @@ def main():
         "number_of_mini_indexes": args.number_of_mini_indexes,
         "search_mini_indexes_in_parallel": args.search_mini_indexes_in_parallel,
         "max_search_threads": args.max_search_threads,
-        "search_strategy": args.search_strategy
+        "search_strategy": args.search_strategy,
+        "metric": args.metric
     }
     print(json.dumps(params))
     
@@ -315,7 +328,8 @@ def main():
         db_user=args.db_user,
         db_password=args.db_password,
         data_path=None,  # Don't load data here, should already be indexed
-        recreate_table=False
+        recreate_table=False,
+        metric=args.metric
     )
     
     # Run experiment
@@ -330,7 +344,7 @@ def main():
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
         args.search_strategy, backend, args.table_name, args.db_host, args.db_port,
-        args.db_name, args.db_user, args.db_password
+        args.db_name, args.db_user, args.db_password, args.metric
     )
 
 

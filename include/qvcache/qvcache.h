@@ -20,6 +20,7 @@
 #include <vector>
 #include <algorithm>
 #include <deque>
+#include <limits>
 
 namespace qvcache {
 
@@ -58,6 +59,7 @@ namespace qvcache {
             bool lazy_theta_updates = true;
             bool search_mini_indexes_in_parallel = false; // Control parallel vs sequential search
             size_t max_search_threads = 32; // Maximum threads for parallel search (should be > query processing threads)
+            diskann::Metric metric = diskann::L2; // Distance metric (default: L2)
 
             // --- LRU eviction state ---
             std::atomic<bool> eviction_in_progress{false};
@@ -97,7 +99,7 @@ namespace qvcache {
                 diskann::IndexSearchParams memory_index_search_params = diskann::IndexSearchParams(memory_L, search_threads);
 
                 diskann::IndexConfig memory_index_config = diskann::IndexConfigBuilder()
-                                                            .with_metric(diskann::L2)
+                                                            .with_metric(metric)
                                                             .with_dimension(dim)
                                                             .with_max_points(max_points)
                                                             .is_dynamic_index(true)
@@ -269,7 +271,19 @@ namespace qvcache {
                     if (this->get_number_of_vectors_in_memory_index() < K){
                         return false;
                     }
-                    else if (distances[K - 1] > (1 + deviation_factor)*theta_map[K]) {
+                    double threshold = theta_map[K];
+                    // Handle uninitialized thresholds
+                    bool is_uninitialized = (metric == diskann::COSINE)
+                        ? (threshold == -std::numeric_limits<double>::infinity())
+                        : (threshold >= std::numeric_limits<double>::max() * 0.5);
+                    if (is_uninitialized) {
+                        return false; // Always miss until threshold is initialized
+                    }
+                    // Use multiplicative tolerance for both L2 and cosine
+                    double cache_distance = static_cast<double>(distances[K - 1]);
+                    double tolerance_threshold = (1.0 + deviation_factor) * threshold;
+                    
+                    if (cache_distance > tolerance_threshold) {
                         return false;
                     }
                     return true;
@@ -281,9 +295,19 @@ namespace qvcache {
                 if (use_regional_theta) {
                     pca_utils->update_theta(query_ptr, K, query_distance, p);
                 } else {
-                    theta_map[K] = p * query_distance + (1 - p) * theta_map[K];
+                    double current_theta = theta_map[K];
+                    // Handle initialization: if current_theta is uninitialized, replace it completely
+                    bool is_uninitialized = (metric == diskann::COSINE)
+                        ? (current_theta == -std::numeric_limits<double>::infinity())
+                        : (current_theta >= std::numeric_limits<double>::max() * 0.5);
+                    if (is_uninitialized) {
+                        theta_map[K] = static_cast<double>(query_distance);
+                    } else {
+                        theta_map[K] = p * static_cast<double>(query_distance) + (1 - p) * current_theta;
+                    }
                 }
             }
+
 
             // Helper function to search a single memory index
             bool search_single_index(size_t index_id, const T* query_ptr, uint32_t K,  
@@ -612,6 +636,7 @@ namespace qvcache {
                         size_t number_of_mini_indexes_ = 2,
                         bool search_mini_indexes_in_parallel_ = false,
                         size_t max_search_threads_ = 32,
+                        diskann::Metric metric_ = diskann::L2,
                         std::unique_ptr<BackendInterface<T, TagT>> disk_backend_ptr = nullptr)
                         : data_path(data_path),
                         pca_prefix(pca_prefix),
@@ -628,6 +653,7 @@ namespace qvcache {
                         lazy_theta_updates(lazy_theta_updates_),
                         search_mini_indexes_in_parallel(search_mini_indexes_in_parallel_),
                         max_search_threads(max_search_threads_),
+                        metric(metric_),
                         backend(std::move(disk_backend_ptr))
             {                
                 // Read metadata
@@ -692,7 +718,7 @@ namespace qvcache {
 
                 // PCA is constructed at construction time using Eigen. Eigen is required.
                 if (use_regional_theta) {
-                    pca_utils = std::make_unique<PCAUtils<T>>(dim, pca_dim, buckets_per_dim, pca_prefix);
+                    pca_utils = std::make_unique<PCAUtils<T>>(dim, pca_dim, buckets_per_dim, pca_prefix, metric);
                     bool loaded = false;
                     if constexpr (std::is_floating_point<T>::value) {
                         loaded = pca_utils->load_pca_from_file(false);
@@ -718,10 +744,14 @@ namespace qvcache {
 
                 if (!use_regional_theta) {
                     // Initialize global theta_map for K=1,5,10,100
-                    theta_map[1] = std::numeric_limits<double>::min();
-                    theta_map[5] = std::numeric_limits<double>::min();
-                    theta_map[10] = std::numeric_limits<double>::min();
-                    theta_map[100] = std::numeric_limits<double>::min();
+                    // Use values so that everything is a miss initially
+                    // For cosine: use negative infinity so distances[K-1] > -infinity is always true (MISS)
+                    // For L2: use max double (will check for uninitialized and force MISS anyway)
+                    double init_value = (metric == diskann::COSINE) ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::max();
+                    theta_map[1] = init_value;
+                    theta_map[5] = init_value;
+                    theta_map[10] = init_value;
+                    theta_map[100] = init_value;
                 }
             }
 

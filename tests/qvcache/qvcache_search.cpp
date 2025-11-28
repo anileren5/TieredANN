@@ -17,6 +17,9 @@
 // Backend header
 #include "greator_backend.h"
 
+// DiskANN headers
+#include "diskann/distance.h"
+
 // QVCache header
 #include "qvcache/qvcache.h"
 
@@ -358,6 +361,7 @@ void experiment_with_backend(
        number_of_mini_indexes,
        search_mini_indexes_in_parallel,
        max_search_threads,
+       diskann::Metric::L2,
        std::move(greator_backend)
     );
 

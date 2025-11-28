@@ -8,12 +8,13 @@ cd "$(dirname "$0")/../../.." || exit 1
 # ============================================================================
 # DATASET CONFIGURATION
 # ============================================================================
-DATASET="sift"
+DATASET="glove"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 K=100
+METRIC="cosine"  # Distance metric: l2 or cosine (use cosine for glove dataset)
 
 # ============================================================================
 # POSTGRESQL CONFIGURATION - UPDATE THESE VALUES FOR YOUR SETUP
@@ -117,5 +118,6 @@ python3 python/benchmarks/qvcache_split_search_pgvector_backend.py \
   --search_mini_indexes_in_parallel $SEARCH_MINI_INDEXES_IN_PARALLEL \
   --max_search_threads $MAX_SEARCH_THREADS \
   --search_strategy "$SEARCH_STRATEGY" \
-  --data_type "$DATA_TYPE"
+  --data_type "$DATA_TYPE" \
+  --metric "$METRIC"
 
