@@ -15,13 +15,22 @@
 
 namespace greator {
 
-// Cosine similarity.
+// Cosine distance (matching DiskANN implementation exactly).
 float DistanceCosineInt8::compare(const int8_t *a, const int8_t *b,
                                   uint32_t length) const {
 #ifdef _WINDOWS
   return diskann::CosineSimilarity2<int8_t>(a, b, length);
 #else
-  return greator::compute_cosine_similarity(a, b, length);
+  // Match DiskANN's Linux implementation exactly
+  int magA = 0, magB = 0, scalarProduct = 0;
+  for (uint32_t i = 0; i < length; i++)
+  {
+      magA += ((int32_t)a[i]) * ((int32_t)a[i]);
+      magB += ((int32_t)b[i]) * ((int32_t)b[i]);
+      scalarProduct += ((int32_t)a[i]) * ((int32_t)b[i]);
+  }
+  // similarity == 1-cosine distance
+  return 1.0f - (float)(scalarProduct / (sqrt(magA) * sqrt(magB)));
 #endif
 }
 
@@ -30,7 +39,16 @@ float DistanceCosineFloat::compare(const float *a, const float *b,
 #ifdef _WINDOWS
   return diskann::CosineSimilarity2<float>(a, b, length);
 #else
-  return greator::compute_cosine_similarity(a, b, length);
+  // Match DiskANN's Linux implementation exactly
+  float magA = 0, magB = 0, scalarProduct = 0;
+  for (uint32_t i = 0; i < length; i++)
+  {
+      magA += (a[i]) * (a[i]);
+      magB += (b[i]) * (b[i]);
+      scalarProduct += (a[i]) * (b[i]);
+  }
+  // similarity == 1-cosine distance
+  return 1.0f - (scalarProduct / (sqrt(magA) * sqrt(magB)));
 #endif
 }
 

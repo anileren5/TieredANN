@@ -342,6 +342,7 @@ void experiment_split(
     bool search_mini_indexes_in_parallel,
     size_t max_search_threads,
     const std::string& search_strategy,
+    diskann::Metric metric,
     std::unique_ptr<qvcache::BackendInterface<T, TagT>> greator_backend
 ) {
    qvcache::QVCache<T> qvcache(
@@ -360,7 +361,7 @@ void experiment_split(
        number_of_mini_indexes,
        search_mini_indexes_in_parallel,
        max_search_threads,
-       diskann::Metric::L2,
+       metric,
        std::move(greator_backend)
     );
 
@@ -527,6 +528,7 @@ int main(int argc, char **argv) {
     bool search_mini_indexes_in_parallel = false;
     size_t max_search_threads = 32;
     std::string search_strategy = "SEQUENTIAL_LRU_STOP_FIRST_HIT";
+    std::string metric_str = "l2";
     po::options_description desc;
     try {
         po::options_description desc("Allowed options");
@@ -564,7 +566,8 @@ int main(int argc, char **argv) {
             ("number_of_mini_indexes", po::value<size_t>(&number_of_mini_indexes)->default_value(2), "Number of mini indexes for shadow cycling")
             ("search_mini_indexes_in_parallel", po::value<bool>(&search_mini_indexes_in_parallel)->default_value(false), "Search mini indexes in parallel (true) or sequential (false)")
             ("max_search_threads", po::value<size_t>(&max_search_threads)->default_value(32), "Maximum threads for parallel search")
-            ("search_strategy", po::value<std::string>(&search_strategy)->default_value("SEQUENTIAL_LRU_STOP_FIRST_HIT"), "Search strategy: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL");
+            ("search_strategy", po::value<std::string>(&search_strategy)->default_value("SEQUENTIAL_LRU_STOP_FIRST_HIT"), "Search strategy: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL")
+            ("metric", po::value<std::string>(&metric_str)->default_value("l2"), "Distance metric: l2 or cosine");
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
         if (vm.count("help")) {
@@ -576,6 +579,17 @@ int main(int argc, char **argv) {
         std::cerr << ex.what() << '\n';
         return -1;
     }
+    // Parse metric string to enum
+    diskann::Metric metric;
+    if (metric_str == "l2" || metric_str == "L2") {
+        metric = diskann::Metric::L2;
+    } else if (metric_str == "cosine" || metric_str == "COSINE") {
+        metric = diskann::Metric::COSINE;
+    } else {
+        std::cerr << "Unsupported metric: " << metric_str << ". Supported metrics: l2, cosine" << std::endl;
+        return -1;
+    }
+    
     set_sector_len(sector_len);
     auto logger = spdlog::stdout_color_mt("console");
     spdlog::set_pattern("%v");
@@ -613,21 +627,22 @@ int main(int argc, char **argv) {
         "  \"number_of_mini_indexes\": {},\n"
         "  \"search_mini_indexes_in_parallel\": {},\n"
         "  \"max_search_threads\": {},\n"
-        "  \"search_strategy\": \"{}\"\n"
+        "  \"search_strategy\": \"{}\",\n"
+        "  \"metric\": \"{}\"\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, n_iteration_per_split, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric_str);
     if (data_type == "float") {
         std::unique_ptr<qvcache::BackendInterface<float, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<float>>(
             data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
-        experiment_split<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
+        experiment_split<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
     } else if (data_type == "int8") {
         std::unique_ptr<qvcache::BackendInterface<int8_t, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<int8_t>>(
             data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
-        experiment_split<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
+        experiment_split<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
     } else if (data_type == "uint8") {
         std::unique_ptr<qvcache::BackendInterface<uint8_t, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<uint8_t>>(
             data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
-        experiment_split<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, std::move(greator_backend));
+        experiment_split<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, n_iteration_per_split, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_rounds, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }

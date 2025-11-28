@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.." || exit 1
 
 # Configuration
 data_type="float"
-dataset="siftsmall"
+dataset="glove"
 single_file_index=0
 tags_enabled=0
 num_nodes_to_cache=500
@@ -18,7 +18,7 @@ query_file="./data/${dataset}/${dataset}_query.bin"
 truth_file="./data/${dataset}/${dataset}_groundtruth.bin"
 K=100
 results_prefix="./results/${dataset}/${dataset}"
-similarity="l2"
+similarity="cosine"
 Ls=(128 256 512 1024)
 sector_len=4096
 

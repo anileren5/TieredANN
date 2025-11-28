@@ -15,7 +15,7 @@ METRIC="cosine"  # Distance metric: "l2" or "cosine" (use "cosine" for glove dat
 
 # Experiment parameters
 N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
-N_SPLITS=30 # Number of splits for queries
+N_SPLITS=10 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
 
 # Tiered index parameters
@@ -40,7 +40,7 @@ LAZY_THETA_UPDATES=True # Set to True to enable lazy theta updates, False for im
 NUMBER_OF_MINI_INDEXES=4 # Number of mini indexes for shadow cycling
 SEARCH_MINI_INDEXES_IN_PARALLEL=False # Set to True to search mini indexes in parallel
 MAX_SEARCH_THREADS=32 # Maximum threads for parallel search
-SEARCH_STRATEGY="SEQUENTIAL_LRU_ADAPTIVE" # Search strategy: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL
+SEARCH_STRATEGY="SEQUENTIAL_ALL" # Search strategy: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL
 
 # Activate virtual environment if it exists
 if [ -d "venv" ]; then

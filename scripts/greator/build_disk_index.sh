@@ -7,14 +7,14 @@ set -e
 cd "$(dirname "$0")/../.." || exit 1
 
 # Configuration parameters
-dataset="sift"
+dataset="glove"
 data_type="float"
-R=64
-L=128
+R=128
+L=512
 B=8
 M=8
 T=16
-similarity="l2"
+similarity="cosine"
 single_file_index=0
 sector_len=4096
 

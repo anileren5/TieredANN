@@ -6,8 +6,8 @@ cd "$(dirname "$0")/../../.." || exit 1
 # Dataset parameters
 DATASET="glove"
 GROUNDTRUTH_PATH="data/$DATASET/${DATASET}_groundtruth.bin"
-K=100
-N_SPLITS=10
+K=10
+N_SPLITS=30
 
 # Activate virtual environment if it exists
 if [ -d "venv" ]; then
