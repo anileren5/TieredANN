@@ -68,11 +68,17 @@ template <typename T> int search_disk_index(int argc, char **argv) {
 
   std::string warmup_query_file = index_prefix_path + "_sample_data.bin";
 
-  greator::Metric m =
-      dist_metric == "cosine" ? greator::Metric::COSINE : greator::Metric::L2;
-  if (dist_metric != "l2" && m == greator::Metric::L2) {
+  greator::Metric m;
+  if (dist_metric == "cosine" || dist_metric == "COSINE") {
+    m = greator::Metric::COSINE;
+  } else if (dist_metric == "inner_product" || dist_metric == "INNER_PRODUCT" || dist_metric == "innerproduct") {
+    m = greator::Metric::INNER_PRODUCT;
+  } else if (dist_metric == "l2" || dist_metric == "L2") {
+    m = greator::Metric::L2;
+  } else {
     greator::cout << "Unknown distance metric: " << dist_metric
                   << ". Using default(L2) instead." << std::endl;
+    m = greator::Metric::L2;
   }
 
   std::string disk_index_tag_file = index_prefix_path + "_disk.index.tags";
@@ -328,7 +334,7 @@ int main(int argc, char **argv) {
            " --single_file_index <0/1> --tags <0/1> "
            " --num_nodes_to_cache <num> --num_threads <num> --beamwidth <num> "
            " --query_bin <file> --truthset_bin <file> "
-           " --recall_at <K> --result_output_prefix <prefix> --dist_metric <cosine/l2> "
+           " --recall_at <K> --result_output_prefix <prefix> --dist_metric <l2/cosine/inner_product> "
            " --sector_len <bytes> --L_values <L1> <L2> ..."
         << std::endl;
     exit(-1);

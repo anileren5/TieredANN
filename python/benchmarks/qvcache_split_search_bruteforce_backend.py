@@ -64,8 +64,10 @@ def experiment_split(
         metric_enum = qvc.Metric.COSINE
     elif metric.lower() == "l2":
         metric_enum = qvc.Metric.L2
+    elif metric.lower() == "inner_product" or metric.lower() == "innerproduct":
+        metric_enum = qvc.Metric.INNER_PRODUCT
     else:
-        raise ValueError(f"Unsupported metric: {metric}. Supported: l2, cosine")
+        raise ValueError(f"Unsupported metric: {metric}. Supported: l2, cosine, inner_product")
     
     # Create QVCache with Python backend
     qvcache = qvc.QVCache(
@@ -256,7 +258,7 @@ def main():
                        choices=["SEQUENTIAL_LRU_STOP_FIRST_HIT", "SEQUENTIAL_LRU_ADAPTIVE",
                                "SEQUENTIAL_ALL", "PARALLEL"],
                        help="Search strategy")
-    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine"],
+    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine", "inner_product"],
                        help="Distance metric (default: l2)")
     
     args = parser.parse_args()

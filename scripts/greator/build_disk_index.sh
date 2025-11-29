@@ -7,14 +7,14 @@ set -e
 cd "$(dirname "$0")/../.." || exit 1
 
 # Configuration parameters
-dataset="glove"
+dataset="text_to_image_1m"
 data_type="float"
 R=128
-L=512
+L=128
 B=8
 M=8
 T=16
-similarity="cosine"
+similarity="l2"  # Distance metric: "l2", "cosine", or "inner_product"
 single_file_index=0
 sector_len=4096
 

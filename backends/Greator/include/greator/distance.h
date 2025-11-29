@@ -178,4 +178,15 @@ public:
   virtual float compare(const float *a, const float *b, uint32_t length) const;
 };
 
+// Inner product distance functions
+class SlowDistanceInnerProductFloat : public Distance<float> {
+public:
+  virtual float compare(const float *a, const float *b, uint32_t length) const;
+};
+
+class AVXDistanceInnerProductFloat : public Distance<float> {
+public:
+  virtual float compare(const float *a, const float *b, uint32_t length) const;
+};
+
 } // namespace greator

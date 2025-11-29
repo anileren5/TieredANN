@@ -5,17 +5,17 @@
 cd "$(dirname "$0")/../../.." || exit 1
 
 # Dataset parameters
-DATASET="glove"
+DATASET="text_to_image_1m"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 K=100
-METRIC="cosine"  # Distance metric: "l2" or "cosine" (use "cosine" for glove dataset)
+METRIC="inner_product"  # Distance metric: "l2", "cosine", or "inner_product" (use "cosine" for glove dataset)
 
 # Experiment parameters
 N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
-N_SPLITS=10 # Number of splits for queries
+N_SPLITS=1000 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
 
 # Tiered index parameters

@@ -83,7 +83,7 @@ def experiment_bruteforce_only(
         query_path: Path to query binary file
         groundtruth_path: Path to groundtruth binary file
         K: Number of nearest neighbors to return
-        metric: Distance metric ("l2" or "cosine")
+        metric: Distance metric ("l2", "cosine", or "inner_product")
     """
     # Print experiment parameters
     params = {
@@ -232,7 +232,7 @@ def main():
     parser.add_argument("--query_path", required=True, help="Path to query binary file")
     parser.add_argument("--groundtruth_path", required=True, help="Path to groundtruth binary file")
     parser.add_argument("--K", type=int, required=True, help="Number of nearest neighbors")
-    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine"],
+    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine", "inner_product"],
                        help="Distance metric (default: l2)")
     parser.add_argument("--progress_interval", type=int, default=100,
                        help="Progress update interval (print every N queries, default: 100)")

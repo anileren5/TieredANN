@@ -567,7 +567,7 @@ int main(int argc, char **argv) {
             ("search_mini_indexes_in_parallel", po::value<bool>(&search_mini_indexes_in_parallel)->default_value(false), "Search mini indexes in parallel (true) or sequential (false)")
             ("max_search_threads", po::value<size_t>(&max_search_threads)->default_value(32), "Maximum threads for parallel search")
             ("search_strategy", po::value<std::string>(&search_strategy)->default_value("SEQUENTIAL_LRU_STOP_FIRST_HIT"), "Search strategy: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL")
-            ("metric", po::value<std::string>(&metric_str)->default_value("l2"), "Distance metric: l2 or cosine");
+            ("metric", po::value<std::string>(&metric_str)->default_value("l2"), "Distance metric: l2, cosine, or inner_product");
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
         if (vm.count("help")) {
@@ -585,8 +585,10 @@ int main(int argc, char **argv) {
         metric = diskann::Metric::L2;
     } else if (metric_str == "cosine" || metric_str == "COSINE") {
         metric = diskann::Metric::COSINE;
+    } else if (metric_str == "inner_product" || metric_str == "INNER_PRODUCT" || metric_str == "innerproduct") {
+        metric = diskann::Metric::INNER_PRODUCT;
     } else {
-        std::cerr << "Unsupported metric: " << metric_str << ". Supported metrics: l2, cosine" << std::endl;
+        std::cerr << "Unsupported metric: " << metric_str << ". Supported metrics: l2, cosine, inner_product" << std::endl;
         return -1;
     }
     

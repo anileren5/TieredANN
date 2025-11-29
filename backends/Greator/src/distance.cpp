@@ -245,4 +245,73 @@ float AVXDistanceL2Float::compare(const float *, const float *,
   return 0;
 }
 #endif
-} // namespace diskann
+
+// Inner product distance implementations
+// Slow implementation matches DiskANN's scalar fallback exactly
+float SlowDistanceInnerProductFloat::compare(const float *a, const float *b,
+                                             uint32_t size) const {
+  float result = 0.0f;
+  float dot0, dot1, dot2, dot3;
+  const float *last = a + size;
+  const float *unroll_group = last - 3;
+
+  /* Process 4 items with each loop for efficiency (matching DiskANN exactly). */
+  while (a < unroll_group) {
+    dot0 = a[0] * b[0];
+    dot1 = a[1] * b[1];
+    dot2 = a[2] * b[2];
+    dot3 = a[3] * b[3];
+    result += dot0 + dot1 + dot2 + dot3;
+    a += 4;
+    b += 4;
+  }
+  /* Process last 0-3 pixels. Not needed for standard vector lengths. */
+  while (a < last) {
+    result += *a++ * *b++;
+  }
+  // Return negative inner product (for distance, smaller is better)
+  // This matches DiskANN's AVXDistanceInnerProductFloat::compare()
+  return -result;
+}
+
+float AVXDistanceInnerProductFloat::compare(const float *a, const float *b,
+                                            uint32_t size) const {
+  // This implementation matches DiskANN's AVXDistanceInnerProductFloat::compare() exactly
+  float result = 0.0f;
+#define AVX_DOT(addr1, addr2, dest, tmp1, tmp2)                                                                        \
+    tmp1 = _mm256_loadu_ps(addr1);                                                                                     \
+    tmp2 = _mm256_loadu_ps(addr2);                                                                                     \
+    tmp1 = _mm256_mul_ps(tmp1, tmp2);                                                                                  \
+    dest = _mm256_add_ps(dest, tmp1);
+
+  __m256 sum;
+  __m256 l0, l1;
+  __m256 r0, r1;
+  uint32_t D = (size + 7) & ~7U;
+  uint32_t DR = D % 16;
+  uint32_t DD = D - DR;
+  const float *l = (float *)a;
+  const float *r = (float *)b;
+  const float *e_l = l + DD;
+  const float *e_r = r + DD;
+#ifndef _WINDOWS
+  float unpack[8] __attribute__((aligned(32))) = {0, 0, 0, 0, 0, 0, 0, 0};
+#else
+  __declspec(align(32)) float unpack[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+#endif
+
+  sum = _mm256_loadu_ps(unpack);
+  if (DR) {
+    AVX_DOT(e_l, e_r, sum, l0, r0);
+  }
+
+  for (uint32_t i = 0; i < DD; i += 16, l += 16, r += 16) {
+    AVX_DOT(l, r, sum, l0, r0);
+    AVX_DOT(l + 8, r + 8, sum, l1, r1);
+  }
+  _mm256_storeu_ps(unpack, sum);
+  result = unpack[0] + unpack[1] + unpack[2] + unpack[3] + unpack[4] + unpack[5] + unpack[6] + unpack[7];
+
+  return -result;
+}
+} // namespace greator

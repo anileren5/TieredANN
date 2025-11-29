@@ -22,7 +22,7 @@ class BruteforceBackend:
         
         Args:
             data_path: Path to the binary data file (DiskANN format)
-            metric: Distance metric to use - "l2" or "cosine" (default: "l2")
+            metric: Distance metric to use - "l2", "cosine", or "inner_product" (default: "l2")
         """
         # Read metadata (first 2 uint32_t: num_vectors, dim)
         with open(data_path, 'rb') as f:
@@ -37,8 +37,8 @@ class BruteforceBackend:
         self.dim = dim
         self.metric = metric.lower()
         
-        if self.metric not in ["l2", "cosine"]:
-            raise ValueError(f"Unsupported metric: {metric}. Must be 'l2' or 'cosine'")
+        if self.metric not in ["l2", "cosine", "inner_product", "innerproduct"]:
+            raise ValueError(f"Unsupported metric: {metric}. Must be 'l2', 'cosine', or 'inner_product'")
         
         print(f"BruteforceBackend initialized with metric: {self.metric}")
         print(f"Loaded {self.num_vectors} vectors of dimension {self.dim} from {data_path}")
@@ -57,11 +57,24 @@ class BruteforceBackend:
             - distances: numpy array of shape (K,) containing distances
                 - For L2: squared L2 distances
                 - For cosine: cosine distances (1 - cosine_similarity), matching DiskANN formula
+                - For inner_product: negative inner product (-dot(query, data[i])), matching DiskANN/Greator formula
         """
         if query.ndim != 1 or query.shape[0] != self.dim:
             raise ValueError(f"Query must be 1D array of shape ({self.dim},), got {query.shape}")
         
-        if self.metric == "cosine":
+        if self.metric == "inner_product" or self.metric == "innerproduct":
+            # Implement exact DiskANN/Greator inner product distance formula:
+            # inner_product_distance = -dot(a, b)
+            # This matches DiskANN's AVXDistanceInnerProductFloat::compare() and Greator's implementation
+            # Returns negative inner product so that smaller distances are better (for MIPS)
+            
+            # Compute dot products for all vectors
+            dot_products = np.dot(self.data, query)  # dot(data[i], query) for each i
+            
+            # Return negative inner product (for distance, smaller is better)
+            distances = -dot_products.astype(np.float32)
+        
+        elif self.metric == "cosine":
             # Implement exact DiskANN cosine distance formula:
             # cosine_distance = 1.0 - (dot(a,b) / (sqrt(||a||^2) * sqrt(||b||^2)))
             # This matches DiskANN's DistanceCosineFloat::compare() on Linux

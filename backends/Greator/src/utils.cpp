@@ -80,9 +80,19 @@ template <> greator::Distance<float> *get_distance_function(greator::Metric m) {
     greator::cout << "Cosine: Using either AVX or AVX2 implementation"
                   << std::endl;
     return new greator::DistanceCosineFloat();
+  } else if (m == greator::Metric::INNER_PRODUCT) {
+    if (Avx2SupportedCPU) {
+      greator::cout << "Inner product: Using AVX2 distance computation"
+                    << std::endl;
+      return new greator::AVXDistanceInnerProductFloat();
+    } else {
+      greator::cout << "Inner product: AVX2 not supported. Using slow distance computation"
+                    << std::endl;
+      return new greator::SlowDistanceInnerProductFloat();
+    }
   } else {
     std::stringstream stream;
-    stream << "Only L2 and cosine metric supported as of now. Email "
+    stream << "Only L2, cosine, and inner product metric supported as of now. Email "
               "gopalsr@microsoft.com if you need support for any other metric"
            << std::endl;
     std::cerr << stream.str() << std::endl;
@@ -110,9 +120,17 @@ greator::Distance<int8_t> *get_distance_function(greator::Metric m) {
     greator::cout << "Using either AVX or AVX2 for Cosine similarity"
                   << std::endl;
     return new greator::DistanceCosineInt8();
+  } else if (m == greator::Metric::INNER_PRODUCT) {
+    std::stringstream stream;
+    stream << "Inner product metric is only supported for float vectors, not int8_t. "
+              "Email gopalsr@microsoft.com if you need support for int8_t inner product."
+           << std::endl;
+    std::cerr << stream.str() << std::endl;
+    throw greator::ANNException(stream.str(), -1, __FUNCSIG__, __FILE__,
+                                __LINE__);
   } else {
     std::stringstream stream;
-    stream << "Only L2 and cosine metric supported as of now. Email "
+    stream << "Only L2, cosine, and inner product metric supported as of now. Email "
               "gopalsr@microsoft.com if you need support for any other metric"
            << std::endl;
     std::cerr << stream.str() << std::endl;
@@ -137,9 +155,17 @@ greator::Distance<uint8_t> *get_distance_function(greator::Metric m) {
            "Contact gopalsr@microsoft.com if you need AVX/AVX2 support."
         << std::endl;
     return new greator::SlowDistanceCosineUInt8();
+  } else if (m == greator::Metric::INNER_PRODUCT) {
+    std::stringstream stream;
+    stream << "Inner product metric is only supported for float vectors, not uint8_t. "
+              "Email gopalsr@microsoft.com if you need support for uint8_t inner product."
+           << std::endl;
+    std::cerr << stream.str() << std::endl;
+    throw greator::ANNException(stream.str(), -1, __FUNCSIG__, __FILE__,
+                                __LINE__);
   } else {
     std::stringstream stream;
-    stream << "Only L2 and Cosine metric supported as of now. Email "
+    stream << "Only L2, cosine, and inner product metric supported as of now. Email "
               "gopalsr@microsoft.com if you need any support for any other "
               "metric"
            << std::endl;

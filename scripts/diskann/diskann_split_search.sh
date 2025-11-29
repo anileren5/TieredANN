@@ -19,7 +19,7 @@ MAX_POINTS=1000000 # Maximum number of points the index can hold (should be >= n
 N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
 N_SPLITS=30 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
-METRIC="l2" # Distance metric: l2, cosine
+METRIC="l2" # Distance metric: l2, cosine, or inner_product
 
 # Run the test with all parameters
 ./build/tests/diskann_split_search \

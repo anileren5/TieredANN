@@ -40,3 +40,14 @@ foreach(i RANGE 0 ${max_index} 2)
             ${PROJECT_SOURCE_DIR}/external/DiskANN/include
     )
 endforeach()
+
+# Special handling for compute_groundtruth (simpler, only needs OpenMP)
+add_executable(compute_groundtruth compute_groundtruth.cpp)
+target_link_libraries(compute_groundtruth
+    PRIVATE
+        OpenMP::OpenMP_CXX
+)
+target_include_directories(compute_groundtruth
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/external/DiskANN/include
+)

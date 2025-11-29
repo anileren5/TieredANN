@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     greator::cout << "Usage: " << argv[0]
                   << " <data_type (float/int8/uint8)> --data_file <file.bin>"
                      " --index_prefix_path <path> --R <num> --L <num> --B <num> --M <num> --T <num>"
-                     " --dist_metric <cosine/l2> --single_file_index <0/1> --sector_len <bytes>"
+                     " --dist_metric <l2/cosine/inner_product> --single_file_index <0/1> --sector_len <bytes>"
                      " See README for more information on parameters."
                   << std::endl;
     return -1;
@@ -56,11 +56,17 @@ int main(int argc, char **argv) {
   std::string params = std::to_string(R) + " " + std::to_string(L) + " " +
                        std::to_string(B) + " " + std::to_string(M) + " " + std::to_string(T);
 
-  greator::Metric m =
-      dist_metric == "cosine" ? greator::Metric::COSINE : greator::Metric::L2;
-  if (dist_metric != "l2" && m == greator::Metric::L2) {
+  greator::Metric m;
+  if (dist_metric == "cosine" || dist_metric == "COSINE") {
+    m = greator::Metric::COSINE;
+  } else if (dist_metric == "inner_product" || dist_metric == "INNER_PRODUCT" || dist_metric == "innerproduct") {
+    m = greator::Metric::INNER_PRODUCT;
+  } else if (dist_metric == "l2" || dist_metric == "L2") {
+    m = greator::Metric::L2;
+  } else {
     greator::cout << "Metric " << dist_metric << " is not supported. Using L2"
                   << std::endl;
+    m = greator::Metric::L2;
   }
 
   if (std::string(argv[1]) == std::string("float"))

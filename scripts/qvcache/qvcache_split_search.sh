@@ -10,7 +10,7 @@ DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
 GROUNDTRUTH_PATH="./data/$DATASET/${DATASET}_groundtruth.bin"
 R=64
-MEMORY_L=128  
+MEMORY_L=32  
 DISK_L=256
 K=10
 B=8
@@ -23,22 +23,22 @@ DISK_INDEX_ALREADY_BUILT=1
 BEAMWIDTH=2
 USE_RECONSTRUCTED_VECTORS=0
 P=0.90
-DEVIATION_FACTOR=-0.10
+DEVIATION_FACTOR=0.001
 N_ITERATION_PER_SPLIT=5 # Number of search iterations per split
-N_SPLITS=30 # Number of splits for queries
+N_SPLITS=10 # Number of splits for queries
 N_ROUNDS=1 # Number of rounds to repeat all splits
 SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
-MEMORY_INDEX_MAX_POINTS=40000 # Set to desired max points for memory index
+MEMORY_INDEX_MAX_POINTS=60000 # Set to desired max points for memory index
 N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
 LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates
 NUMBER_OF_MINI_INDEXES=4 # Number of mini indexes for shadow cycling
 SEARCH_MINI_INDEXES_IN_PARALLEL=false # Set to true to search mini indexes in parallel
 MAX_SEARCH_THREADS=32 # Maximum threads for parallel search
 SEARCH_STRATEGY="SEQUENTIAL_ALL" # Search strategy: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL
-METRIC="cosine" # Distance metric: "l2" or "cosine" 
+METRIC="cosine" # Distance metric: "l2", "cosine", or "inner_product" 
 
 # Run the test with all parameters
 ./build/tests/qvcache_split_search \
