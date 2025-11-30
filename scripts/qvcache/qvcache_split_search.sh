@@ -4,7 +4,7 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="glove"
+DATASET="deep1m_cos"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 QUERY_PATH="data/$DATASET/${DATASET}_query.bin"
