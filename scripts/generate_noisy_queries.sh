@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.." || exit 1
 DATASET="deep10m"
 N_SPLIT="10"
 N_SPLIT_REPEAT="5"
-NOISE_RATIO="0.1"
+NOISE_RATIO="0.01"
 RANDOM_SEED="42"
 DATA_DIR="data"
 DATA_TYPE="float"
