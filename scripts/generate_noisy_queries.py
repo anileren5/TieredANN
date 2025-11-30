@@ -17,24 +17,44 @@ import os
 import sys
 
 
-def read_bin_vectors(input_file):
+def read_bin_vectors(input_file, dtype="float"):
     """Read vectors from a .bin file (DiskANN format)."""
     with open(input_file, "rb") as f:
         num_vectors = struct.unpack("I", f.read(4))[0]
         dim = struct.unpack("I", f.read(4))[0]
         total_values = num_vectors * dim
-        vector_data = struct.unpack(f"{total_values}f", f.read(total_values * 4))
-        vectors = np.array(vector_data, dtype=np.float32).reshape(num_vectors, dim)
+        
+        if dtype == "float":
+            vector_data = struct.unpack(f"{total_values}f", f.read(total_values * 4))
+            vectors = np.array(vector_data, dtype=np.float32).reshape(num_vectors, dim)
+        elif dtype == "int8":
+            vector_data = struct.unpack(f"{total_values}b", f.read(total_values * 1))
+            vectors = np.array(vector_data, dtype=np.int8).reshape(num_vectors, dim)
+        elif dtype == "uint8":
+            vector_data = struct.unpack(f"{total_values}B", f.read(total_values * 1))
+            vectors = np.array(vector_data, dtype=np.uint8).reshape(num_vectors, dim)
+        else:
+            raise ValueError(f"Unsupported data type: {dtype}. Must be float, int8, or uint8.")
+        
         return vectors, num_vectors, dim
 
 
-def write_bin_vectors(vectors, output_file):
+def write_bin_vectors(vectors, output_file, dtype="float"):
     """Write vectors to a .bin file (DiskANN format)."""
     num_vectors, dim = vectors.shape
     with open(output_file, "wb") as f:
         f.write(struct.pack("I", num_vectors))
         f.write(struct.pack("I", dim))
-        vectors_flat = vectors.astype(np.float32).flatten()
+        
+        if dtype == "float":
+            vectors_flat = vectors.astype(np.float32).flatten()
+        elif dtype == "int8":
+            vectors_flat = vectors.astype(np.int8).flatten()
+        elif dtype == "uint8":
+            vectors_flat = vectors.astype(np.uint8).flatten()
+        else:
+            raise ValueError(f"Unsupported data type: {dtype}. Must be float, int8, or uint8.")
+        
         # Use tofile for efficient writing of large arrays
         vectors_flat.tofile(f)
 
@@ -45,7 +65,8 @@ def generate_noisy_queries(
     n_split_repeat,
     noise_ratio,
     random_seed=42,
-    data_dir="data"
+    data_dir="data",
+    dtype="float"
 ):
     """
     Generate noisy queries by splitting and interpolating.
@@ -57,6 +78,7 @@ def generate_noisy_queries(
         noise_ratio: Noise ratio for interpolation (0-1)
         random_seed: Random seed for reproducibility
         data_dir: Base directory for data files
+        dtype: Data type - float, int8, or uint8 (default: float)
     
     Returns:
         Path to the generated query file
@@ -66,6 +88,9 @@ def generate_noisy_queries(
     
     if n_split_repeat < 1:
         raise ValueError(f"n_split_repeat must be at least 1, got {n_split_repeat}")
+    
+    if dtype not in ["float", "int8", "uint8"]:
+        raise ValueError(f"dtype must be float, int8, or uint8, got {dtype}")
     
     np.random.seed(random_seed)
     
@@ -77,8 +102,8 @@ def generate_noisy_queries(
         raise FileNotFoundError(f"Query file not found: {query_file}")
     
     # Read base queries
-    print(f"Reading queries from {query_file}...")
-    queries, num_queries, dim = read_bin_vectors(query_file)
+    print(f"Reading queries from {query_file} (dtype: {dtype})...")
+    queries, num_queries, dim = read_bin_vectors(query_file, dtype)
     print(f"Loaded {num_queries} queries of dimension {dim}")
     
     # Split queries into n_split chunks
@@ -97,14 +122,25 @@ def generate_noisy_queries(
         # Generate n_split_repeat - 1 noisy copies
         for copy_idx in range(1, n_split_repeat):
             # For each query in the split, interpolate with a random query from ALL queries
+            # Convert to float for interpolation, then convert back to original dtype
             noisy_split = np.zeros_like(split_queries)
+            split_queries_float = split_queries.astype(np.float32)
+            
             for i in range(num_in_split):
                 # Pick a random query from all queries
                 random_idx = np.random.randint(0, num_queries)
-                random_query = queries[random_idx]
+                random_query_float = queries[random_idx].astype(np.float32)
                 
                 # Interpolate: (1-noise_ratio) * query + noise_ratio * random_query
-                noisy_split[i] = (1.0 - noise_ratio) * split_queries[i] + noise_ratio * random_query
+                interpolated = (1.0 - noise_ratio) * split_queries_float[i] + noise_ratio * random_query_float
+                
+                # Convert back to original dtype
+                if dtype == "float":
+                    noisy_split[i] = interpolated.astype(np.float32)
+                elif dtype == "int8":
+                    noisy_split[i] = np.clip(interpolated, -128, 127).astype(np.int8)
+                elif dtype == "uint8":
+                    noisy_split[i] = np.clip(interpolated, 0, 255).astype(np.uint8)
             
             all_copies.append(noisy_split)
             
@@ -127,8 +163,8 @@ def generate_noisy_queries(
     output_file = os.path.join(dataset_dir, output_filename)
     
     # Write to file
-    print(f"\nWriting queries to {output_file}...")
-    write_bin_vectors(result, output_file)
+    print(f"\nWriting queries to {output_file} (dtype: {dtype})...")
+    write_bin_vectors(result, output_file, dtype)
     
     # Verify file was written correctly
     file_size = os.path.getsize(output_file)
@@ -177,6 +213,13 @@ def main():
         default="data",
         help="Base directory for data files (default: data)"
     )
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        default="float",
+        choices=["float", "int8", "uint8"],
+        help="Data type - float, int8, or uint8 (default: float)"
+    )
     
     args = parser.parse_args()
     
@@ -187,7 +230,8 @@ def main():
             n_split_repeat=args.n_split_repeat,
             noise_ratio=args.noise_ratio,
             random_seed=args.random_seed,
-            data_dir=args.data_dir
+            data_dir=args.data_dir,
+            dtype=args.dtype
         )
         print(f"\n✓ Success! Generated noisy queries: {output_file}")
         return 0

@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <chrono>
 #include <cstring>
+#include <cctype>
 #include <limits>
 #include <omp.h>
 
@@ -70,31 +71,35 @@ void load_bin(const std::string& filename, T*& data, size_t& npts, size_t& dim) 
 }
 
 // Compute L2 distance between query vector and all base vectors
-void compute_distances_l2(const float* query, const float* base, size_t n_base, size_t dim,
+template<typename T>
+void compute_distances_l2(const T* query, const T* base, size_t n_base, size_t dim,
                            std::vector<float>& distances) {
     distances.resize(n_base);
+    
+    // Convert query to float for computation
+    std::vector<float> query_float(dim);
+    for (size_t d = 0; d < dim; ++d) {
+        query_float[d] = static_cast<float>(query[d]);
+    }
     
     // Compute ||query||^2 once
     float query_norm_sq = 0.0f;
     for (size_t d = 0; d < dim; ++d) {
-        query_norm_sq += query[d] * query[d];
+        query_norm_sq += query_float[d] * query_float[d];
     }
     
     // Compute distances: ||q - b||^2 = ||q||^2 + ||b||^2 - 2*q*b
     #pragma omp parallel for
     for (size_t i = 0; i < n_base; ++i) {
-        const float* base_vec = base + i * dim;
+        const T* base_vec = base + i * dim;
         
-        // Compute ||base_vec||^2
+        // Convert base vector to float and compute ||base_vec||^2
         float base_norm_sq = 0.0f;
-        for (size_t d = 0; d < dim; ++d) {
-            base_norm_sq += base_vec[d] * base_vec[d];
-        }
-        
-        // Compute dot product
         float dot_product = 0.0f;
         for (size_t d = 0; d < dim; ++d) {
-            dot_product += query[d] * base_vec[d];
+            float base_val = static_cast<float>(base_vec[d]);
+            base_norm_sq += base_val * base_val;
+            dot_product += query_float[d] * base_val;
         }
         
         // Compute squared distance
@@ -104,18 +109,25 @@ void compute_distances_l2(const float* query, const float* base, size_t n_base, 
 }
 
 // Compute inner product distance (matching DiskANN: returns -dot(a, b))
-void compute_distances_inner_product(const float* query, const float* base, size_t n_base, size_t dim,
+template<typename T>
+void compute_distances_inner_product(const T* query, const T* base, size_t n_base, size_t dim,
                                      std::vector<float>& distances) {
     distances.resize(n_base);
     
+    // Convert query to float for computation
+    std::vector<float> query_float(dim);
+    for (size_t d = 0; d < dim; ++d) {
+        query_float[d] = static_cast<float>(query[d]);
+    }
+    
     #pragma omp parallel for
     for (size_t i = 0; i < n_base; ++i) {
-        const float* base_vec = base + i * dim;
+        const T* base_vec = base + i * dim;
         
         // Compute dot product
         float dot_product = 0.0f;
         for (size_t d = 0; d < dim; ++d) {
-            dot_product += query[d] * base_vec[d];
+            dot_product += query_float[d] * static_cast<float>(base_vec[d]);
         }
         
         // Inner product distance = -dot_product (matching DiskANN's DistanceInnerProduct::compare)
@@ -124,32 +136,40 @@ void compute_distances_inner_product(const float* query, const float* base, size
 }
 
 // Compute cosine distance (matching DiskANN: returns 1.0 - (dot(a,b) / (sqrt(||a||^2) * sqrt(||b||^2))))
-void compute_distances_cosine(const float* query, const float* base, size_t n_base, size_t dim,
+template<typename T>
+void compute_distances_cosine(const T* query, const T* base, size_t n_base, size_t dim,
                               std::vector<float>& distances) {
     distances.resize(n_base);
+    
+    // Convert query to float for computation
+    std::vector<float> query_float(dim);
+    for (size_t d = 0; d < dim; ++d) {
+        query_float[d] = static_cast<float>(query[d]);
+    }
     
     // Compute ||query||^2 once
     float query_norm_sq = 0.0f;
     for (size_t d = 0; d < dim; ++d) {
-        query_norm_sq += query[d] * query[d];
+        query_norm_sq += query_float[d] * query_float[d];
     }
     float query_mag = std::sqrt(query_norm_sq);
     
     #pragma omp parallel for
     for (size_t i = 0; i < n_base; ++i) {
-        const float* base_vec = base + i * dim;
+        const T* base_vec = base + i * dim;
         
         // Compute ||base_vec||^2
         float base_norm_sq = 0.0f;
         for (size_t d = 0; d < dim; ++d) {
-            base_norm_sq += base_vec[d] * base_vec[d];
+            float base_val = static_cast<float>(base_vec[d]);
+            base_norm_sq += base_val * base_val;
         }
         float base_mag = std::sqrt(base_norm_sq);
         
         // Compute dot product
         float dot_product = 0.0f;
         for (size_t d = 0; d < dim; ++d) {
-            dot_product += query[d] * base_vec[d];
+            dot_product += query_float[d] * static_cast<float>(base_vec[d]);
         }
         
         // Cosine distance = 1.0 - (dot(a,b) / (||a|| * ||b||)) (matching DiskANN's DistanceCosineFloat::compare)
@@ -221,26 +241,9 @@ void save_groundtruth(const std::string& filename,
     std::cout << "  Done!" << std::endl;
 }
 
-int main(int argc, char* argv[]) {
-    if (argc < 4) {
-        std::cerr << "Usage: " << argv[0] << " <base_file> <query_file> <output_file> [K] [metric]" << std::endl;
-        std::cerr << "  base_file: Path to base vectors (.bin format)" << std::endl;
-        std::cerr << "  query_file: Path to query vectors (.bin format)" << std::endl;
-        std::cerr << "  output_file: Path to output groundtruth file (.bin format)" << std::endl;
-        std::cerr << "  K: Number of nearest neighbors (default: 100)" << std::endl;
-        std::cerr << "  metric: Distance metric - l2, inner_product, or cosine (default: l2)" << std::endl;
-        return 1;
-    }
-    
-    std::string base_file = argv[1];
-    std::string query_file = argv[2];
-    std::string output_file = argv[3];
-    size_t k = (argc > 4) ? std::stoul(argv[4]) : 100;
-    std::string metric_str = (argc > 5) ? argv[5] : "l2";
-    
-    // Normalize metric string
-    std::transform(metric_str.begin(), metric_str.end(), metric_str.begin(), ::tolower);
-    
+template<typename T>
+void run_compute_groundtruth(const std::string& base_file, const std::string& query_file,
+                             const std::string& output_file, size_t k, const std::string& metric_str) {
     enum Metric { L2, INNER_PRODUCT, COSINE };
     Metric metric;
     if (metric_str == "l2" || metric_str == "l2_distance") {
@@ -251,7 +254,7 @@ int main(int argc, char* argv[]) {
         metric = COSINE;
     } else {
         std::cerr << "ERROR: Unknown metric '" << metric_str << "'. Must be l2, inner_product, or cosine." << std::endl;
-        return 1;
+        return;
     }
     
     std::cout << "=" << std::string(60, '=') << std::endl;
@@ -267,22 +270,22 @@ int main(int argc, char* argv[]) {
     
     // Load base vectors
     std::cout << "\n1. Loading base vectors..." << std::endl;
-    float* base_data = nullptr;
+    T* base_data = nullptr;
     size_t n_base, base_dim;
-    load_bin<float>(base_file, base_data, n_base, base_dim);
+    load_bin<T>(base_file, base_data, n_base, base_dim);
     
     // Load query vectors
     std::cout << "\n2. Loading query vectors..." << std::endl;
-    float* query_data = nullptr;
+    T* query_data = nullptr;
     size_t n_queries, query_dim;
-    load_bin<float>(query_file, query_data, n_queries, query_dim);
+    load_bin<T>(query_file, query_data, n_queries, query_dim);
     
     if (base_dim != query_dim) {
         std::cerr << "ERROR: Dimension mismatch! Base dim=" << base_dim 
                   << ", Query dim=" << query_dim << std::endl;
         delete[] base_data;
         delete[] query_data;
-        return 1;
+        return;
     }
     
     size_t dim = base_dim;
@@ -301,15 +304,15 @@ int main(int argc, char* argv[]) {
     auto compute_start = std::chrono::high_resolution_clock::now();
     
     for (size_t q = 0; q < n_queries; ++q) {
-        const float* query_vec = query_data + q * dim;
+        const T* query_vec = query_data + q * dim;
         
         // Compute distances based on metric
         if (metric == L2) {
-            compute_distances_l2(query_vec, base_data, n_base, dim, distances);
+            compute_distances_l2<T>(query_vec, base_data, n_base, dim, distances);
         } else if (metric == INNER_PRODUCT) {
-            compute_distances_inner_product(query_vec, base_data, n_base, dim, distances);
+            compute_distances_inner_product<T>(query_vec, base_data, n_base, dim, distances);
         } else if (metric == COSINE) {
-            compute_distances_cosine(query_vec, base_data, n_base, dim, distances);
+            compute_distances_cosine<T>(query_vec, base_data, n_base, dim, distances);
         }
         
         // Find top K
@@ -349,6 +352,42 @@ int main(int argc, char* argv[]) {
     std::cout << "  Query vectors: " << n_queries << " x " << dim << std::endl;
     std::cout << "  Groundtruth: " << n_queries << " queries x " << k << " neighbors" << std::endl;
     std::cout << "  Total time: " << total_duration << " seconds" << std::endl;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc < 5) {
+        std::cerr << "Usage: " << argv[0] << " <base_file> <query_file> <output_file> <data_type> [K] [metric]" << std::endl;
+        std::cerr << "  base_file: Path to base vectors (.bin format)" << std::endl;
+        std::cerr << "  query_file: Path to query vectors (.bin format)" << std::endl;
+        std::cerr << "  output_file: Path to output groundtruth file (.bin format)" << std::endl;
+        std::cerr << "  data_type: Data type - float, int8, or uint8" << std::endl;
+        std::cerr << "  K: Number of nearest neighbors (default: 100)" << std::endl;
+        std::cerr << "  metric: Distance metric - l2, inner_product, or cosine (default: l2)" << std::endl;
+        return 1;
+    }
+    
+    std::string base_file = argv[1];
+    std::string query_file = argv[2];
+    std::string output_file = argv[3];
+    std::string data_type = argv[4];
+    size_t k = (argc > 5) ? std::stoul(argv[5]) : 100;
+    std::string metric_str = (argc > 6) ? argv[6] : "l2";
+    
+    // Normalize data_type and metric strings
+    std::transform(data_type.begin(), data_type.end(), data_type.begin(), ::tolower);
+    std::transform(metric_str.begin(), metric_str.end(), metric_str.begin(), ::tolower);
+    
+    // Run with appropriate data type
+    if (data_type == "float") {
+        run_compute_groundtruth<float>(base_file, query_file, output_file, k, metric_str);
+    } else if (data_type == "int8") {
+        run_compute_groundtruth<int8_t>(base_file, query_file, output_file, k, metric_str);
+    } else if (data_type == "uint8") {
+        run_compute_groundtruth<uint8_t>(base_file, query_file, output_file, k, metric_str);
+    } else {
+        std::cerr << "ERROR: Unknown data type '" << data_type << "'. Must be float, int8, or uint8." << std::endl;
+        return 1;
+    }
     
     return 0;
 }

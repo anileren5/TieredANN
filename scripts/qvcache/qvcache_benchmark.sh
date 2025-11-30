@@ -17,7 +17,7 @@ DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 # Noisy query parameters
 N_SPLIT=10
 N_SPLIT_REPEAT=5
-NOISE_RATIO=0.001
+NOISE_RATIO=0.01
 WINDOW_SIZE=2
 
 # Construct query and groundtruth paths based on noisy query parameters
@@ -41,12 +41,12 @@ DISK_INDEX_ALREADY_BUILT=1
 BEAMWIDTH=2
 USE_RECONSTRUCTED_VECTORS=0
 P=0.90
-DEVIATION_FACTOR=0.025
+DEVIATION_FACTOR=0.075
 SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
-MEMORY_INDEX_MAX_POINTS=40000 # Set to desired max points for memory index
+MEMORY_INDEX_MAX_POINTS=30000 # Set to desired max points for memory index
 N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
 LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates
 NUMBER_OF_MINI_INDEXES=4 # Number of mini indexes for shadow cycling

@@ -13,8 +13,8 @@ from typing import List, Dict, Any
 import argparse
 
 # Set high-quality matplotlib parameters for publication
-matplotlib.rcParams['figure.dpi'] = 600
-matplotlib.rcParams['savefig.dpi'] = 600
+matplotlib.rcParams['figure.dpi'] = 1200
+matplotlib.rcParams['savefig.dpi'] = 1200
 matplotlib.rcParams['font.size'] = 6
 matplotlib.rcParams['axes.labelsize'] = 6
 matplotlib.rcParams['axes.titlesize'] = 6
@@ -67,66 +67,68 @@ def create_all_metrics_plot(metrics: List[Dict], output_dir: Path):
     recall_all = [m['recall_all'] for m in metrics]
     
     # Create figure with 8 vertical subplots - optimized for side-by-side placement (5 plots)
-    fig, axes = plt.subplots(8, 1, figsize=(2.8, 6.5), sharex=True)
-    fig.subplots_adjust(hspace=0.25, left=0.15, right=0.95, top=0.98, bottom=0.08)  # Very tight spacing
+    # Narrower width with very high resolution to maintain detail visibility
+    fig, axes = plt.subplots(8, 1, figsize=(2.2, 6.5), sharex=True)
+    fig.subplots_adjust(hspace=0.25, left=0.18, right=0.95, top=0.98, bottom=0.08)  # Very tight spacing
     
-    # 1. Hit Ratio - Blue
-    axes[0].plot(iterations, hit_ratios, 'b-', linewidth=0.7, color='blue')
+    # Publication-quality color palette (colorblind-friendly)
+    # 1. Hit Ratio - Professional Blue
+    axes[0].plot(iterations, hit_ratios, linewidth=0.7, color='#2E86AB')
     axes[0].set_ylabel('Hit Ratio', fontsize=6)
     axes[0].set_ylim([-0.05, 1.05])
     axes[0].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     axes[0].set_title('Cache Hit Ratio', fontsize=6, fontweight='bold', pad=2)
     
-    # 2. Average Latency - Red
-    axes[1].plot(iterations, avg_latency, 'r-', linewidth=0.7, color='red')
+    # 2. Average Latency - Professional Red
+    axes[1].plot(iterations, avg_latency, linewidth=0.7, color='#E63946')
     axes[1].set_ylabel('Latency (ms)', fontsize=6)
     axes[1].set_title('Average Latency', fontsize=6, fontweight='bold', pad=2)
     axes[1].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     
-    # 3. Average Hit Latency - Green
+    # 3. Average Hit Latency - Professional Green
     valid_hit_indices = [i for i, lat in enumerate(avg_hit_latency) if lat is not None]
     if valid_hit_indices:
         valid_hit_latency = [avg_hit_latency[i] for i in valid_hit_indices]
         axes[2].plot([iterations[i] for i in valid_hit_indices], valid_hit_latency, 
-                'g-', linewidth=0.7, color='green')
+                linewidth=0.7, color='#06A77D')
     axes[2].set_ylabel('Latency (ms)', fontsize=6)
     axes[2].set_title('Average Hit Latency', fontsize=6, fontweight='bold', pad=2)
     axes[2].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     
-    # 4. P50 Latency - Brown/Dark Red
+    # 4. P50 Latency - Professional Orange/Brown
     valid_p50_indices = [i for i, lat in enumerate(p50_latency) if lat is not None]
     if valid_p50_indices:
         valid_p50_latency = [p50_latency[i] for i in valid_p50_indices]
         axes[3].plot([iterations[i] for i in valid_p50_indices], valid_p50_latency, 
-                linewidth=0.7, color='brown')
+                linewidth=0.7, color='#F77F00')
     axes[3].set_ylabel('Latency (ms)', fontsize=6)
     axes[3].set_title('P50 Latency', fontsize=6, fontweight='bold', pad=2)
     axes[3].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     
-    # 5. P99 Latency - Dark Red
+    # 5. P99 Latency - Professional Dark Red/Maroon
     valid_p99_indices = [i for i, lat in enumerate(p99_latency) if lat is not None]
     if valid_p99_indices:
         valid_p99_latency = [p99_latency[i] for i in valid_p99_indices]
         axes[4].plot([iterations[i] for i in valid_p99_indices], valid_p99_latency, 
-                linewidth=0.7, color='darkred')
+                linewidth=0.7, color='#A23B72')
     axes[4].set_ylabel('Latency (ms)', fontsize=6)
     axes[4].set_title('P99 Latency', fontsize=6, fontweight='bold', pad=2)
     axes[4].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     
-    # 6. QPS - Orange
-    axes[5].plot(iterations, qps, linewidth=0.7, color='orange')
+    # 6. QPS - Professional Orange
+    axes[5].plot(iterations, qps, linewidth=0.7, color='#FCBF49')
     axes[5].set_ylabel('QPS', fontsize=6)
     axes[5].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     axes[5].set_title('Query Throughput', fontsize=6, fontweight='bold', pad=2)
     
-    # 7. Memory Active Vectors - Purple
-    axes[6].plot(iterations, memory_active, linewidth=0.7, color='purple')
+    # 7. Memory Active Vectors - Professional Purple
+    axes[6].plot(iterations, memory_active, linewidth=0.7, color='#7209B7')
     axes[6].set_ylabel('Vectors', fontsize=6)
     axes[6].set_title('Memory Active Vectors', fontsize=6, fontweight='bold', pad=2)
     axes[6].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     
-    # 8. Recall All - Teal
-    axes[7].plot(iterations, recall_all, linewidth=0.7, color='teal')
+    # 8. Recall All - Professional Teal/Cyan
+    axes[7].plot(iterations, recall_all, linewidth=0.7, color='#17A2B8')
     axes[7].set_xlabel('Iteration', fontsize=6)
     axes[7].set_ylabel('Recall', fontsize=6)
     axes[7].set_ylim([0, 1.05])
@@ -134,7 +136,7 @@ def create_all_metrics_plot(metrics: List[Dict], output_dir: Path):
     axes[7].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     
     # Remove main title for side-by-side placement - each plot can have its own context
-    plt.savefig(output_dir / 'all_metrics.png', bbox_inches='tight', facecolor='white', dpi=600, pad_inches=0.05)
+    plt.savefig(output_dir / 'all_metrics.png', bbox_inches='tight', facecolor='white', dpi=1200, pad_inches=0.05)
     plt.close()
 
 

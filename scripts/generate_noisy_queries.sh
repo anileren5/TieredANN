@@ -15,6 +15,7 @@ N_SPLIT_REPEAT="5"
 NOISE_RATIO="0.1"
 RANDOM_SEED="42"
 DATA_DIR="data"
+DATA_TYPE="float"
 K="100"
 METRIC="l2"
 
@@ -38,10 +39,13 @@ if [ $# -ge 6 ]; then
     DATA_DIR="$6"
 fi
 if [ $# -ge 7 ]; then
-    K="$7"
+    DATA_TYPE="$7"
 fi
 if [ $# -ge 8 ]; then
-    METRIC="$8"
+    K="$8"
+fi
+if [ $# -ge 9 ]; then
+    METRIC="$9"
 fi
 
 # Check if Python script exists
@@ -77,7 +81,8 @@ python3 "$PYTHON_SCRIPT" \
   --n_split_repeat "$N_SPLIT_REPEAT" \
   --noise_ratio "$NOISE_RATIO" \
   --random_seed "$RANDOM_SEED" \
-  --data_dir "$DATA_DIR"
+  --data_dir "$DATA_DIR" \
+  --dtype "$DATA_TYPE"
 
 if [ $? -ne 0 ]; then
     echo ""
@@ -127,13 +132,14 @@ echo "=========================================="
 echo "Base file: $BASE_FILE"
 echo "Query file: $GENERATED_QUERY_FILE"
 echo "Output file: $OUTPUT_GROUNDTRUTH_FILE"
+echo "Data type: $DATA_TYPE"
 echo "K: $K"
 echo "Metric: $METRIC"
 echo "=========================================="
 echo ""
 
 # Run compute_groundtruth
-"$COMPUTE_GT_BIN" "$BASE_FILE" "$GENERATED_QUERY_FILE" "$OUTPUT_GROUNDTRUTH_FILE" "$K" "$METRIC"
+"$COMPUTE_GT_BIN" "$BASE_FILE" "$GENERATED_QUERY_FILE" "$OUTPUT_GROUNDTRUTH_FILE" "$DATA_TYPE" "$K" "$METRIC"
 
 if [ $? -eq 0 ]; then
     echo ""
@@ -145,4 +151,3 @@ else
     echo "✗ Error: Failed to compute groundtruth"
     exit 1
 fi
-
