@@ -52,6 +52,58 @@ def parse_log_file(log_path: str) -> List[Dict[str, Any]]:
     return metrics
 
 
+def create_individual_plots(metrics: List[Dict], output_dir: Path):
+    """Create individual plot files for each metric."""
+    iterations = np.arange(len(metrics))
+    
+    # Extract data
+    hit_ratios = [m['hit_ratio'] for m in metrics]
+    avg_latency = [m['avg_latency_ms'] for m in metrics]
+    avg_hit_latency = [m['avg_hit_latency_ms'] if m['avg_hit_latency_ms'] > 0 else None for m in metrics]
+    p50_latency = [m.get('tail_latency_ms', {}).get('p50', None) for m in metrics]
+    p99_latency = [m.get('tail_latency_ms', {}).get('p99', None) for m in metrics]
+    qps = [m['qps'] for m in metrics]
+    memory_active = [m['memory_active_vectors'] for m in metrics]
+    recall_all = [m['recall_all'] for m in metrics]
+    
+    # Define plot configurations: (data, ylabel, title, color, ylim, filename)
+    plot_configs = [
+        (hit_ratios, 'Hit Ratio', 'Cache Hit Ratio', '#2E86AB', (-0.05, 1.05), 'hit_ratio.pdf'),
+        (avg_latency, 'Latency (ms)', 'Average Latency', '#E63946', None, 'avg_latency.pdf'),
+        (avg_hit_latency, 'Latency (ms)', 'Average Hit Latency', '#06A77D', None, 'avg_hit_latency.pdf'),
+        (p50_latency, 'Latency (ms)', 'P50 Latency', '#F77F00', None, 'p50_latency.pdf'),
+        (p99_latency, 'Latency (ms)', 'P99 Latency', '#A23B72', None, 'p99_latency.pdf'),
+        (qps, 'QPS', 'Query Throughput', '#FCBF49', None, 'qps.pdf'),
+        (memory_active, 'Vectors', 'Memory Active Vectors', '#7209B7', None, 'memory_active_vectors.pdf'),
+        (recall_all, 'Recall', 'Recall', '#17A2B8', (0, 1.05), 'recall.pdf'),
+    ]
+    
+    for i, (data, ylabel, title, color, ylim, filename) in enumerate(plot_configs):
+        fig, ax = plt.subplots(1, 1, figsize=(2.2, 1.2))
+        fig.subplots_adjust(left=0.18, right=0.95, top=0.85, bottom=0.25)
+        
+        # Handle data that might have None values
+        if isinstance(data, list) and any(x is None for x in data):
+            valid_indices = [i for i, val in enumerate(data) if val is not None]
+            if valid_indices:
+                valid_data = [data[i] for i in valid_indices]
+                valid_iterations = [iterations[i] for i in valid_indices]
+                ax.plot(valid_iterations, valid_data, linewidth=0.7, color=color)
+        else:
+            ax.plot(iterations, data, linewidth=0.7, color=color)
+        
+        ax.set_ylabel(ylabel, fontsize=6)
+        ax.set_xlabel('Iteration', fontsize=6)
+        ax.set_title(title, fontsize=6, fontweight='bold', pad=2)
+        if ylim:
+            ax.set_ylim(ylim)
+        ax.grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
+        
+        plt.savefig(output_dir / filename, bbox_inches='tight', facecolor='white', format='pdf', pad_inches=0.05)
+        plt.close()
+        print(f"  ✓ {filename}")
+
+
 def create_all_metrics_plot(metrics: List[Dict], output_dir: Path):
     """Create a single vertical chart with selected metrics."""
     iterations = np.arange(len(metrics))
@@ -136,7 +188,7 @@ def create_all_metrics_plot(metrics: List[Dict], output_dir: Path):
     axes[7].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     
     # Remove main title for side-by-side placement - each plot can have its own context
-    plt.savefig(output_dir / 'all_metrics.png', bbox_inches='tight', facecolor='white', dpi=1200, pad_inches=0.05)
+    plt.savefig(output_dir / 'all_metrics.pdf', bbox_inches='tight', facecolor='white', format='pdf', pad_inches=0.05)
     plt.close()
 
 
@@ -162,7 +214,11 @@ def main():
     create_all_metrics_plot(metrics, output_dir)
     print("  ✓ All metrics plot")
     
-    print(f"\nPlot saved to: {output_dir.absolute() / 'all_metrics.png'}")
+    print("\nGenerating individual plots...")
+    create_individual_plots(metrics, output_dir)
+    
+    print(f"\nCombined plot saved to: {output_dir.absolute() / 'all_metrics.pdf'}")
+    print(f"Individual plots saved to: {output_dir.absolute()}")
 
 
 if __name__ == '__main__':
