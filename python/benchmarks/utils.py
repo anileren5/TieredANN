@@ -226,7 +226,7 @@ def calculate_hit_recall(K: int, groundtruth_ids: np.ndarray, query_result_tags:
         }
 
 
-def log_split_metrics(metrics: dict, recall_all: dict, recall_hits: dict):
+def log_split_metrics(metrics: dict, recall_all: dict, recall_hits: dict, split_idx: int = None):
     """
     Log all metrics for a split in a single structured JSON line.
     
@@ -234,6 +234,7 @@ def log_split_metrics(metrics: dict, recall_all: dict, recall_hits: dict):
         metrics: Dictionary from hybrid_search containing hit_ratio and latency metrics
         recall_all: Dictionary from calculate_recall containing recall for all queries
         recall_hits: Dictionary from calculate_hit_recall containing recall for cache hits
+        split_idx: Optional split index to include in the log
     """
     combined = {
         "event": "split_metrics",
@@ -241,5 +242,7 @@ def log_split_metrics(metrics: dict, recall_all: dict, recall_hits: dict):
         **recall_all,
         **recall_hits
     }
+    if split_idx is not None:
+        combined["split_idx"] = split_idx
     print(json.dumps(combined))
 
