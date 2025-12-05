@@ -47,7 +47,6 @@ def experiment_benchmark(
     buckets_per_dim: int,
     n_splits: int,
     n_split_repeat: int,
-    window_size: int,
     n_async_insert_threads: int,
     lazy_theta_updates: bool,
     number_of_mini_indexes: int,
@@ -117,91 +116,62 @@ def experiment_benchmark(
     # Each split has n_split_repeat copies, and each copy has queries_per_original_split queries
     queries_per_original_split = query_num // (n_splits * n_split_repeat)
     
-    # Process splits in windows
-    for window_start in range(0, n_splits, window_size):
-        window_end = min(window_start + window_size, n_splits)
-        actual_window_size = window_end - window_start
-        
+    # Process splits one by one sequentially
+    for split_idx in range(n_splits):
         print(json.dumps({
-            "event": "window_start",
-            "window_start": window_start,
-            "window_end": window_end,
-            "window_size": actual_window_size
+            "event": "split_start",
+            "split_idx": split_idx
         }))
         
-        # Process each copy index (0 to n_split_repeat-1)
+        # Process all copies for this split
         for copy_idx in range(n_split_repeat):
-            # Forward pass: process splits in order within the window
-            for split_idx in range(window_start, window_end):
-                # Calculate query range for this specific copy of this split
-                # Structure: split 0 (all copies), split 1 (all copies), ...
-                # For split i, copy j: offset = i * (n_split_repeat * queries_per_original_split) + j * queries_per_original_split
-                split_offset = split_idx * n_split_repeat * queries_per_original_split
-                copy_offset = copy_idx * queries_per_original_split
-                query_start = split_offset + copy_offset
-                query_end = min(query_start + queries_per_original_split, query_num)
-                
-                if query_start >= query_end:
-                    continue
-                
-                this_split_size = query_end - query_start
-                split_queries = queries[query_start:query_end]
-                
-                hit_results, _, query_result_tags, metrics = hybrid_search(
-                    qvcache,
-                    split_queries,
-                    K,
-                    search_threads,
-                    data_path
-                )
-                
-                # Calculate groundtruth offset (same structure as queries)
-                gt_start = split_offset + copy_offset
-                recall_all = calculate_recall(
-                    K, groundtruth_ids[gt_start:gt_start + this_split_size], 
-                    query_result_tags, this_split_size, groundtruth_dim
-                )
-                recall_hits = calculate_hit_recall(
-                    K, groundtruth_ids[gt_start:gt_start + this_split_size], 
-                    query_result_tags, hit_results, this_split_size, groundtruth_dim
-                )
-                
-                log_split_metrics(metrics, recall_all, recall_hits, split_idx=split_idx)
+            # Calculate query range for this specific copy of this split
+            # Structure: split 0 (all copies), split 1 (all copies), ...
+            # For split i, copy j: offset = i * (n_split_repeat * queries_per_original_split) + j * queries_per_original_split
+            split_offset = split_idx * n_split_repeat * queries_per_original_split
+            copy_offset = copy_idx * queries_per_original_split
+            query_start = split_offset + copy_offset
+            query_end = min(query_start + queries_per_original_split, query_num)
             
-            # Backward pass: process splits in reverse order within the window
-            for split_idx in range(window_end - 1, window_start - 1, -1):
-                # Calculate query range for this specific copy of this split (same as forward)
-                split_offset = split_idx * n_split_repeat * queries_per_original_split
-                copy_offset = copy_idx * queries_per_original_split
-                query_start = split_offset + copy_offset
-                query_end = min(query_start + queries_per_original_split, query_num)
-                
-                if query_start >= query_end:
-                    continue
-                
-                this_split_size = query_end - query_start
-                split_queries = queries[query_start:query_end]
-                
-                hit_results, _, query_result_tags, metrics = hybrid_search(
-                    qvcache,
-                    split_queries,
-                    K,
-                    search_threads,
-                    data_path
-                )
-                
-                # Calculate groundtruth offset (same structure as queries)
-                gt_start = split_offset + copy_offset
-                recall_all = calculate_recall(
-                    K, groundtruth_ids[gt_start:gt_start + this_split_size], 
-                    query_result_tags, this_split_size, groundtruth_dim
-                )
-                recall_hits = calculate_hit_recall(
-                    K, groundtruth_ids[gt_start:gt_start + this_split_size], 
-                    query_result_tags, hit_results, this_split_size, groundtruth_dim
-                )
-                
-                log_split_metrics(metrics, recall_all, recall_hits, split_idx=split_idx)
+            if query_start >= query_end:
+                continue
+            
+            this_split_size = query_end - query_start
+            split_queries = queries[query_start:query_end]
+            
+            hit_results, _, query_result_tags, metrics = hybrid_search(
+                qvcache,
+                split_queries,
+                K,
+                search_threads,
+                data_path
+            )
+            
+            # Calculate groundtruth offset (same structure as queries)
+            gt_start = split_offset + copy_offset
+            recall_all = calculate_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, this_split_size, groundtruth_dim
+            )
+            recall_hits = calculate_hit_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, hit_results, this_split_size, groundtruth_dim
+            )
+            
+            log_split_metrics(metrics, recall_all, recall_hits, split_idx=split_idx)
+        
+        print(json.dumps({
+            "event": "split_end",
+            "split_idx": split_idx
+        }))
+    
+    # Give async insert threads time to complete before cleanup
+    # QVCache uses async insert threads that might still be processing
+    import time
+    time.sleep(2)  # Wait 2 seconds for async operations to complete
+    
+    # Explicitly delete qvcache to trigger cleanup
+    del qvcache
 
 
 def main():
@@ -245,7 +215,6 @@ def main():
     parser.add_argument("--buckets_per_dim", type=int, default=8, help="Buckets per dimension")
     parser.add_argument("--n_splits", type=int, required=True, help="Number of splits for queries")
     parser.add_argument("--n_split_repeat", type=int, required=True, help="Number of repeats per split pattern")
-    parser.add_argument("--window_size", type=int, required=True, help="Window size for processing splits")
     parser.add_argument("--n_async_insert_threads", type=int, default=16, help="Async insert threads")
     parser.add_argument("--lazy_theta_updates", type=bool, default=True, help="Lazy theta updates")
     parser.add_argument("--number_of_mini_indexes", type=int, default=4, help="Number of mini indexes")
@@ -292,7 +261,6 @@ def main():
         "memory_index_max_points": args.memory_index_max_points,
         "n_splits": args.n_splits,
         "n_split_repeat": args.n_split_repeat,
-        "window_size": args.window_size,
         "n_async_insert_threads": args.n_async_insert_threads,
         "lazy_theta_updates": args.lazy_theta_updates,
         "number_of_mini_indexes": args.number_of_mini_indexes,
@@ -327,7 +295,7 @@ def main():
         args.use_reconstructed_vectors, args.p, args.deviation_factor,
         args.memory_index_max_points,
         args.use_regional_theta, args.pca_dim, args.buckets_per_dim,
-        args.n_splits, args.n_split_repeat, args.window_size,
+        args.n_splits, args.n_split_repeat,
         args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,

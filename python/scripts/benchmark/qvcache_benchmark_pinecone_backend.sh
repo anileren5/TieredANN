@@ -10,7 +10,7 @@ set -e
 cd "$(dirname "$0")/../../.." || exit 1
 
 # Define variables
-DATASET="sift"
+DATASET="deep1m"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 
@@ -18,7 +18,6 @@ DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 N_SPLIT=10
 N_SPLIT_REPEAT=5
 NOISE_RATIO=0.01
-WINDOW_SIZE=2
 
 # Construct query and groundtruth paths based on noisy query parameters
 # Format noise_ratio to match Python script (remove trailing zeros)
@@ -39,7 +38,7 @@ PCA_PREFIX="./index/${DATASET}/${DATASET}"
 BEAMWIDTH=2
 USE_RECONSTRUCTED_VECTORS=0
 P=0.90
-DEVIATION_FACTOR=0.075
+DEVIATION_FACTOR=0.10
 USE_REGIONAL_THETA=True # Set to False to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
@@ -55,14 +54,14 @@ SEARCH_STRATEGY="SEQUENTIAL_LRU_ADAPTIVE" # Search strategy: SEQUENTIAL_LRU_STOP
 # Your Pinecone API Key (starts with "pcsk_")
 # Get this from your Pinecone dashboard: https://app.pinecone.io/
 # Can also be set via PINECONE_API_KEY environment variable
-PINECONE_API_KEY="${PINECONE_API_KEY:-}"
+PINECONE_API_KEY="pcsk_5A9fQ3_9rJt2c14Ugs1yA99yRzARcNhPqbLxc99S18NVL863yerADFekcqwHf8RxXbtkcW"
 
 # Your Pinecone region/environment (e.g., "us-east-1", "us-west-2", "eu-west-1")
 # Check your Pinecone dashboard for the correct region
 PINECONE_ENVIRONMENT="${PINECONE_ENVIRONMENT:-us-east-1}"
 
 # Your Pinecone index name (check your Pinecone dashboard)
-INDEX_NAME="${INDEX_NAME:-pinecone-sift-index}"
+INDEX_NAME=$DATASET
 
 # Not needed for cloud Pinecone (only used for local Docker setup)
 PINECONE_HOST="${PINECONE_HOST:-}"
@@ -108,7 +107,6 @@ echo "Dataset: $DATASET"
 echo "Query file: $QUERY_PATH"
 echo "Groundtruth file: $GROUNDTRUTH_PATH"
 echo "Noise parameters: n_split=$N_SPLIT, n_repeat=$N_SPLIT_REPEAT, noise_ratio=$NOISE_RATIO"
-echo "Window size: $WINDOW_SIZE"
 echo "Pinecone index: $INDEX_NAME"
 echo "API key: ${PINECONE_API_KEY:0:10}..."  # Show first 10 chars only
 if [ -n "$PINECONE_ENVIRONMENT" ]; then
@@ -160,7 +158,6 @@ python3 python/benchmarks/qvcache_benchmark_pinecone_backend.py \
   --memory_index_max_points "$MEMORY_INDEX_MAX_POINTS" \
   --n_splits "$N_SPLIT" \
   --n_split_repeat "$N_SPLIT_REPEAT" \
-  --window_size "$WINDOW_SIZE" \
   --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" \
   --lazy_theta_updates "$LAZY_THETA_UPDATES" \
   --number_of_mini_indexes "$NUMBER_OF_MINI_INDEXES" \

@@ -251,15 +251,38 @@ class PineconeBackend:
                 
                 # Insert batch when full
                 if len(vectors_to_upsert) >= batch_size:
-                    self.index.upsert(vectors=vectors_to_upsert)
-                    vectors_to_upsert = []
-                    print(f"Loaded {i + 1}/{num_vectors} vectors...", end='\r')
+                    try:
+                        upsert_response = self.index.upsert(vectors=vectors_to_upsert)
+                        # Log batch insertion success
+                        if (i + 1) % (batch_size * 10) == 0 or i == num_vectors - 1:
+                            print(f"✓ Inserted batch: {i + 1}/{num_vectors} vectors (batch size: {len(vectors_to_upsert)})")
+                        vectors_to_upsert = []
+                        print(f"Progress: {i + 1}/{num_vectors} vectors ({100.0 * (i + 1) / num_vectors:.1f}%)...", end='\r')
+                    except Exception as e:
+                        print(f"\n✗ ERROR: Failed to insert batch at vector {i + 1}: {e}")
+                        raise
             
             # Insert remaining vectors
             if vectors_to_upsert:
-                self.index.upsert(vectors=vectors_to_upsert)
+                try:
+                    upsert_response = self.index.upsert(vectors=vectors_to_upsert)
+                    print(f"\n✓ Inserted final batch: {len(vectors_to_upsert)} vectors")
+                except Exception as e:
+                    print(f"\n✗ ERROR: Failed to insert final batch: {e}")
+                    raise
             
-            print(f"\nLoaded {num_vectors} vectors into Pinecone")
+            print(f"\n✓ Successfully loaded {num_vectors} vectors into Pinecone")
+            
+            # Verify insertion by checking index stats
+            try:
+                stats = self.index.describe_index_stats()
+                actual_count = stats.get('total_vector_count', 0)
+                if actual_count == num_vectors:
+                    print(f"✓ Verification: Index contains {actual_count:,} vectors (matches expected)")
+                else:
+                    print(f"⚠ WARNING: Index contains {actual_count:,} vectors, expected {num_vectors:,}")
+            except Exception as e:
+                print(f"⚠ WARNING: Could not verify vector count: {e}")
     
     def search(self, query: np.ndarray, K: int) -> Tuple[np.ndarray, np.ndarray]:
         """

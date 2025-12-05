@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../../.." || exit 1
 # ============================================================================
 # DATASET CONFIGURATION
 # ============================================================================
-DATASET="sift"
+DATASET="deep1m"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 
 # ============================================================================
@@ -16,14 +16,14 @@ DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 # ============================================================================
 # Your Pinecone API Key (starts with "pcsk_")
 # Get this from your Pinecone dashboard: https://app.pinecone.io/
-PINECONE_API_KEY="YOUR_PINECONE_API_KEY_HERE"
+PINECONE_API_KEY="pcsk_5A9fQ3_9rJt2c14Ugs1yA99yRzARcNhPqbLxc99S18NVL863yerADFekcqwHf8RxXbtkcW"
 
 # Your Pinecone region/environment (e.g., "us-east-1", "us-west-2", "eu-west-1")
 # Check your Pinecone dashboard for the correct region
 PINECONE_ENVIRONMENT="us-east-1"
 
 # Your Pinecone index name (check your Pinecone dashboard)
-INDEX_NAME="pinecone-sift-index"
+INDEX_NAME=$DATASET 
 
 # Not needed for cloud Pinecone (only used for local Docker setup)
 PINECONE_HOST=""

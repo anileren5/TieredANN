@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../../.." || exit 1
 # ============================================================================
 # DATASET CONFIGURATION
 # ============================================================================
-DATASET="sift"
+DATASET="deep1m"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 
 # ============================================================================
@@ -24,7 +24,7 @@ DB_USER="${DB_USER:-postgres}"   # Default user
 DB_PASSWORD="${DB_PASSWORD:-postgres}"  # Default password
 
 # Table name is derived from dataset name
-TABLE_NAME="$DATASET"
+TABLE_NAME="vectors"
 
 # Distance metric for the index (l2 or cosine)
 METRIC="l2"  # Default: l2 
