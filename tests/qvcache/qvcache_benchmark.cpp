@@ -338,7 +338,6 @@ void experiment_benchmark(
     uint32_t buckets_per_dim,
     int n_splits,
     int n_split_repeat,
-    int window_size,
     uint32_t n_async_insert_threads,
     bool lazy_theta_updates,
     size_t number_of_mini_indexes,
@@ -398,96 +397,52 @@ void experiment_benchmark(
     // Each split has n_split_repeat copies, and each copy has queries_per_original_split queries
     size_t queries_per_original_split = query_num / (n_splits * n_split_repeat);
     
-    // Process splits in windows
-    for (int window_start = 0; window_start < n_splits; window_start += window_size) {
-        int window_end = std::min(window_start + window_size, n_splits);
-        int actual_window_size = window_end - window_start;
+    // Process splits one by one sequentially
+    for (int split_idx = 0; split_idx < n_splits; ++split_idx) {
+        spdlog::info("{{\"event\": \"split_start\", \"split_idx\": {}}}", split_idx);
         
-        spdlog::info("{{\"event\": \"window_start\", \"window_start\": {}, \"window_end\": {}, \"window_size\": {}}}", 
-                     window_start, window_end, actual_window_size);
-        
-        // Process each copy index (0 to n_split_repeat-1)
+        // Process all copies for this split
         for (int copy_idx = 0; copy_idx < n_split_repeat; ++copy_idx) {
-            // Forward pass: process splits in order within the window
-            for (int split_idx = window_start; split_idx < window_end; ++split_idx) {
-                // Calculate query range for this specific copy of this split
-                // Structure: split 0 (all copies), split 1 (all copies), ...
-                // For split i, copy j: offset = i * (n_split_repeat * queries_per_original_split) + j * queries_per_original_split
-                size_t split_offset = split_idx * n_split_repeat * queries_per_original_split;
-                size_t copy_offset = copy_idx * queries_per_original_split;
-                size_t query_start = split_offset + copy_offset;
-                size_t query_end = std::min(query_start + queries_per_original_split, query_num);
-                
-                if (query_start >= query_end) continue;
-                
-                size_t this_split_size = query_end - query_start;
-                std::vector<TagT> query_result_tags(this_split_size * K);
-                
-                auto [hit_results, hybrid_metrics] = hybrid_search(
-                    qvcache,
-                    query + query_start * query_aligned_dim,
-                    this_split_size,
-                    query_aligned_dim,
-                    K,
-                    memory_L,
-                    search_threads,
-                    query_result_tags,
-                    res,
-                    beamwidth,
-                    data_path
-                );
-                
-                // Calculate groundtruth offset (same structure as queries)
-                size_t gt_start = split_offset + copy_offset;
-                RecallAllMetrics recall_all = calculate_recall<T, TagT>(
-                    K, groundtruth_ids + gt_start * groundtruth_dim, 
-                    query_result_tags, this_split_size, groundtruth_dim);
-                RecallHitMetrics recall_hits = calculate_hit_recall<T, TagT>(
-                    K, groundtruth_ids + gt_start * groundtruth_dim, 
-                    query_result_tags, hit_results, this_split_size, groundtruth_dim);
-                
-                log_split_metrics<T, TagT>(split_idx, hybrid_metrics, recall_all, recall_hits);
-            }
+            // Calculate query range for this specific copy of this split
+            // Structure: split 0 (all copies), split 1 (all copies), ...
+            // For split i, copy j: offset = i * (n_split_repeat * queries_per_original_split) + j * queries_per_original_split
+            size_t split_offset = split_idx * n_split_repeat * queries_per_original_split;
+            size_t copy_offset = copy_idx * queries_per_original_split;
+            size_t query_start = split_offset + copy_offset;
+            size_t query_end = std::min(query_start + queries_per_original_split, query_num);
             
-            // Backward pass: process splits in reverse order within the window
-            for (int split_idx = window_end - 1; split_idx >= window_start; --split_idx) {
-                // Calculate query range for this specific copy of this split (same as forward)
-                size_t split_offset = split_idx * n_split_repeat * queries_per_original_split;
-                size_t copy_offset = copy_idx * queries_per_original_split;
-                size_t query_start = split_offset + copy_offset;
-                size_t query_end = std::min(query_start + queries_per_original_split, query_num);
-                
-                if (query_start >= query_end) continue;
-                
-                size_t this_split_size = query_end - query_start;
-                std::vector<TagT> query_result_tags(this_split_size * K);
-                
-                auto [hit_results, hybrid_metrics] = hybrid_search(
-                    qvcache,
-                    query + query_start * query_aligned_dim,
-                    this_split_size,
-                    query_aligned_dim,
-                    K,
-                    memory_L,
-                    search_threads,
-                    query_result_tags,
-                    res,
-                    beamwidth,
-                    data_path
-                );
-                
-                // Calculate groundtruth offset (same structure as queries)
-                size_t gt_start = split_offset + copy_offset;
-                RecallAllMetrics recall_all = calculate_recall<T, TagT>(
-                    K, groundtruth_ids + gt_start * groundtruth_dim, 
-                    query_result_tags, this_split_size, groundtruth_dim);
-                RecallHitMetrics recall_hits = calculate_hit_recall<T, TagT>(
-                    K, groundtruth_ids + gt_start * groundtruth_dim, 
-                    query_result_tags, hit_results, this_split_size, groundtruth_dim);
-                
-                log_split_metrics<T, TagT>(split_idx, hybrid_metrics, recall_all, recall_hits);
-            }
+            if (query_start >= query_end) continue;
+            
+            size_t this_split_size = query_end - query_start;
+            std::vector<TagT> query_result_tags(this_split_size * K);
+            
+            auto [hit_results, hybrid_metrics] = hybrid_search(
+                qvcache,
+                query + query_start * query_aligned_dim,
+                this_split_size,
+                query_aligned_dim,
+                K,
+                memory_L,
+                search_threads,
+                query_result_tags,
+                res,
+                beamwidth,
+                data_path
+            );
+            
+            // Calculate groundtruth offset (same structure as queries)
+            size_t gt_start = split_offset + copy_offset;
+            RecallAllMetrics recall_all = calculate_recall<T, TagT>(
+                K, groundtruth_ids + gt_start * groundtruth_dim, 
+                query_result_tags, this_split_size, groundtruth_dim);
+            RecallHitMetrics recall_hits = calculate_hit_recall<T, TagT>(
+                K, groundtruth_ids + gt_start * groundtruth_dim, 
+                query_result_tags, hit_results, this_split_size, groundtruth_dim);
+            
+            log_split_metrics<T, TagT>(split_idx, hybrid_metrics, recall_all, recall_hits);
         }
+        
+        spdlog::info("{{\"event\": \"split_end\", \"split_idx\": {}}}", split_idx);
     }
     
     if (groundtruth_dists) delete[] groundtruth_dists;
@@ -508,7 +463,6 @@ int main(int argc, char **argv) {
     size_t memory_index_max_points;
     int n_splits;
     int n_split_repeat;
-    int window_size;
     uint32_t n_async_insert_threads = 4;
     bool lazy_theta_updates = true;
     size_t number_of_mini_indexes = 2;
@@ -547,7 +501,6 @@ int main(int argc, char **argv) {
             ("memory_index_max_points", po::value<size_t>(&memory_index_max_points)->required(), "Max points for memory index")
             ("n_splits", po::value<int>(&n_splits)->required(), "Number of splits for queries")
             ("n_split_repeat", po::value<int>(&n_split_repeat)->required(), "Number of repeats per split pattern")
-            ("window_size", po::value<int>(&window_size)->required(), "Window size for processing splits")
             ("n_async_insert_threads", po::value<uint32_t>(&n_async_insert_threads)->default_value(4), "Number of async insert threads")
             ("lazy_theta_updates", po::value<bool>(&lazy_theta_updates)->default_value(true), "Enable lazy theta updates (true) or immediate updates (false)")
             ("number_of_mini_indexes", po::value<size_t>(&number_of_mini_indexes)->default_value(2), "Number of mini indexes for shadow cycling")
@@ -610,7 +563,6 @@ int main(int argc, char **argv) {
         "  \"memory_index_max_points\": {},\n"
         "  \"n_splits\": {},\n"
         "  \"n_split_repeat\": {},\n"
-        "  \"window_size\": {},\n"
         "  \"n_async_insert_threads\": {},\n"
         "  \"lazy_theta_updates\": {},\n"
         "  \"number_of_mini_indexes\": {},\n"
@@ -619,19 +571,19 @@ int main(int argc, char **argv) {
         "  \"search_strategy\": \"{}\",\n"
         "  \"metric\": \"{}\"\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_split_repeat, window_size, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric_str);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric_str);
     if (data_type == "float") {
         std::unique_ptr<qvcache::BackendInterface<float, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<float>>(
             data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
-        experiment_benchmark<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, window_size, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
+        experiment_benchmark<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
     } else if (data_type == "int8") {
         std::unique_ptr<qvcache::BackendInterface<int8_t, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<int8_t>>(
             data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
-        experiment_benchmark<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, window_size, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
+        experiment_benchmark<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
     } else if (data_type == "uint8") {
         std::unique_ptr<qvcache::BackendInterface<uint8_t, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<uint8_t>>(
             data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
-        experiment_benchmark<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, window_size, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
+        experiment_benchmark<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend));
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }
