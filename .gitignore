@@ -62,3 +62,8 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Visualization
+plots/
+backend_experiments
+dataset_experiments

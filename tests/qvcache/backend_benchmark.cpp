@@ -269,6 +269,7 @@ int main(int argc, char **argv) {
     int disk_index_already_built;
     int n_splits;
     int n_split_repeat;
+    uint32_t sector_len = 4096;
     std::string metric_str = "l2";
     po::options_description desc;
     try {
@@ -291,6 +292,7 @@ int main(int argc, char **argv) {
             ("beamwidth", po::value<uint32_t>(&beamwidth)->default_value(2), "Beamwidth")
             ("n_splits", po::value<int>(&n_splits)->required(), "Number of splits for queries")
             ("n_split_repeat", po::value<int>(&n_split_repeat)->required(), "Number of repeats per split pattern")
+            ("sector_len", po::value<uint32_t>(&sector_len)->default_value(4096), "Sector length in bytes")
             ("metric", po::value<std::string>(&metric_str)->default_value("l2"), "Distance metric: l2, cosine, or inner_product");
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -316,6 +318,7 @@ int main(int argc, char **argv) {
         return -1;
     }
     
+    set_sector_len(sector_len);
     auto logger = spdlog::stdout_color_mt("console");
     spdlog::set_pattern("%v");
     logger->info("{{\n"
@@ -336,9 +339,10 @@ int main(int argc, char **argv) {
         "  \"beamwidth\": {},\n"
         "  \"n_splits\": {},\n"
         "  \"n_split_repeat\": {},\n"
+        "  \"sector_len\": {},\n"
         "  \"metric\": \"{}\"\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, disk_L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_splits, n_split_repeat, metric_str);
+        data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, disk_L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_splits, n_split_repeat, sector_len, metric_str);
     if (data_type == "float") {
         experiment_benchmark<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, disk_L, K, B, M, build_threads, search_threads, disk_index_already_built, beamwidth, n_splits, n_split_repeat, metric);
     } else if (data_type == "int8") {

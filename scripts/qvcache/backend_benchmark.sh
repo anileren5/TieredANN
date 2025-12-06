@@ -36,6 +36,7 @@ BUILD_THREADS=8
 DISK_INDEX_PREFIX="./index/${DATASET}/${DATASET}"
 DISK_INDEX_ALREADY_BUILT=1
 BEAMWIDTH=2
+SECTOR_LEN=4096
 METRIC="l2" # Distance metric: "l2", "cosine", or "inner_product"
 
 # Check if query file exists
@@ -80,5 +81,6 @@ echo ""
   --beamwidth "$BEAMWIDTH" \
   --n_splits "$N_SPLIT" \
   --n_split_repeat "$N_SPLIT_REPEAT" \
+  --sector_len "$SECTOR_LEN" \
   --metric "$METRIC"
 
