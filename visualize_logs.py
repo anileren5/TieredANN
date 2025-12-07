@@ -124,10 +124,10 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
     plot_configs = [
         (None, qvcache_hit_ratios, 'Hit Ratio', 'Cache Hit Ratio', '#1f4e79', (-0.05, 1.05), 'hit_ratio.pdf', True, False),
         (backend_avg_hit_latency, qvcache_avg_hit_latency, 'Latency (ms)', 'Average Hit Latency', '#548235', None, 'avg_hit_latency.pdf', True, False),
-        (backend_p50, qvcache_p50, 'Latency (ms)', 'Latency (P50)', '#c55a11', None, 'p50_latency.pdf', True, True),
-        (backend_qps, qvcache_qps, 'QPS', 'Query Throughput', '#bf8f00', None, 'qps.pdf', True, True),
+        (backend_p50, qvcache_p50, 'Latency (ms)', 'Latency (P50)', '#0066cc', None, 'p50_latency.pdf', True, False),
+        (backend_qps, qvcache_qps, 'QPS', 'Query Throughput', '#bf8f00', None, 'qps.pdf', True, False),
         (None, qvcache_memory_active, 'Vectors', 'Vectors In Cache', '#5b2c6f', None, 'memory_active_vectors.pdf', True, False),
-        (backend_recall, qvcache_recall, 'Recall@10', 'Recall@10', '#2e75b6', None, 'recall.pdf', True, False),
+        (backend_recall, qvcache_recall, '10-Recall@10', '10-Recall@10', '#2e75b6', None, 'recall.pdf', True, False),
     ]
     
     for backend_data, qvcache_data, ylabel, title, color, ylim, filename, show_legend, use_log_scale in plot_configs:
@@ -202,7 +202,8 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
             if valid_indices:
                 valid_data = [backend_data[i] for i in valid_indices]
                 valid_iterations = [backend_iterations[i] for i in valid_indices]
-                ax.plot(valid_iterations, valid_data, linewidth=1.0, color='#E74C3C', linestyle='--', label='Backend only', alpha=0.8)
+                ax.plot(valid_iterations, valid_data, linewidth=1.0, color='#E74C3C', linestyle='--', 
+                       marker='^', markersize=2.5, label='Backend only', alpha=0.8)
         
         # Plot QVCache data if available
         if qvcache_data and any(x is not None for x in qvcache_data):
@@ -215,7 +216,8 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
             if valid_indices:
                 valid_data = [qvcache_data[i] for i in valid_indices]
                 valid_iterations = [qvcache_iterations[i] for i in valid_indices]
-                ax.plot(valid_iterations, valid_data, linewidth=1.0, color=color, linestyle='-', label='With QVCache', alpha=0.9)
+                ax.plot(valid_iterations, valid_data, linewidth=1.0, color=color, linestyle='-', 
+                       marker='^', markersize=2.5, label='With QVCache', alpha=0.9)
         
         ax.set_ylabel(ylabel, fontsize=7)
         ax.set_xlabel('Splits', fontsize=7, labelpad=4)
@@ -224,6 +226,86 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
         ax.tick_params(axis='x', labelsize=6, pad=2)
         if not use_log_scale:
             ax.tick_params(axis='y', labelsize=6, pad=2)
+        
+        # Special handling for hit ratio: set custom y-axis ticks
+        if filename == 'hit_ratio.pdf':
+            ax.set_yticks([0.0, 0.25, 0.50, 0.75, 1.0])
+            ax.set_yticklabels(['0.0', '0.25', '0.50', '0.75', '1.0'], fontsize=6)
+        
+        # Special handling for P50 latency: add tick at QVCache minimum value
+        if filename == 'p50_latency.pdf':
+            if qvcache_data and any(x is not None for x in qvcache_data):
+                qvcache_values = [x for x in qvcache_data if x is not None]
+                if qvcache_values:
+                    qvcache_min = min(qvcache_values)
+                    # Get all values for both backend and QVCache to determine max
+                    all_values = qvcache_values.copy()
+                    if backend_data:
+                        all_values.extend([x for x in backend_data if x is not None])
+                    if all_values:
+                        max_val = max(all_values)
+                        # Add 5% padding on top, and negative padding at bottom for visual space
+                        top_padding = max((max_val - 0) * 0.05, 0.01)
+                        # Add bottom padding (8% of range) to create visual space from x-axis
+                        bottom_padding = max((max_val - 0) * 0.08, 0.01)
+                        ax.set_ylim([-bottom_padding, max_val + top_padding])
+                        # Set custom ticks: include QVCache minimum, plus evenly spaced ticks
+                        # Create ticks: qvcache_min, and a few more evenly spaced
+                        tick_locations = [qvcache_min]
+                        # Add a few more ticks between qvcache_min and max_val
+                        num_ticks = 3
+                        for i in range(1, num_ticks + 1):
+                            tick_val = qvcache_min + (max_val - qvcache_min) * i / (num_ticks + 1)
+                            tick_locations.append(tick_val)
+                        tick_locations.append(max_val)
+                        tick_locations = sorted(set(tick_locations))  # Remove duplicates and sort
+                        # Format tick labels
+                        tick_labels = [f'{tick:.2f}' if tick < 1 else f'{tick:.1f}' for tick in tick_locations]
+                        ax.set_yticks(tick_locations)
+                        ax.set_yticklabels(tick_labels, fontsize=6)
+        
+        # Special handling for QPS: add tick at backend average value
+        if filename == 'qps.pdf':
+            all_values = []
+            backend_avg = None
+            if backend_data and any(x is not None for x in backend_data):
+                backend_values = [x for x in backend_data if x is not None]
+                if backend_values:
+                    backend_avg = np.mean(backend_values)
+                    all_values.extend(backend_values)
+            if qvcache_data and any(x is not None for x in qvcache_data):
+                all_values.extend([x for x in qvcache_data if x is not None])
+            if all_values:
+                min_val = min(all_values)
+                max_val = max(all_values)
+                # Add 5% padding on each side
+                range_val = max_val - min_val
+                padding = max(range_val * 0.05, 0.01)
+                y_min = max(0, min_val - padding)
+                y_max = max_val + padding
+                ax.set_ylim([y_min, y_max])
+                # Set custom ticks: include backend average if available, plus evenly spaced ticks
+                tick_locations = []
+                if backend_avg is not None:
+                    tick_locations.append(backend_avg)
+                # Add a few evenly spaced ticks
+                num_ticks = 3
+                for i in range(num_ticks + 1):
+                    tick_val = y_min + (y_max - y_min) * i / num_ticks
+                    tick_locations.append(tick_val)
+                tick_locations = sorted(set(tick_locations))  # Remove duplicates and sort
+                # Remove tick at 0.00 or very close to 0 to avoid conflicts
+                tick_locations = [t for t in tick_locations if abs(t) > 0.01]
+                # Format tick labels
+                tick_labels = []
+                for tick in tick_locations:
+                    if tick == backend_avg:
+                        # Format backend average with more precision
+                        tick_labels.append(f'{tick:.1f}')
+                    else:
+                        tick_labels.append(f'{tick:.0f}' if tick >= 1 else f'{tick:.2f}')
+                ax.set_yticks(tick_locations)
+                ax.set_yticklabels(tick_labels, fontsize=6)
         
         # Special handling for recall: use dynamic scale based on data range
         if filename == 'recall.pdf':
@@ -300,56 +382,29 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         if valid_indices:
             valid_data = [qvcache_hit_ratios[i] for i in valid_indices]
             axes[0].plot([qvcache_iterations[i] for i in valid_indices], valid_data, 
-                    linewidth=0.7, color='#2E86AB', linestyle='-', label='With QVCache')
+                    linewidth=0.7, color='#2E86AB', linestyle='-', marker='^', markersize=2.0, label='With QVCache')
     axes[0].set_ylabel('Hit Ratio', fontsize=6)
     axes[0].set_ylim([-0.05, 1.05])
+    axes[0].set_yticks([0.0, 0.25, 0.50, 0.75, 1.0])
+    axes[0].set_yticklabels(['0.0', '0.25', '0.50', '0.75', '1.0'], fontsize=5)
     axes[0].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     axes[0].set_title('Cache Hit Ratio', fontsize=6, fontweight='bold', pad=2)
     if qvcache_hit_ratios and any(x is not None for x in qvcache_hit_ratios):
         axes[0].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=1)
     
-    # 2. Average Latency - Both (log scale)
-    axes[1].set_yscale('log')
-    axes[1].yaxis.set_major_formatter(FuncFormatter(format_log_tick))
-    axes[1].yaxis.set_minor_locator(NullLocator())  # Disable minor ticks
-    
-    # Set custom tick locations: backend at average, QVCache at min, and 1ms reference
-    tick_locations = []
-    tick_labels = []
-    
-    # Add 1ms reference tick
-    tick_locations.append(1.0)
-    tick_labels.append('1')
-    
-    if backend_avg_latency and any(x is not None and x > 0 for x in backend_avg_latency):
-        backend_values = [x for x in backend_avg_latency if x is not None and x > 0]
-        if backend_values:
-            backend_avg = np.mean(backend_values)
-            tick_locations.append(backend_avg)
-            tick_labels.append(format_log_tick(backend_avg, None))
-    if qvcache_avg_latency and any(x is not None and x > 0 for x in qvcache_avg_latency):
-        qvcache_values = [x for x in qvcache_avg_latency if x is not None and x > 0]
-        if qvcache_values:
-            qvcache_min = min(qvcache_values)
-            tick_locations.append(qvcache_min)
-            tick_labels.append(format_log_tick(qvcache_min, None))
-    if tick_locations:
-        axes[1].yaxis.set_major_locator(FixedLocator(tick_locations))
-        axes[1].set_yticks(tick_locations)
-        axes[1].set_yticklabels(tick_labels, fontsize=5)
-    else:
-        axes[1].yaxis.set_major_locator(LogLocator(base=10, numticks=4))
-    
-    axes[1].tick_params(axis='y', labelsize=5, pad=1, which='major')
-    axes[1].tick_params(axis='y', which='minor', length=0)  # Hide minor ticks
-    if backend_avg_latency and any(x is not None and x > 0 for x in backend_avg_latency):
-        axes[1].plot(backend_iterations, backend_avg_latency, linewidth=0.7, color='#E63946', linestyle='--', label='Backend only')
-    if qvcache_avg_latency and any(x is not None and x > 0 for x in qvcache_avg_latency):
-        axes[1].plot(qvcache_iterations, qvcache_avg_latency, linewidth=0.7, color='#E63946', linestyle='-', label='With QVCache')
+    # 2. Average Latency - Both
+    if backend_avg_latency and any(x is not None for x in backend_avg_latency):
+        axes[1].plot(backend_iterations, backend_avg_latency, linewidth=0.7, color='#E63946', linestyle='--', 
+                    marker='^', markersize=2.0, label='Backend only')
+    if qvcache_avg_latency and any(x is not None for x in qvcache_avg_latency):
+        axes[1].plot(qvcache_iterations, qvcache_avg_latency, linewidth=0.7, color='#E63946', linestyle='-', 
+                    marker='^', markersize=2.0, label='With QVCache')
     axes[1].set_ylabel('Latency (ms)', fontsize=6)
     axes[1].set_title('Average Latency', fontsize=6, fontweight='bold', pad=2)
-    axes[1].grid(True, alpha=0.25, linestyle='--', linewidth=0.35, which='both')
-    axes[1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
+    axes[1].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
+    if (backend_avg_latency and any(x is not None for x in backend_avg_latency)) or \
+       (qvcache_avg_latency and any(x is not None for x in qvcache_avg_latency)):
+        axes[1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
     
     # 3. Average Hit Latency - Both
     if backend_avg_hit_latency and any(x is not None for x in backend_avg_hit_latency):
@@ -357,13 +412,13 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         if valid_indices:
             axes[2].plot([backend_iterations[i] for i in valid_indices], 
                     [backend_avg_hit_latency[i] for i in valid_indices],
-                    linewidth=0.7, color='#06A77D', linestyle='--', label='Backend only')
+                    linewidth=0.7, color='#06A77D', linestyle='--', marker='^', markersize=2.0, label='Backend only')
     if qvcache_avg_hit_latency and any(x is not None for x in qvcache_avg_hit_latency):
         valid_indices = [i for i, val in enumerate(qvcache_avg_hit_latency) if val is not None]
         if valid_indices:
             axes[2].plot([qvcache_iterations[i] for i in valid_indices], 
                     [qvcache_avg_hit_latency[i] for i in valid_indices],
-                    linewidth=0.7, color='#06A77D', linestyle='-', label='With QVCache')
+                    linewidth=0.7, color='#06A77D', linestyle='-', marker='^', markersize=2.0, label='With QVCache')
     axes[2].set_ylabel('Latency (ms)', fontsize=6)
     axes[2].set_title('Average Hit Latency', fontsize=6, fontweight='bold', pad=2)
     axes[2].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
@@ -371,145 +426,134 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
        (qvcache_avg_hit_latency and any(x is not None for x in qvcache_avg_hit_latency)):
         axes[2].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
     
-    # 4. P50 Latency - Both (log scale)
-    axes[3].set_yscale('log')
-    axes[3].yaxis.set_major_formatter(FuncFormatter(format_log_tick))
-    axes[3].yaxis.set_minor_locator(NullLocator())  # Disable minor ticks
-    
-    # Set custom tick locations: backend at average, QVCache at min
-    tick_locations = []
-    tick_labels = []
-    if backend_p50 and any(x is not None and x > 0 for x in backend_p50):
-        backend_values = [x for x in backend_p50 if x is not None and x > 0]
-        if backend_values:
-            backend_avg = np.mean(backend_values)
-            tick_locations.append(backend_avg)
-            tick_labels.append(format_log_tick(backend_avg, None))
-    if qvcache_p50 and any(x is not None and x > 0 for x in qvcache_p50):
-        qvcache_values = [x for x in qvcache_p50 if x is not None and x > 0]
-        if qvcache_values:
-            qvcache_min = min(qvcache_values)
-            tick_locations.append(qvcache_min)
-            tick_labels.append(format_log_tick(qvcache_min, None))
-    if tick_locations:
-        axes[3].yaxis.set_major_locator(FixedLocator(tick_locations))
-        axes[3].set_yticks(tick_locations)
-        axes[3].set_yticklabels(tick_labels, fontsize=5)
-    else:
-        axes[3].yaxis.set_major_locator(LogLocator(base=10, numticks=4))
-    
-    axes[3].tick_params(axis='y', labelsize=5, pad=1, which='major')
-    axes[3].tick_params(axis='y', which='minor', length=0)  # Hide minor ticks
-    if backend_p50 and any(x is not None and x > 0 for x in backend_p50):
-        valid_indices = [i for i, val in enumerate(backend_p50) if val is not None and val > 0]
+    # 4. P50 Latency - Both
+    if backend_p50 and any(x is not None for x in backend_p50):
+        valid_indices = [i for i, val in enumerate(backend_p50) if val is not None]
         if valid_indices:
             axes[3].plot([backend_iterations[i] for i in valid_indices], 
                     [backend_p50[i] for i in valid_indices],
-                    linewidth=0.7, color='#F77F00', linestyle='--', label='Backend only')
-    if qvcache_p50 and any(x is not None and x > 0 for x in qvcache_p50):
-        valid_indices = [i for i, val in enumerate(qvcache_p50) if val is not None and val > 0]
+                    linewidth=0.7, color='#E74C3C', linestyle='--', marker='^', markersize=2.0, label='Backend only')
+    if qvcache_p50 and any(x is not None for x in qvcache_p50):
+        valid_indices = [i for i, val in enumerate(qvcache_p50) if val is not None]
         if valid_indices:
             axes[3].plot([qvcache_iterations[i] for i in valid_indices], 
                     [qvcache_p50[i] for i in valid_indices],
-                    linewidth=0.7, color='#F77F00', linestyle='-', label='With QVCache')
-    axes[3].set_ylabel('Latency (ms)', fontsize=6)
-    axes[3].set_title('P50 Latency', fontsize=6, fontweight='bold', pad=2)
-    axes[3].grid(True, alpha=0.25, linestyle='--', linewidth=0.35, which='both')
-    if (backend_p50 and any(x is not None and x > 0 for x in backend_p50)) or \
-       (qvcache_p50 and any(x is not None and x > 0 for x in qvcache_p50)):
-        axes[3].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
-    
-    # 5. P99 Latency - Both (log scale)
-    axes[4].set_yscale('log')
-    axes[4].yaxis.set_major_formatter(FuncFormatter(format_log_tick))
-    axes[4].yaxis.set_minor_locator(NullLocator())  # Disable minor ticks
-    
-    # Set custom tick locations: backend at average, QVCache at min
-    tick_locations = []
-    tick_labels = []
-    if backend_p99 and any(x is not None and x > 0 for x in backend_p99):
-        backend_values = [x for x in backend_p99 if x is not None and x > 0]
-        if backend_values:
-            backend_avg = np.mean(backend_values)
-            tick_locations.append(backend_avg)
-            tick_labels.append(format_log_tick(backend_avg, None))
-    if qvcache_p99 and any(x is not None and x > 0 for x in qvcache_p99):
-        qvcache_values = [x for x in qvcache_p99 if x is not None and x > 0]
+                    linewidth=0.7, color='#0066cc', linestyle='-', marker='^', markersize=2.0, label='With QVCache')
+    # Add tick at QVCache minimum value, but start y-axis from 0
+    if qvcache_p50 and any(x is not None for x in qvcache_p50):
+        qvcache_values = [x for x in qvcache_p50 if x is not None]
         if qvcache_values:
             qvcache_min = min(qvcache_values)
-            tick_locations.append(qvcache_min)
-            tick_labels.append(format_log_tick(qvcache_min, None))
-    if tick_locations:
-        axes[4].yaxis.set_major_locator(FixedLocator(tick_locations))
-        axes[4].set_yticks(tick_locations)
-        axes[4].set_yticklabels(tick_labels, fontsize=5)
-    else:
-        axes[4].yaxis.set_major_locator(LogLocator(base=10, numticks=4))
+            # Get all values for both backend and QVCache to determine max
+            all_values = qvcache_values.copy()
+            if backend_p50:
+                all_values.extend([x for x in backend_p50 if x is not None])
+            if all_values:
+                max_val = max(all_values)
+                # Add 5% padding on top, and negative padding at bottom for visual space
+                top_padding = max((max_val - 0) * 0.05, 0.01)
+                # Add bottom padding (8% of range) to create visual space from x-axis
+                bottom_padding = max((max_val - 0) * 0.08, 0.01)
+                axes[3].set_ylim([-bottom_padding, max_val + top_padding])
+                # Set custom ticks: include QVCache minimum, plus evenly spaced ticks
+                tick_locations = [qvcache_min]
+                # Add a few more ticks between qvcache_min and max_val
+                num_ticks = 3
+                for i in range(1, num_ticks + 1):
+                    tick_val = qvcache_min + (max_val - qvcache_min) * i / (num_ticks + 1)
+                    tick_locations.append(tick_val)
+                tick_locations.append(max_val)
+                tick_locations = sorted(set(tick_locations))  # Remove duplicates and sort
+                # Format tick labels
+                tick_labels = [f'{tick:.2f}' if tick < 1 else f'{tick:.1f}' for tick in tick_locations]
+                axes[3].set_yticks(tick_locations)
+                axes[3].set_yticklabels(tick_labels, fontsize=5)
+    axes[3].set_ylabel('Latency (ms)', fontsize=6)
+    axes[3].set_title('P50 Latency', fontsize=6, fontweight='bold', pad=2)
+    axes[3].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
+    if (backend_p50 and any(x is not None for x in backend_p50)) or \
+       (qvcache_p50 and any(x is not None for x in qvcache_p50)):
+        axes[3].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
     
-    axes[4].tick_params(axis='y', labelsize=5, pad=1, which='major')
-    axes[4].tick_params(axis='y', which='minor', length=0)  # Hide minor ticks
-    if backend_p99 and any(x is not None and x > 0 for x in backend_p99):
-        valid_indices = [i for i, val in enumerate(backend_p99) if val is not None and val > 0]
+    # 5. P99 Latency - Both
+    if backend_p99 and any(x is not None for x in backend_p99):
+        valid_indices = [i for i, val in enumerate(backend_p99) if val is not None]
         if valid_indices:
             axes[4].plot([backend_iterations[i] for i in valid_indices], 
                     [backend_p99[i] for i in valid_indices],
-                    linewidth=0.7, color='#A23B72', linestyle='--', label='Backend only')
-    if qvcache_p99 and any(x is not None and x > 0 for x in qvcache_p99):
-        valid_indices = [i for i, val in enumerate(qvcache_p99) if val is not None and val > 0]
+                    linewidth=0.7, color='#A23B72', linestyle='--', marker='^', markersize=2.0, label='Backend only')
+    if qvcache_p99 and any(x is not None for x in qvcache_p99):
+        valid_indices = [i for i, val in enumerate(qvcache_p99) if val is not None]
         if valid_indices:
             axes[4].plot([qvcache_iterations[i] for i in valid_indices], 
                     [qvcache_p99[i] for i in valid_indices],
-                    linewidth=0.7, color='#A23B72', linestyle='-', label='With QVCache')
+                    linewidth=0.7, color='#A23B72', linestyle='-', marker='^', markersize=2.0, label='With QVCache')
     axes[4].set_ylabel('Latency (ms)', fontsize=6)
     axes[4].set_title('P99 Latency', fontsize=6, fontweight='bold', pad=2)
-    axes[4].grid(True, alpha=0.25, linestyle='--', linewidth=0.35, which='both')
-    if (backend_p99 and any(x is not None and x > 0 for x in backend_p99)) or \
-       (qvcache_p99 and any(x is not None and x > 0 for x in qvcache_p99)):
+    axes[4].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
+    if (backend_p99 and any(x is not None for x in backend_p99)) or \
+       (qvcache_p99 and any(x is not None for x in qvcache_p99)):
         axes[4].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
     
-    # 6. QPS - Both (log scale)
-    axes[5].set_yscale('log')
-    axes[5].yaxis.set_major_formatter(FuncFormatter(format_log_tick))
-    axes[5].yaxis.set_minor_locator(NullLocator())  # Disable minor ticks
-    
-    # Set custom tick locations: backend at average, QVCache at max
-    tick_locations = []
-    tick_labels = []
-    if backend_qps and any(x is not None and x > 0 for x in backend_qps):
-        backend_values = [x for x in backend_qps if x is not None and x > 0]
-        if backend_values:
-            backend_avg = np.mean(backend_values)
-            tick_locations.append(backend_avg)
-            tick_labels.append(format_log_tick(backend_avg, None))
-    if qvcache_qps and any(x is not None and x > 0 for x in qvcache_qps):
-        qvcache_values = [x for x in qvcache_qps if x is not None and x > 0]
-        if qvcache_values:
-            qvcache_max = max(qvcache_values)
-            tick_locations.append(qvcache_max)
-            tick_labels.append(format_log_tick(qvcache_max, None))
-    if tick_locations:
-        axes[5].yaxis.set_major_locator(FixedLocator(tick_locations))
-        axes[5].set_yticks(tick_locations)
-        axes[5].set_yticklabels(tick_labels, fontsize=5)
-    else:
-        axes[5].yaxis.set_major_locator(LogLocator(base=10, numticks=4))
-    
-    axes[5].tick_params(axis='y', labelsize=5, pad=1, which='major')
-    axes[5].tick_params(axis='y', which='minor', length=0)  # Hide minor ticks
-    if backend_qps and any(x is not None and x > 0 for x in backend_qps):
-        axes[5].plot(backend_iterations, backend_qps, linewidth=0.7, color='#FCBF49', linestyle='--', label='Backend only')
-    if qvcache_qps and any(x is not None and x > 0 for x in qvcache_qps):
-        axes[5].plot(qvcache_iterations, qvcache_qps, linewidth=0.7, color='#FCBF49', linestyle='-', label='With QVCache')
+    # 6. QPS - Both
+    if backend_qps and any(x is not None for x in backend_qps):
+        axes[5].plot(backend_iterations, backend_qps, linewidth=0.7, color='#FCBF49', linestyle='--', 
+                    marker='^', markersize=2.0, label='Backend only')
+    if qvcache_qps and any(x is not None for x in qvcache_qps):
+        axes[5].plot(qvcache_iterations, qvcache_qps, linewidth=0.7, color='#FCBF49', linestyle='-', 
+                    marker='^', markersize=2.0, label='With QVCache')
+    # Add tick at backend average value
+    all_qps_values = []
+    backend_qps_avg = None
+    if backend_qps and any(x is not None for x in backend_qps):
+        backend_qps_values = [x for x in backend_qps if x is not None]
+        if backend_qps_values:
+            backend_qps_avg = np.mean(backend_qps_values)
+            all_qps_values.extend(backend_qps_values)
+    if qvcache_qps and any(x is not None for x in qvcache_qps):
+        all_qps_values.extend([x for x in qvcache_qps if x is not None])
+    if all_qps_values:
+        min_qps = min(all_qps_values)
+        max_qps = max(all_qps_values)
+        # Add 5% padding on each side
+        range_qps = max_qps - min_qps
+        padding = max(range_qps * 0.05, 0.01)
+        y_min_qps = max(0, min_qps - padding)
+        y_max_qps = max_qps + padding
+        axes[5].set_ylim([y_min_qps, y_max_qps])
+        # Set custom ticks: include backend average if available, plus evenly spaced ticks
+        tick_locations_qps = []
+        if backend_qps_avg is not None:
+            tick_locations_qps.append(backend_qps_avg)
+        # Add a few evenly spaced ticks
+        num_ticks_qps = 3
+        for i in range(num_ticks_qps + 1):
+            tick_val_qps = y_min_qps + (y_max_qps - y_min_qps) * i / num_ticks_qps
+            tick_locations_qps.append(tick_val_qps)
+        tick_locations_qps = sorted(set(tick_locations_qps))  # Remove duplicates and sort
+        # Remove tick at 0.00 or very close to 0 to avoid conflicts
+        tick_locations_qps = [t for t in tick_locations_qps if abs(t) > 0.01]
+        # Format tick labels
+        tick_labels_qps = []
+        for tick in tick_locations_qps:
+            if tick == backend_qps_avg:
+                # Format backend average with more precision
+                tick_labels_qps.append(f'{tick:.1f}')
+            else:
+                tick_labels_qps.append(f'{tick:.0f}' if tick >= 1 else f'{tick:.2f}')
+        axes[5].set_yticks(tick_locations_qps)
+        axes[5].set_yticklabels(tick_labels_qps, fontsize=5)
     axes[5].set_ylabel('QPS', fontsize=6)
-    axes[5].grid(True, alpha=0.25, linestyle='--', linewidth=0.35, which='both')
+    axes[5].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     axes[5].set_title('Query Throughput', fontsize=6, fontweight='bold', pad=2)
-    if (backend_qps and any(x is not None and x > 0 for x in backend_qps)) or \
-       (qvcache_qps and any(x is not None and x > 0 for x in qvcache_qps)):
+    if (backend_qps and any(x is not None for x in backend_qps)) or \
+       (qvcache_qps and any(x is not None for x in qvcache_qps)):
         axes[5].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
     
     # 7. Memory Active Vectors - QVCache only
     if qvcache_memory_active and any(x is not None for x in qvcache_memory_active):
-        axes[6].plot(qvcache_iterations, qvcache_memory_active, linewidth=0.7, color='#7209B7', linestyle='-', label='With QVCache')
+        axes[6].plot(qvcache_iterations, qvcache_memory_active, linewidth=0.7, color='#7209B7', linestyle='-', 
+                    marker='^', markersize=2.0, label='With QVCache')
     axes[6].set_ylabel('Vectors', fontsize=6)
     axes[6].set_title('Memory Active Vectors', fontsize=6, fontweight='bold', pad=2)
     axes[6].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
@@ -518,11 +562,13 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     
     # 8. Recall All - Both (with dynamic scale)
     if backend_recall and any(x is not None for x in backend_recall):
-        axes[7].plot(backend_iterations, backend_recall, linewidth=0.7, color='#17A2B8', linestyle='--', label='Backend only')
+        axes[7].plot(backend_iterations, backend_recall, linewidth=0.7, color='#17A2B8', linestyle='--', 
+                    marker='^', markersize=2.0, label='Backend only')
     if qvcache_recall and any(x is not None for x in qvcache_recall):
-        axes[7].plot(qvcache_iterations, qvcache_recall, linewidth=0.7, color='#17A2B8', linestyle='-', label='With QVCache')
+        axes[7].plot(qvcache_iterations, qvcache_recall, linewidth=0.7, color='#17A2B8', linestyle='-', 
+                    marker='^', markersize=2.0, label='With QVCache')
     axes[7].set_xlabel('Splits', fontsize=6, labelpad=4)
-    axes[7].set_ylabel('Recall', fontsize=6)
+    axes[7].set_ylabel('10-Recall@10', fontsize=6)
     
     # Dynamic scale for recall based on actual data range
     all_recall_values = []
@@ -542,7 +588,7 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     else:
         axes[7].set_ylim([0, 1.05])
     
-    axes[7].set_title('Recall', fontsize=6, fontweight='bold', pad=2)
+    axes[7].set_title('10-Recall@10', fontsize=6, fontweight='bold', pad=2)
     axes[7].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
     if (backend_recall and any(x is not None for x in backend_recall)) or \
        (qvcache_recall and any(x is not None for x in qvcache_recall)):
