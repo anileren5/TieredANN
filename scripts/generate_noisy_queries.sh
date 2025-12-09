@@ -9,9 +9,9 @@ set -e
 cd "$(dirname "$0")/.." || exit 1
 
 # Default values (can be overridden by command-line arguments)
-DATASET="deep10m"
-N_SPLIT="10"
-N_SPLIT_REPEAT="5"
+DATASET="sift"
+N_SPLIT="4"
+N_SPLIT_REPEAT="10"
 NOISE_RATIO="0.01"
 RANDOM_SEED="42"
 DATA_DIR="data"

@@ -7,6 +7,8 @@ set(TEST_EXECUTABLES
     qvcache_split_search_noisy qvcache/qvcache_split_search_noisy.cpp
     qvcache_split_search_bruteforce_backend qvcache/qvcache_split_search_bruteforce_backend.cpp
     qvcache_benchmark qvcache/qvcache_benchmark.cpp
+    cache_pressure qvcache/cache_pressure.cpp
+    backend_cache_pressure qvcache/backend_cache_pressure.cpp
     backend_benchmark qvcache/backend_benchmark.cpp
     diskann_split_search diskann/diskann_split_search.cpp
 )
