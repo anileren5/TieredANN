@@ -8,9 +8,11 @@ import json
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.ticker import FuncFormatter, LogFormatter, LogLocator, FixedLocator, NullLocator
+from matplotlib.patches import Rectangle
+from matplotlib.colors import to_rgba
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 import argparse
 
 # Set super high-quality matplotlib parameters for publication
@@ -37,6 +39,10 @@ matplotlib.rcParams['xtick.major.width'] = 0.8
 matplotlib.rcParams['ytick.major.width'] = 0.8
 matplotlib.rcParams['xtick.minor.width'] = 0.4
 matplotlib.rcParams['ytick.minor.width'] = 0.4
+
+# Consistent colors for lines
+BACKEND_COLOR = '#E74C3C'  # Red for "Backend only"
+QVCACHE_COLOR = '#0066CC'  # Blue for "With QVCache"
 
 
 def parse_log_file(log_path: str) -> List[Dict[str, Any]]:
@@ -91,10 +97,90 @@ def format_log_tick(value, pos):
     else:
         return f'{value:.4f}'
 
-def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[Dict], output_dir: Path):
+def get_color_gradient(base_color: str, n_splits: int) -> List[str]:
+    """Generate a gradient of colors from light to dark for a given base color."""
+    # Convert hex to RGB (handle both #RRGGBB and RRGGBB formats)
+    hex_clean = base_color.lstrip('#')
+    base_rgb = tuple(int(hex_clean[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+    colors = []
+    for i in range(n_splits):
+        # Create gradient from light (mixing with white) to dark (full base color)
+        # Start from 0% and increase to 90% for the last split (darker upper bound)
+        if n_splits == 1:
+            # Single split: use the base color
+            factor = 1.0
+        else:
+            # Span from 0% to 95% across all splits
+            # Split 0: 0%, Split 1: ~12%, Split 2: ~24%, ..., Last split: 95%
+            # Calculate step size to reach 95% for the last split
+            max_factor = 0.95  # Upper bound at 95% darkness (darker)
+            factor = 0.0 + i * (max_factor / (n_splits - 1))
+            # Ensure last split is exactly at max_factor
+            if i == n_splits - 1:
+                factor = max_factor
+        
+        # Mix base color with white to create lighter tones
+        # factor=0.0 means 0% base color + 100% white (lightest)
+        # factor=0.1 means 10% base color + 90% white
+        # factor=0.2 means 20% base color + 80% white
+        # factor=0.95 means 95% base color + 5% white (darkest in gradient)
+        r = base_rgb[0] * factor + (1 - factor) * 1.0  # Mix with white (1.0, 1.0, 1.0)
+        g = base_rgb[1] * factor + (1 - factor) * 1.0
+        b = base_rgb[2] * factor + (1 - factor) * 1.0
+        
+        # Clamp to [0, 1]
+        r = min(1.0, max(0.0, r))
+        g = min(1.0, max(0.0, g))
+        b = min(1.0, max(0.0, b))
+        
+        # Convert back to hex
+        hex_color = f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+        colors.append(hex_color)
+    return colors
+
+def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[Dict], output_dir: Path, n_repeat: Optional[int] = None):
     """Create individual plot files for each metric with comparison."""
     backend_iterations = np.arange(len(backend_metrics)) if backend_metrics else []
     qvcache_iterations = np.arange(len(qvcache_metrics)) if qvcache_metrics else []
+    
+    # Determine number of splits and sets if n_repeat is provided
+    # n_repeat is the number of splits per set
+    num_splits = max(len(backend_metrics), len(qvcache_metrics)) if (backend_metrics or qvcache_metrics) else 0
+    split_sets = []
+    base_colors = []
+    if n_repeat and n_repeat > 0 and num_splits > 0:
+        # Calculate number of sets: total splits / splits per set
+        num_sets = num_splits // n_repeat
+        remainder = num_splits % n_repeat
+        
+        # Define base colors for each set (using 10 highly distinguishable colors)
+        # These will be used for backgrounds and gradients
+        # Professional palette with maximum distinction, avoiding yellows/light colors
+        default_base_colors = [
+            '#1E88E5',  # Blue
+            '#D32F2F',  # Red
+            '#388E3C',  # Green
+            '#7B1FA2',  # Purple
+            '#F57C00',  # Dark Orange
+            '#00897B',  # Teal
+            '#C2185B',  # Pink/Magenta
+            '#455A64',  # Blue Gray
+            '#5D4037',  # Brown
+            '#1976D2'   # Dark Blue (distinct from first blue)
+        ]
+        base_colors = [default_base_colors[i % len(default_base_colors)] for i in range(num_sets)]
+        
+        # Divide splits into sets (each set has n_repeat splits)
+        start_idx = 0
+        for set_idx in range(num_sets):
+            end_idx = start_idx + n_repeat
+            split_sets.append((start_idx, end_idx))
+            start_idx = end_idx
+        
+        # Handle remainder splits (if any) - add them to the last set
+        if remainder > 0 and split_sets:
+            last_start, last_end = split_sets[-1]
+            split_sets[-1] = (last_start, last_end + remainder)
     
     # Extract data - handle missing keys gracefully
     backend_avg_latency = extract_metric(backend_metrics, 'avg_latency_ms')
@@ -145,6 +231,13 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
                 fig.subplots_adjust(left=0.22, right=0.95, top=0.85, bottom=0.25)
             else:
                 fig.subplots_adjust(left=0.18, right=0.95, top=0.85, bottom=0.25)
+        
+        # Add horizontal background sections if n_repeat is provided
+        if n_repeat and n_repeat > 0 and split_sets:
+            # Get y-axis limits (will be set later, but we need approximate range)
+            # For now, we'll add backgrounds after plotting, or use a reasonable default
+            # We'll add them after we know the y-axis range
+            pass  # Will add backgrounds after determining y-axis range
         
         # Set log scale if requested
         if use_log_scale:
@@ -202,8 +295,8 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
             if valid_indices:
                 valid_data = [backend_data[i] for i in valid_indices]
                 valid_iterations = [backend_iterations[i] for i in valid_indices]
-                ax.plot(valid_iterations, valid_data, linewidth=1.0, color='#E74C3C', linestyle='--', 
-                       marker='^', markersize=2.5, label='Backend only', alpha=0.8)
+                ax.plot(valid_iterations, valid_data, linewidth=1.0, color=BACKEND_COLOR, linestyle='--', 
+                       marker='^', markersize=2.5, label='Backend only', alpha=0.8, zorder=10)
         
         # Plot QVCache data if available
         if qvcache_data and any(x is not None for x in qvcache_data):
@@ -216,11 +309,15 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
             if valid_indices:
                 valid_data = [qvcache_data[i] for i in valid_indices]
                 valid_iterations = [qvcache_iterations[i] for i in valid_indices]
-                ax.plot(valid_iterations, valid_data, linewidth=1.0, color=color, linestyle='-', 
-                       marker='^', markersize=2.5, label='With QVCache', alpha=0.9)
+                
+                # Plot QVCache data - always use consistent blue color for lines
+                # Background sections will show the transition behavior
+                ax.plot(valid_iterations, valid_data, linewidth=1.0, color=QVCACHE_COLOR, linestyle='-', 
+                       marker='^', markersize=2.5, label='With QVCache', alpha=0.9, zorder=10)
         
         ax.set_ylabel(ylabel, fontsize=7)
-        ax.set_xlabel('Splits', fontsize=7, labelpad=4)
+        # Use 'iteration' instead of 'Splits' per user preference
+        ax.set_xlabel('iteration', fontsize=7, labelpad=4)
         ax.set_title(title, fontsize=8, fontweight='bold', pad=8)
         # Adjust tick parameters to prevent overlap
         ax.tick_params(axis='x', labelsize=6, pad=2)
@@ -326,7 +423,35 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
         elif ylim:
             ax.set_ylim(ylim)
         
-        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray')
+        # Add horizontal background sections if n_repeat is provided
+        if n_repeat and n_repeat > 0 and split_sets:
+            # Get current y-axis limits
+            y_min, y_max = ax.get_ylim()
+            y_range = y_max - y_min
+            
+            # Add background rectangles for each set with gradient tones
+            for set_idx, (start_idx, end_idx) in enumerate(split_sets):
+                # Generate gradient colors for this set (n_repeat tones from light to dark)
+                gradient_colors = get_color_gradient(base_colors[set_idx], n_repeat)
+                
+                # Create a rectangle for each split in the set with different tone
+                for split_idx in range(start_idx, end_idx):
+                    # Calculate x position for this split
+                    x_start = split_idx - 0.5
+                    x_end = split_idx + 0.5
+                    
+                    # Get the tone index within this set (0 to n_repeat-1)
+                    tone_idx = split_idx - start_idx
+                    if tone_idx >= len(gradient_colors):
+                        tone_idx = len(gradient_colors) - 1
+                    
+                    # Use the gradient color with low opacity for background
+                    bg_color = to_rgba(gradient_colors[tone_idx], alpha=0.15)
+                    rect = Rectangle((x_start, y_min), x_end - x_start, y_range, 
+                                   facecolor=bg_color, edgecolor='none', zorder=0)
+                    ax.add_patch(rect)
+        
+        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray', zorder=1)
         if use_log_scale:
             ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray', which='both')  # Show both major and minor grid lines for log scale
         
@@ -342,7 +467,7 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
         print(f"  ✓ {filename}")
 
 
-def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[Dict], output_dir: Path):
+def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[Dict], output_dir: Path, n_repeat: Optional[int] = None):
     """Create a single vertical chart with selected metrics comparing backend and QVCache."""
     backend_iterations = np.arange(len(backend_metrics)) if backend_metrics else []
     qvcache_iterations = np.arange(len(qvcache_metrics)) if qvcache_metrics else []
@@ -382,7 +507,7 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         if valid_indices:
             valid_data = [qvcache_hit_ratios[i] for i in valid_indices]
             axes[0].plot([qvcache_iterations[i] for i in valid_indices], valid_data, 
-                    linewidth=0.7, color='#2E86AB', linestyle='-', marker='^', markersize=2.0, label='With QVCache')
+                    linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', marker='^', markersize=2.0, label='With QVCache')
     axes[0].set_ylabel('Hit Ratio', fontsize=6)
     axes[0].set_ylim([-0.05, 1.05])
     axes[0].set_yticks([0.0, 0.25, 0.50, 0.75, 1.0])
@@ -394,10 +519,10 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     
     # 2. Average Latency - Both
     if backend_avg_latency and any(x is not None for x in backend_avg_latency):
-        axes[1].plot(backend_iterations, backend_avg_latency, linewidth=0.7, color='#E63946', linestyle='--', 
+        axes[1].plot(backend_iterations, backend_avg_latency, linewidth=0.7, color=BACKEND_COLOR, linestyle='--', 
                     marker='^', markersize=2.0, label='Backend only')
     if qvcache_avg_latency and any(x is not None for x in qvcache_avg_latency):
-        axes[1].plot(qvcache_iterations, qvcache_avg_latency, linewidth=0.7, color='#E63946', linestyle='-', 
+        axes[1].plot(qvcache_iterations, qvcache_avg_latency, linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', 
                     marker='^', markersize=2.0, label='With QVCache')
     axes[1].set_ylabel('Latency (ms)', fontsize=6)
     axes[1].set_title('Average Latency', fontsize=6, fontweight='bold', pad=2)
@@ -412,13 +537,13 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         if valid_indices:
             axes[2].plot([backend_iterations[i] for i in valid_indices], 
                     [backend_avg_hit_latency[i] for i in valid_indices],
-                    linewidth=0.7, color='#06A77D', linestyle='--', marker='^', markersize=2.0, label='Backend only')
+                    linewidth=0.7, color=BACKEND_COLOR, linestyle='--', marker='^', markersize=2.0, label='Backend only')
     if qvcache_avg_hit_latency and any(x is not None for x in qvcache_avg_hit_latency):
         valid_indices = [i for i, val in enumerate(qvcache_avg_hit_latency) if val is not None]
         if valid_indices:
             axes[2].plot([qvcache_iterations[i] for i in valid_indices], 
                     [qvcache_avg_hit_latency[i] for i in valid_indices],
-                    linewidth=0.7, color='#06A77D', linestyle='-', marker='^', markersize=2.0, label='With QVCache')
+                    linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', marker='^', markersize=2.0, label='With QVCache')
     axes[2].set_ylabel('Latency (ms)', fontsize=6)
     axes[2].set_title('Average Hit Latency', fontsize=6, fontweight='bold', pad=2)
     axes[2].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
@@ -432,13 +557,13 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         if valid_indices:
             axes[3].plot([backend_iterations[i] for i in valid_indices], 
                     [backend_p50[i] for i in valid_indices],
-                    linewidth=0.7, color='#E74C3C', linestyle='--', marker='^', markersize=2.0, label='Backend only')
+                    linewidth=0.7, color=BACKEND_COLOR, linestyle='--', marker='^', markersize=2.0, label='Backend only')
     if qvcache_p50 and any(x is not None for x in qvcache_p50):
         valid_indices = [i for i, val in enumerate(qvcache_p50) if val is not None]
         if valid_indices:
             axes[3].plot([qvcache_iterations[i] for i in valid_indices], 
                     [qvcache_p50[i] for i in valid_indices],
-                    linewidth=0.7, color='#0066cc', linestyle='-', marker='^', markersize=2.0, label='With QVCache')
+                    linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', marker='^', markersize=2.0, label='With QVCache')
     # Add tick at QVCache minimum value, but start y-axis from 0
     if qvcache_p50 and any(x is not None for x in qvcache_p50):
         qvcache_values = [x for x in qvcache_p50 if x is not None]
@@ -481,13 +606,13 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         if valid_indices:
             axes[4].plot([backend_iterations[i] for i in valid_indices], 
                     [backend_p99[i] for i in valid_indices],
-                    linewidth=0.7, color='#A23B72', linestyle='--', marker='^', markersize=2.0, label='Backend only')
+                    linewidth=0.7, color=BACKEND_COLOR, linestyle='--', marker='^', markersize=2.0, label='Backend only')
     if qvcache_p99 and any(x is not None for x in qvcache_p99):
         valid_indices = [i for i, val in enumerate(qvcache_p99) if val is not None]
         if valid_indices:
             axes[4].plot([qvcache_iterations[i] for i in valid_indices], 
                     [qvcache_p99[i] for i in valid_indices],
-                    linewidth=0.7, color='#A23B72', linestyle='-', marker='^', markersize=2.0, label='With QVCache')
+                    linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', marker='^', markersize=2.0, label='With QVCache')
     axes[4].set_ylabel('Latency (ms)', fontsize=6)
     axes[4].set_title('P99 Latency', fontsize=6, fontweight='bold', pad=2)
     axes[4].grid(True, alpha=0.25, linestyle='--', linewidth=0.35)
@@ -497,10 +622,10 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     
     # 6. QPS - Both
     if backend_qps and any(x is not None for x in backend_qps):
-        axes[5].plot(backend_iterations, backend_qps, linewidth=0.7, color='#FCBF49', linestyle='--', 
+        axes[5].plot(backend_iterations, backend_qps, linewidth=0.7, color=BACKEND_COLOR, linestyle='--', 
                     marker='^', markersize=2.0, label='Backend only')
     if qvcache_qps and any(x is not None for x in qvcache_qps):
-        axes[5].plot(qvcache_iterations, qvcache_qps, linewidth=0.7, color='#FCBF49', linestyle='-', 
+        axes[5].plot(qvcache_iterations, qvcache_qps, linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', 
                     marker='^', markersize=2.0, label='With QVCache')
     # Add tick at backend average value
     all_qps_values = []
@@ -552,7 +677,7 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     
     # 7. Memory Active Vectors - QVCache only
     if qvcache_memory_active and any(x is not None for x in qvcache_memory_active):
-        axes[6].plot(qvcache_iterations, qvcache_memory_active, linewidth=0.7, color='#7209B7', linestyle='-', 
+        axes[6].plot(qvcache_iterations, qvcache_memory_active, linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', 
                     marker='^', markersize=2.0, label='With QVCache')
     axes[6].set_ylabel('Vectors', fontsize=6)
     axes[6].set_title('Memory Active Vectors', fontsize=6, fontweight='bold', pad=2)
@@ -562,12 +687,12 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     
     # 8. Recall All - Both (with dynamic scale)
     if backend_recall and any(x is not None for x in backend_recall):
-        axes[7].plot(backend_iterations, backend_recall, linewidth=0.7, color='#17A2B8', linestyle='--', 
+        axes[7].plot(backend_iterations, backend_recall, linewidth=0.7, color=BACKEND_COLOR, linestyle='--', 
                     marker='^', markersize=2.0, label='Backend only')
     if qvcache_recall and any(x is not None for x in qvcache_recall):
-        axes[7].plot(qvcache_iterations, qvcache_recall, linewidth=0.7, color='#17A2B8', linestyle='-', 
+        axes[7].plot(qvcache_iterations, qvcache_recall, linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', 
                     marker='^', markersize=2.0, label='With QVCache')
-    axes[7].set_xlabel('Splits', fontsize=6, labelpad=4)
+    axes[7].set_xlabel('iteration', fontsize=6, labelpad=4)
     axes[7].set_ylabel('10-Recall@10', fontsize=6)
     
     # Dynamic scale for recall based on actual data range
@@ -605,6 +730,7 @@ def main():
     parser.add_argument('--log', type=str, default=None, help='Path to log file (legacy, for single file)')
     parser.add_argument('--output', type=str, default='plots', help='Output directory for plots')
     parser.add_argument('--max_iterations', type=int, default=None, help='Maximum number of iterations to visualize (default: all)')
+    parser.add_argument('--n_repeat', type=int, default=None, help='Number of repeat sets to divide splits into (creates horizontal sections with color gradients)')
     args = parser.parse_args()
     
     # Create output directory
@@ -645,7 +771,7 @@ def main():
             print(f"Limited QVCache metrics to first {len(qvcache_metrics)} iterations")
     
     print("Generating individual plots...")
-    create_individual_plots(backend_metrics, qvcache_metrics, output_dir)
+    create_individual_plots(backend_metrics, qvcache_metrics, output_dir, n_repeat=args.n_repeat)
     
     print(f"\nPlots saved to: {output_dir.absolute()}")
 

@@ -52,7 +52,8 @@ process_directory() {
         python3 "$VISUALIZE_SCRIPT" \
             --backend_log "$backend_log" \
             --qvcache_log "$qvcache_log" \
-            --output "$output_dir"
+            --output "$output_dir" \
+            --n_repeat 5
         
         if [ $? -eq 0 ]; then
             echo "  ✓ Successfully generated plots for ${experiment_name}"
