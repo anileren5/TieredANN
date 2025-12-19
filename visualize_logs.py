@@ -110,20 +110,21 @@ def get_color_gradient(base_color: str, n_splits: int) -> List[str]:
             # Single split: use the base color
             factor = 1.0
         else:
-            # Span from 0% to 95% across all splits
-            # Split 0: 0%, Split 1: ~12%, Split 2: ~24%, ..., Last split: 95%
-            # Calculate step size to reach 95% for the last split
-            max_factor = 0.95  # Upper bound at 95% darkness (darker)
-            factor = 0.0 + i * (max_factor / (n_splits - 1))
+            # Span from 30% to 100% across all splits (shifted darker)
+            # Split 0: 30%, Split 1: ~42%, Split 2: ~55%, ..., Last split: 100%
+            # Calculate step size to reach 100% for the last split
+            min_factor = 0.3  # Lower bound at 30% darkness (darker lightest tone)
+            max_factor = 1.0  # Upper bound at 100% darkness (full base color)
+            factor = min_factor + i * ((max_factor - min_factor) / (n_splits - 1))
             # Ensure last split is exactly at max_factor
             if i == n_splits - 1:
                 factor = max_factor
         
         # Mix base color with white to create lighter tones
-        # factor=0.0 means 0% base color + 100% white (lightest)
-        # factor=0.1 means 10% base color + 90% white
-        # factor=0.2 means 20% base color + 80% white
-        # factor=0.95 means 95% base color + 5% white (darkest in gradient)
+        # factor=0.3 means 30% base color + 70% white (lightest - darker than before)
+        # factor=0.4 means 40% base color + 60% white
+        # factor=0.5 means 50% base color + 50% white
+        # factor=1.0 means 100% base color + 0% white (darkest in gradient - full base color)
         r = base_rgb[0] * factor + (1 - factor) * 1.0  # Mix with white (1.0, 1.0, 1.0)
         g = base_rgb[1] * factor + (1 - factor) * 1.0
         b = base_rgb[2] * factor + (1 - factor) * 1.0
@@ -138,7 +139,7 @@ def get_color_gradient(base_color: str, n_splits: int) -> List[str]:
         colors.append(hex_color)
     return colors
 
-def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[Dict], output_dir: Path, n_repeat: Optional[int] = None):
+def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[Dict], output_dir: Path, n_repeat: Optional[int] = None, n_color: Optional[int] = None):
     """Create individual plot files for each metric with comparison."""
     backend_iterations = np.arange(len(backend_metrics)) if backend_metrics else []
     qvcache_iterations = np.arange(len(qvcache_metrics)) if qvcache_metrics else []
@@ -153,22 +154,40 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
         num_sets = num_splits // n_repeat
         remainder = num_splits % n_repeat
         
-        # Define base colors for each set (using 10 highly distinguishable colors)
+        # Validate n_color if provided
+        if n_color is not None:
+            if n_color > num_sets:
+                print(f"Warning: n_color ({n_color}) is greater than number of sets ({num_sets}). Setting n_color to {num_sets}.")
+                n_color = num_sets
+            if n_color <= 0:
+                print(f"Warning: n_color ({n_color}) must be positive. Using default behavior.")
+                n_color = None
+        
+        # Define base colors palette (using 10 specified colors)
         # These will be used for backgrounds and gradients
-        # Professional palette with maximum distinction, avoiding yellows/light colors
         default_base_colors = [
-            '#1E88E5',  # Blue
-            '#D32F2F',  # Red
-            '#388E3C',  # Green
-            '#7B1FA2',  # Purple
-            '#F57C00',  # Dark Orange
-            '#00897B',  # Teal
-            '#C2185B',  # Pink/Magenta
-            '#455A64',  # Blue Gray
-            '#5D4037',  # Brown
-            '#1976D2'   # Dark Blue (distinct from first blue)
+            '#FF0000',  # Red
+            '#00CC00',  # Green
+            '#FFD700',  # Yellow
+            '#FF00FF',  # Magenta
+            '#0066FF',  # Blue
+            '#9900FF',  # Purple
+            '#8B4513',  # Brown
+            '#FF69B4',  # Pink
+            '#40E0D0',  # Turquoise
+            '#FF6600'   # Orange
         ]
-        base_colors = [default_base_colors[i % len(default_base_colors)] for i in range(num_sets)]
+        
+        # Determine how many colors to use
+        if n_color is None:
+            # Default behavior: use one color per set
+            num_colors_to_use = num_sets
+        else:
+            # Use n_color colors and cycle through them
+            num_colors_to_use = n_color
+        
+        # Create color list: cycle through default_base_colors
+        base_colors = [default_base_colors[i % len(default_base_colors)] for i in range(num_colors_to_use)]
         
         # Divide splits into sets (each set has n_repeat splits)
         start_idx = 0
@@ -431,8 +450,15 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
             
             # Add background rectangles for each set with gradient tones
             for set_idx, (start_idx, end_idx) in enumerate(split_sets):
+                # Determine which color to use for this set
+                # If n_color is specified, cycle through colors; otherwise use one per set
+                if n_color is not None:
+                    color_idx = set_idx % n_color
+                else:
+                    color_idx = set_idx
+                
                 # Generate gradient colors for this set (n_repeat tones from light to dark)
-                gradient_colors = get_color_gradient(base_colors[set_idx], n_repeat)
+                gradient_colors = get_color_gradient(base_colors[color_idx], n_repeat)
                 
                 # Create a rectangle for each split in the set with different tone
                 for split_idx in range(start_idx, end_idx):
@@ -730,7 +756,8 @@ def main():
     parser.add_argument('--log', type=str, default=None, help='Path to log file (legacy, for single file)')
     parser.add_argument('--output', type=str, default='plots', help='Output directory for plots')
     parser.add_argument('--max_iterations', type=int, default=None, help='Maximum number of iterations to visualize (default: all)')
-    parser.add_argument('--n_repeat', type=int, default=None, help='Number of repeat sets to divide splits into (creates horizontal sections with color gradients)')
+    parser.add_argument('--n_repeat', type=int, default=None, help='Number of splits per set (creates horizontal sections with color gradients)')
+    parser.add_argument('--n_color', type=int, default=None, help='Number of colors to cycle through (must be <= num_sets, defaults to number of sets if not specified)')
     args = parser.parse_args()
     
     # Create output directory
@@ -771,7 +798,7 @@ def main():
             print(f"Limited QVCache metrics to first {len(qvcache_metrics)} iterations")
     
     print("Generating individual plots...")
-    create_individual_plots(backend_metrics, qvcache_metrics, output_dir, n_repeat=args.n_repeat)
+    create_individual_plots(backend_metrics, qvcache_metrics, output_dir, n_repeat=args.n_repeat, n_color=args.n_color)
     
     print(f"\nPlots saved to: {output_dir.absolute()}")
 

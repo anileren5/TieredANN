@@ -53,7 +53,8 @@ process_directory() {
             --backend_log "$backend_log" \
             --qvcache_log "$qvcache_log" \
             --output "$output_dir" \
-            --n_repeat 5
+            #--n_repeat 5 \
+            #--n_color 10
         
         if [ $? -eq 0 ]; then
             echo "  ✓ Successfully generated plots for ${experiment_name}"

@@ -89,14 +89,31 @@ def extract_number_of_mini_indexes(log_path: str) -> int:
     return None
 
 
-def format_legend_name(legend_name: str, deviation_factor: float = None, number_of_mini_indexes: int = None) -> str:
+def format_legend_name(legend_name: str, deviation_factor: float = None, number_of_mini_indexes: int = None, format_type: str = None) -> str:
     """Format legend name for experiments.
     
+    If format_type is "pca_dim", format as 'd_reduced' with subscript.
+    If format_type is "buckets_per_dim", format as 'n_buckets' with subscript.
     If number_of_mini_indexes is provided, format as 'n_mini-index' with subscript.
     If deviation_factor is provided, format as 'D = {value}'.
     Otherwise, try to parse legend_name as a numeric value.
     Handles cases like "0.25", "025" (interpreted as 0.25), "05" (interpreted as 0.5).
     """
+    # Handle PCA-specific format types
+    if format_type == "pca_dim":
+        try:
+            value = int(legend_name) if legend_name.isdigit() else float(legend_name)
+            return f'${{\\text{{d}}}}_{{\\text{{reduced}}}}$ = {value}'
+        except (ValueError, AttributeError):
+            return legend_name
+    
+    if format_type == "buckets_per_dim":
+        try:
+            value = int(legend_name) if legend_name.isdigit() else float(legend_name)
+            return f'${{\\text{{n}}}}_{{\\text{{buckets}}}}$ = {value}'
+        except (ValueError, AttributeError):
+            return legend_name
+    
     if number_of_mini_indexes is not None:
         # Use LaTeX subscript notation: n_mini-index = value
         return f'${{\\text{{n}}}}_{{\\text{{mini-index}}}}$ = {number_of_mini_indexes}'
@@ -530,6 +547,9 @@ def main():
     parser.add_argument('--output', type=str, default='plots', help='Output directory for plots')
     parser.add_argument('--max_iterations', type=int, default=None, 
                        help='Maximum number of iterations to visualize (default: all)')
+    parser.add_argument('--format-type', type=str, default=None,
+                       choices=['pca_dim', 'buckets_per_dim'],
+                       help='Format type for legend names: "pca_dim" for PCA dimension, "buckets_per_dim" for buckets per dimension')
     args = parser.parse_args()
     
     # Validate inputs
@@ -561,9 +581,9 @@ def main():
         deviation_factor = extract_deviation_factor(log_path)
         number_of_mini_indexes = extract_number_of_mini_indexes(log_path)
         
-        # Format legend name (prioritize number_of_mini_indexes, then deviation_factor, then parse legend_name)
+        # Format legend name (prioritize format_type, then number_of_mini_indexes, then deviation_factor, then parse legend_name)
         legend_name = args.legends[idx]
-        formatted_legend = format_legend_name(legend_name, deviation_factor, number_of_mini_indexes)
+        formatted_legend = format_legend_name(legend_name, deviation_factor, number_of_mini_indexes, args.format_type)
         
         color = args.colors[idx] if args.colors else None
         log_data_list.append((metrics, formatted_legend, color))
