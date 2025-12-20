@@ -10,7 +10,7 @@ RUN apt update && \
         clang-format libboost-dev libboost-program-options-dev \
         libmkl-full-dev libcpprest-dev python3.10 python3.10-dev python3-pip \
         libeigen3-dev \
-        libspdlog-dev && \
+        libspdlog-dev libnuma-dev libtbb-dev && \
     # Install Python dependencies for bindings
     python3 -m pip install --upgrade pip setuptools wheel && \
     python3 -m pip install "protobuf<5.0.0" && \
