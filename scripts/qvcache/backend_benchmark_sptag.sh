@@ -64,7 +64,10 @@ echo "Noise parameters: n_split=$N_SPLIT, n_repeat=$N_SPLIT_REPEAT, noise_ratio=
 echo "=========================================="
 echo ""
 
-# Run the benchmark with all parameters
+# Run the benchmark with all parameters and measure memory usage
+# Monitor memory using /proc/<pid>/status VmHWM (High Water Mark)
+
+# Start benchmark in background
 ./build/tests/backend_benchmark_sptag \
   --data_type "$DATA_TYPE" \
   --data_path "$DATA_PATH" \
@@ -77,5 +80,48 @@ echo ""
   --search_threads "$SEARCH_THREADS" \
   --n_splits "$N_SPLIT" \
   --n_split_repeat "$N_SPLIT_REPEAT" \
-  --metric "$METRIC"
+  --metric "$METRIC" &
+
+BENCHMARK_PID=$!
+
+# Monitor VmHWM (High Water Mark - peak RSS) while process is running
+MAX_RSS=0
+while kill -0 "$BENCHMARK_PID" 2>/dev/null; do
+    if [ -f "/proc/$BENCHMARK_PID/status" ]; then
+        # VmHWM is the peak RSS maintained by kernel
+        current_rss=$(grep "^VmHWM:" "/proc/$BENCHMARK_PID/status" 2>/dev/null | awk '{print $2}')
+        if [ -n "$current_rss" ] && [ "$current_rss" -gt "$MAX_RSS" ]; then
+            MAX_RSS=$current_rss
+        fi
+    fi
+    sleep 0.5
+done
+
+# Wait for benchmark to complete and get exit code
+wait $BENCHMARK_PID
+BENCHMARK_EXIT_CODE=$?
+
+# Get final VmHWM (read quickly before /proc entry is cleaned up)
+if [ -f "/proc/$BENCHMARK_PID/status" ]; then
+    final_rss=$(grep "^VmHWM:" "/proc/$BENCHMARK_PID/status" 2>/dev/null | awk '{print $2}')
+    if [ -n "$final_rss" ] && [ "$final_rss" -gt "$MAX_RSS" ]; then
+        MAX_RSS=$final_rss
+    fi
+fi
+
+if [ $BENCHMARK_EXIT_CODE -ne 0 ]; then
+    exit $BENCHMARK_EXIT_CODE
+fi
+
+# Display memory statistics
+echo ""
+echo "=========================================="
+echo "Memory Usage Statistics"
+echo "=========================================="
+if [ -n "$MAX_RSS" ] && [ "$MAX_RSS" -gt 0 ]; then
+    MAX_RSS_MB=$((MAX_RSS / 1024))
+    echo "Maximum resident set size (RSS): ${MAX_RSS} KB (${MAX_RSS_MB} MB)"
+else
+    echo "Warning: Could not determine maximum memory usage"
+fi
 
