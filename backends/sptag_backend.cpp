@@ -39,7 +39,13 @@ public:
         : server_addr(addr), server_port(port), vector_dim(dim), 
           python_process(nullptr), stdout_fd(-1), child_pid(-1), process_initialized(false) {
         python_client_path = "/app/backends/SPTAG/Release/SPTAGClient.py";
+        std::cerr << "SPTAGClientBackend: Initializing Python process for " << addr << ":" << port << std::endl;
         init_python_process();
+        if (!process_initialized) {
+            std::cerr << "SPTAGClientBackend: WARNING - Python process initialization failed!" << std::endl;
+        } else {
+            std::cerr << "SPTAGClientBackend: Python process initialized successfully" << std::endl;
+        }
     }
     
     ~SPTAGClientImpl() {
@@ -200,25 +206,57 @@ public:
             // It will be cleaned up on exit or we can leave it in /tmp
             
             // Give Python process time to start and connect to SPTAG server
+            // Wait longer (up to 6 seconds) for the connection to establish in cluster environments
             // The Python script will exit with error code 1 if it can't connect,
-            // so we should check if the process is still alive
-            usleep(200000); // 200ms delay to let Python process start and connect
+            // so we should check if the process is still alive multiple times
+            int max_wait_attempts = 30; // 30 * 200ms = 6 seconds
+            bool process_alive = true;
+            for (int attempt = 0; attempt < max_wait_attempts; ++attempt) {
+                usleep(200000); // 200ms delay
+                int status;
+                if (waitpid(child_pid, &status, WNOHANG) != 0) {
+                    // Process has exited
+                    process_alive = false;
+                    int exit_status = WEXITSTATUS(status);
+                    std::cerr << "SPTAGClientBackend: Python process exited after " 
+                              << (attempt + 1) * 200 << "ms (failed to connect to " 
+                              << server_addr << ":" << server_port << ")" << std::endl;
+                    std::cerr << "SPTAGClientBackend: Process exit status: " << exit_status << std::endl;
+                    
+                    // Try to read error output from the process before it died
+                    // Set stdout_fd to non-blocking to read any buffered output
+                    int flags = fcntl(stdout_fd, F_GETFL, 0);
+                    fcntl(stdout_fd, F_SETFL, flags | O_NONBLOCK);
+                    char error_buffer[4096];
+                    ssize_t error_read = read(stdout_fd, error_buffer, sizeof(error_buffer) - 1);
+                    if (error_read > 0) {
+                        error_buffer[error_read] = '\0';
+                        std::cerr << "SPTAGClientBackend: Python process error output: " 
+                                  << std::string(error_buffer) << std::endl;
+                    }
+                    fcntl(stdout_fd, F_SETFL, flags);
+                    
+                    fclose(python_process);
+                    python_process = nullptr;
+                    close(stdout_fd);
+                    stdout_fd = -1;
+                    child_pid = -1;
+                    remove(script_file.c_str());
+                    process_initialized = false;
+                    return;
+                }
+            }
             
-            // Check if child process is still alive
-            int status;
-            if (waitpid(child_pid, &status, WNOHANG) != 0) {
-                // Process has exited (probably failed to connect)
-                std::cerr << "SPTAGClientBackend: Python process exited immediately (failed to connect?)" << std::endl;
-                fclose(python_process);
-                python_process = nullptr;
-                close(stdout_fd);
-                stdout_fd = -1;
-                child_pid = -1;
-                remove(script_file.c_str());
+            if (!process_alive) {
+                process_initialized = false;
                 return;
             }
             
+            // Process is still alive after waiting - assume it connected successfully
             process_initialized = true;
+            std::cerr << "SPTAGClientBackend: Python process initialized and connected to " 
+                      << server_addr << ":" << server_port << " after " 
+                      << (max_wait_attempts * 200) << "ms" << std::endl;
         } else {
             std::cerr << "SPTAGClientBackend: Failed to fork" << std::endl;
             close(stdin_pipe[0]);
@@ -298,13 +336,31 @@ void SPTAGClientBackend<T, TagT>::search(
     // Use persistent Python process (serialized access)
     std::lock_guard<std::mutex> lock(pimpl_->process_mutex);
     
-    if (!pimpl_->python_process || pimpl_->stdout_fd < 0) {
-        std::cerr << "SPTAGClientBackend: Python process not initialized" << std::endl;
-        for (uint64_t k = 0; k < K; ++k) {
-            result_tags[k] = std::numeric_limits<TagT>::max();
-            result_distances[k] = std::numeric_limits<float>::infinity();
+    if (!pimpl_->python_process || pimpl_->stdout_fd < 0 || !pimpl_->process_initialized) {
+        std::cerr << "SPTAGClientBackend: Python process not initialized (python_process=" 
+                  << (pimpl_->python_process ? "valid" : "null") 
+                  << ", stdout_fd=" << pimpl_->stdout_fd 
+                  << ", process_initialized=" << pimpl_->process_initialized << ")" << std::endl;
+        // Try to reinitialize if not already attempted
+        if (!pimpl_->process_initialized) {
+            std::cerr << "SPTAGClientBackend: Attempting to reinitialize Python process..." << std::endl;
+            pimpl_->init_python_process();
+            if (!pimpl_->process_initialized || !pimpl_->python_process || pimpl_->stdout_fd < 0) {
+                std::cerr << "SPTAGClientBackend: Reinitialization failed, returning invalid results" << std::endl;
+                for (uint64_t k = 0; k < K; ++k) {
+                    result_tags[k] = std::numeric_limits<TagT>::max();
+                    result_distances[k] = std::numeric_limits<float>::infinity();
+                }
+                return;
+            }
+            std::cerr << "SPTAGClientBackend: Reinitialization successful!" << std::endl;
+        } else {
+            for (uint64_t k = 0; k < K; ++k) {
+                result_tags[k] = std::numeric_limits<TagT>::max();
+                result_distances[k] = std::numeric_limits<float>::infinity();
+            }
+            return;
         }
-        return;
     }
     
     // Create unique query and result files
