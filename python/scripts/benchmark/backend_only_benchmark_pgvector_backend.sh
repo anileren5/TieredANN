@@ -113,7 +113,7 @@ while kill -0 "$BENCHMARK_PID" 2>/dev/null; do
             MAX_RSS=$current_rss
         fi
     fi
-    sleep 0.5
+    sleep 0.01
 done
 
 # Wait for benchmark to complete and get exit code
