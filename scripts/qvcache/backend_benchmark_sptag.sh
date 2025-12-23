@@ -10,7 +10,7 @@ set -e
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="siftsmall"
+DATASET="deep10m"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 
@@ -33,7 +33,7 @@ METRIC="l2" # Distance metric: "l2", "cosine", or "inner_product"
 # SPTAG server configuration
 SPTAG_SERVER_ADDR="${SPTAG_SERVER_ADDR:-sptag}"
 SPTAG_SERVER_PORT="${SPTAG_SERVER_PORT:-8000}"
-VECTOR_DIM=128
+VECTOR_DIM=96
 
 # Check if query file exists (fallback to regular query file if noisy query doesn't exist)
 if [ ! -f "$QUERY_PATH" ]; then

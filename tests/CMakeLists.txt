@@ -8,10 +8,12 @@
             qvcache_split_search_bruteforce_backend qvcache/qvcache_split_search_bruteforce_backend.cpp
             qvcache_benchmark qvcache/qvcache_benchmark.cpp
             qvcache_benchmark_sptag qvcache/qvcache_benchmark_sptag.cpp
+            windowed_qvcache_benchmark qvcache/windowed_qvcache_benchmark.cpp
             cache_pressure qvcache/cache_pressure.cpp
             backend_cache_pressure qvcache/backend_cache_pressure.cpp
             backend_benchmark qvcache/backend_benchmark.cpp
             backend_benchmark_sptag qvcache/backend_benchmark_sptag.cpp
+            windowed_backend_benchmark qvcache/windowed_backend_benchmark.cpp
             diskann_split_search diskann/diskann_split_search.cpp
         )
 

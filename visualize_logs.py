@@ -46,7 +46,7 @@ QVCACHE_COLOR = '#0066CC'  # Blue for "With QVCache"
 
 
 def parse_log_file(log_path: str) -> List[Dict[str, Any]]:
-    """Parse JSON log file and extract split_metrics events."""
+    """Parse JSON log file and extract split_metrics or window_metrics events."""
     metrics = []
     with open(log_path, 'r') as f:
         for line in f:
@@ -55,7 +55,8 @@ def parse_log_file(log_path: str) -> List[Dict[str, Any]]:
                 continue
             try:
                 data = json.loads(line)
-                if data.get('event') == 'split_metrics':
+                event_type = data.get('event')
+                if event_type == 'split_metrics' or event_type == 'window_metrics':
                     metrics.append(data)
             except json.JSONDecodeError:
                 continue
@@ -771,18 +772,18 @@ def main():
     if args.backend_log:
         print(f"Parsing backend log file: {args.backend_log}")
         backend_metrics = parse_log_file(args.backend_log)
-        print(f"Found {len(backend_metrics)} split_metrics events in backend log")
+        print(f"Found {len(backend_metrics)} metrics events in backend log")
     
     if args.qvcache_log:
         print(f"Parsing QVCache log file: {args.qvcache_log}")
         qvcache_metrics = parse_log_file(args.qvcache_log)
-        print(f"Found {len(qvcache_metrics)} split_metrics events in QVCache log")
+        print(f"Found {len(qvcache_metrics)} metrics events in QVCache log")
     
     # Legacy support: if only --log is provided, use it as QVCache log
     if args.log and not args.qvcache_log and not args.backend_log:
         print(f"Parsing log file: {args.log}")
         qvcache_metrics = parse_log_file(args.log)
-        print(f"Found {len(qvcache_metrics)} split_metrics events")
+        print(f"Found {len(qvcache_metrics)} metrics events")
     
     if not backend_metrics and not qvcache_metrics:
         print("No metrics found in log files!")

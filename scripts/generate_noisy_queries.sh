@@ -10,8 +10,8 @@ cd "$(dirname "$0")/.." || exit 1
 
 # Default values (can be overridden by command-line arguments)
 DATASET="sift"
-N_SPLIT="4"
-N_SPLIT_REPEAT="10"
+N_SPLIT="10"
+N_SPLIT_REPEAT="20"
 NOISE_RATIO="0.01"
 RANDOM_SEED="42"
 DATA_DIR="data"
