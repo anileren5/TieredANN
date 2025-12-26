@@ -10,20 +10,20 @@ set -e
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="sift"
+DATASET="glove"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 
 # Noisy query parameters
-N_SPLIT=4
-N_SPLIT_REPEAT=10
+N_SPLIT=10
+N_SPLIT_REPEAT=20
 NOISE_RATIO=0.01
 
 # Window parameters
-WINDOW_SIZE=1
-N_REPEAT=5
+WINDOW_SIZE=4
+N_REPEAT=2
 STRIDE=1
-N_ROUND=2
+N_ROUND=1
 
 # Construct query and groundtruth paths based on noisy query parameters
 # Format noise_ratio to match Python script (remove trailing zeros)
@@ -33,7 +33,7 @@ GROUNDTRUTH_PATH="data/$DATASET/${DATASET}_groundtruth_nsplit-${N_SPLIT}_nrepeat
 
 # Backend parameters
 R=64
-DISK_L=64
+DISK_L=128
 K=10
 B=8
 M=8

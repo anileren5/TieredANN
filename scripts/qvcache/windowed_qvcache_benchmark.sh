@@ -10,20 +10,20 @@ set -e
 cd "$(dirname "$0")/../.." || exit 1
 
 # Define variables
-DATASET="sift"
+DATASET="glove"
 DATA_TYPE="float"
 DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 
 # Noisy query parameters
-N_SPLIT=4
-N_SPLIT_REPEAT=10
+N_SPLIT=10
+N_SPLIT_REPEAT=20
 NOISE_RATIO=0.01
 
 # Window parameters
-WINDOW_SIZE=1
-N_REPEAT=5
+WINDOW_SIZE=4
+N_REPEAT=2
 STRIDE=1
-N_ROUND=2
+N_ROUND=1
 
 # Construct query and groundtruth paths based on noisy query parameters
 # Format noise_ratio to match Python script (remove trailing zeros)
@@ -34,7 +34,7 @@ GROUNDTRUTH_PATH="data/$DATASET/${DATASET}_groundtruth_nsplit-${N_SPLIT}_nrepeat
 # QVCache parameters
 R=64
 MEMORY_L=32  
-DISK_L=64
+DISK_L=128
 K=10
 B=8
 M=8
@@ -46,15 +46,15 @@ DISK_INDEX_ALREADY_BUILT=1
 BEAMWIDTH=2
 USE_RECONSTRUCTED_VECTORS=0
 P=0.90
-DEVIATION_FACTOR=0.25
+DEVIATION_FACTOR=0.001
 SECTOR_LEN=4096
 USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
-MEMORY_INDEX_MAX_POINTS=100000 # Set to desired max points for memory index
-N_ASYNC_INSERT_THREADS=16 # Number of async insert threads
+MEMORY_INDEX_MAX_POINTS=60000 # Set to desired max points for memory index
+N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
 LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates
-NUMBER_OF_MINI_INDEXES=4 # Number of mini indexes for shadow cycling
+NUMBER_OF_MINI_INDEXES=16 # Number of mini indexes for shadow cycling
 SEARCH_MINI_INDEXES_IN_PARALLEL=false # Set to true to search mini indexes in parallel
 MAX_SEARCH_THREADS=32 # Maximum threads for parallel search
 SEARCH_STRATEGY="SEQUENTIAL_LRU_ADAPTIVE" # Search strategy: SEQUENTIAL_LRU_STOP_FIRST_HIT, SEQUENTIAL_LRU_ADAPTIVE, SEQUENTIAL_ALL, PARALLEL

@@ -18,7 +18,7 @@ query_file="./data/${dataset}/${dataset}_query.bin"
 truth_file="./data/${dataset}/${dataset}_groundtruth.bin"
 K=100
 results_prefix="./results/${dataset}/${dataset}"
-similarity="cosine"  # Distance metric: "l2", "cosine", or "inner_product"
+similarity="l2"  # Distance metric: "l2", "cosine", or "inner_product"
 Ls=(128 256 512 1024)
 sector_len=4096
 
