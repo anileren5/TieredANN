@@ -659,15 +659,15 @@ int main(int argc, char **argv) {
         data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, disk_L, K, B, M, build_threads, search_threads, alpha, use_reconstructed_vectors, disk_index_already_built, beamwidth, p, deviation_factor, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric_str, window_size, n_repeat, stride, n_round);
     if (data_type == "float") {
         std::unique_ptr<qvcache::BackendInterface<float, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<float>>(
-            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth, metric);
         experiment_benchmark<float>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend), window_size, n_repeat, stride, n_round);
     } else if (data_type == "int8") {
         std::unique_ptr<qvcache::BackendInterface<int8_t, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<int8_t>>(
-            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth, metric);
         experiment_benchmark<int8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend), window_size, n_repeat, stride, n_round);
     } else if (data_type == "uint8") {
         std::unique_ptr<qvcache::BackendInterface<uint8_t, uint32_t>> greator_backend = std::make_unique<qvcache::GreatorBackend<uint8_t>>(
-            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth);
+            data_path, disk_index_prefix, R, disk_L, B, M, build_threads, disk_index_already_built, beamwidth, metric);
         experiment_benchmark<uint8_t>(data_type, data_path, query_path, groundtruth_path, disk_index_prefix, R, memory_L, K, B, M, alpha, build_threads, search_threads, disk_index_already_built, beamwidth, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, std::move(greator_backend), window_size, n_repeat, stride, n_round);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
