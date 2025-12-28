@@ -4,17 +4,17 @@
 set -e
 
 # Change to the project root directory (one level above the script's location)
-cd "$(dirname "$0")/../.." || exit 1
+cd "$(dirname "$0")/../../.." || exit 1
 
 # Configuration parameters
-dataset="deep10m"
+dataset="text_to_image_1m_ip"
 data_type="float"
 R=128
 L=128
 B=8
 M=8
 T=16
-similarity="l2"  # Distance metric: "l2", "cosine", or "inner_product"
+similarity="inner_product"  # Distance metric: "l2", "cosine", or "inner_product"
 single_file_index=0
 sector_len=4096
 

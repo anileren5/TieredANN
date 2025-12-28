@@ -4,7 +4,7 @@
 set -e
 
 # Change to project root (one level above this script's location)
-cd "$(dirname "$0")/../.." || exit 1
+cd "$(dirname "$0")/../../.." || exit 1
 
 # Configuration
 data_type="float"
