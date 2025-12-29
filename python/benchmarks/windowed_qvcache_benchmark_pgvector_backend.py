@@ -20,7 +20,7 @@ except ImportError:
     print("Run: cd build && cmake .. && make")
     sys.exit(1)
 
-from backends.faiss_backend import PgVectorBackend
+from backends.pgvector_backend import PgVectorBackend
 from benchmarks.utils import hybrid_search, calculate_recall, calculate_hit_recall, log_window_metrics
 
 
