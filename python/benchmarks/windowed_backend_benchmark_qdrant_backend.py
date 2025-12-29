@@ -36,7 +36,7 @@ def experiment_benchmark(
     n_repeat: int,
     stride: int,
     n_round: int,
-    qdrant_url: str = "http://localhost:6333"
+    qdrant_url: str = "http://qdrant:6333"
 ):
     """Run the backend-only benchmark experiment with Qdrant backend."""
     # Load ground truth
@@ -204,7 +204,7 @@ def main():
     parser.add_argument("--query_path", type=str, required=True, help="Path to query data file")
     parser.add_argument("--groundtruth_path", type=str, required=True, help="Path to groundtruth file")
     parser.add_argument("--collection_name", type=str, default="vectors", help="Qdrant collection name")
-    parser.add_argument("--qdrant_url", type=str, default="http://localhost:6333", help="Qdrant URL")
+    parser.add_argument("--qdrant_url", type=str, default="http://qdrant:6333", help="Qdrant URL")
     
     # Search parameters
     parser.add_argument("--K", type=int, default=100, help="Number of nearest neighbors")
