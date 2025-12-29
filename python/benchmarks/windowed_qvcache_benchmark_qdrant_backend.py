@@ -190,7 +190,7 @@ def experiment_benchmark(data_path: str,
                     current_idx += info["query_size"]
                 
                 # Perform search using backend
-                query_result_tags, metrics = hybrid_search(
+                _, _, query_result_tags, metrics = hybrid_search(
                     qvcache,
                     shuffled_queries,
                     K,
