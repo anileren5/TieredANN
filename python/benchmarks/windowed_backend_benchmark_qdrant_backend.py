@@ -53,6 +53,11 @@ def experiment_benchmark(
     queries_per_original_split = query_num // (n_splits * n_split_repeat)
     
     # Validate window parameters
+    # Ensure window parameters are integers
+    window_size = int(window_size)
+    n_repeat = int(n_repeat)
+    stride = int(stride)
+    n_round = int(n_round)
     min_split_repeat = (window_size // stride) * n_repeat * n_round
     if n_split_repeat < min_split_repeat:
         print(f"Error: n_split_repeat ({n_split_repeat}) must be >= (window_size / stride) * n_repeat * n_round = {min_split_repeat}", file=sys.stderr)
