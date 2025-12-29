@@ -36,7 +36,9 @@ K=10
 SEARCH_THREADS=24
 INDEX_NAME="vectors"
 API_KEY="${PINECONE_API_KEY:-}"  # Use environment variable if set
-ENVIRONMENT="${PINECONE_ENVIRONMENT:-}"  # Optional, for cloud Pinecone
+# Your Pinecone region/environment (e.g., "us-east-1", "us-west-2", "eu-west-1")
+# Check your Pinecone dashboard for the correct region
+ENVIRONMENT="${PINECONE_ENVIRONMENT:-us-east-1}"  # Default: us-east-1
 METRIC="l2" # Distance metric: "l2", "cosine", or "inner_product"
 
 # Validate window parameters
@@ -101,9 +103,8 @@ if [ -n "$API_KEY" ]; then
     CMD="$CMD --api_key \"$API_KEY\""
 fi
 
-if [ -n "$ENVIRONMENT" ]; then
-    CMD="$CMD --environment \"$ENVIRONMENT\""
-fi
+# Always pass environment (required for cloud Pinecone)
+CMD="$CMD --environment \"$ENVIRONMENT\""
 
 # Run the benchmark with all parameters and measure memory usage
 # Monitor memory using /proc/<pid>/status VmHWM (High Water Mark)
