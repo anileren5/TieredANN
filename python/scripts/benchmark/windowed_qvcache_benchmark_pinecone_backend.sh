@@ -137,7 +137,6 @@ CMD="python3 python/benchmarks/windowed_qvcache_benchmark_pinecone_backend.py \
   --max_search_threads \"$MAX_SEARCH_THREADS\" \
   --search_strategy \"$SEARCH_STRATEGY\" \
   --data_type \"$DATA_TYPE\" \
-  --metric \"$METRIC\" \
   --window_size \"$WINDOW_SIZE\" \
   --n_repeat \"$N_REPEAT\" \
   --stride \"$STRIDE\" \
