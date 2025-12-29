@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Windowed QVCache benchmark using pgvector backend
+Python version of qvcache_benchmark.cpp using pgvector backend
 
-This script implements the window-based benchmark logic using a Python-implemented pgvector backend.
+This script implements the windowed QVCache benchmark logic from the C++ version
+but uses a Python-implemented pgvector backend.
 """
 
 import argparse
@@ -10,7 +11,6 @@ import numpy as np
 import json
 import sys
 import random
-import time
 
 # Import the compiled qvcache module
 try:
@@ -24,8 +24,7 @@ from backends.pgvector_backend import PgVectorBackend
 from benchmarks.utils import hybrid_search, calculate_recall, calculate_hit_recall, log_window_metrics
 
 
-def experiment_benchmark(
-    data_path: str,
+def experiment_benchmark(data_path: str,
     query_path: str,
     groundtruth_path: str,
     pca_prefix: str,
@@ -55,18 +54,17 @@ def experiment_benchmark(
     search_strategy: str,
     backend: PgVectorBackend,
     table_name: str,
-    window_size: int,
-    n_repeat: int,
-    stride: int,
-    n_round: int,
     db_host: str = "localhost",
     db_port: int = 5432,
     db_name: str = "postgres",
     db_user: str = "postgres",
     db_password: str = "postgres",
-    metric: str = "l2"
-):
-    """Run the window-based benchmark experiment with pgvector backend."""
+    metric: str = "l2",
+    window_size: int,
+    n_repeat: int,
+    stride: int,
+    n_round: int):
+    """Run the windowed QVCache benchmark experiment with pgvector backend."""
     # Convert metric string to enum
     if metric.lower() == "cosine":
         metric_enum = qvc.Metric.COSINE
@@ -199,8 +197,8 @@ def experiment_benchmark(
                     shuffled_groundtruth[current_idx:current_idx + info["query_size"]] = groundtruth_ids[info["gt_offset"]:info["gt_offset"] + info["query_size"]]
                     current_idx += info["query_size"]
                 
-                # Perform search on shuffled queries
-                hit_results, _, query_result_tags, metrics = hybrid_search(
+                # Perform search using backend
+                query_result_tags, metrics = hybrid_search(
                     qvcache,
                     shuffled_queries,
                     K,
@@ -214,8 +212,9 @@ def experiment_benchmark(
                     query_result_tags, total_repeat_queries, groundtruth_dim
                 )
                 recall_hits = calculate_hit_recall(
+                    K, shuffled_groundtruth,
                     K, shuffled_groundtruth, 
-                    query_result_tags, hit_results, total_repeat_queries, groundtruth_dim
+                    query_result_tags, total_repeat_queries, groundtruth_dim
                 )
                 
                 log_window_metrics(metrics, recall_all, recall_hits, window_idx=window_idx, repeat_idx=repeat_idx)
@@ -230,9 +229,60 @@ def experiment_benchmark(
             "event": "round_end",
             "round": round_num
         }))
+
+
+
+    for split_idx in range(n_splits):
+        print(json.dumps({
+            "event": "split_start",
+            "split_idx": split_idx
+        }))
+        
+        # Process all copies for this split
+        for copy_idx in range(n_split_repeat):
+            # Calculate query range for this specific copy of this split
+            # Structure: split 0 (all copies), split 1 (all copies), ...
+            # For split i, copy j: offset = i * (n_split_repeat * queries_per_original_split) + j * queries_per_original_split
+            split_offset = split_idx * n_split_repeat * queries_per_original_split
+            copy_offset = copy_idx * queries_per_original_split
+            query_start = split_offset + copy_offset
+            query_end = min(query_start + queries_per_original_split, query_num)
+            
+            if query_start >= query_end:
+                continue
+            
+            this_split_size = query_end - query_start
+            split_queries = queries[query_start:query_end]
+            
+            hit_results, _, query_result_tags, metrics = hybrid_search(
+                qvcache,
+                split_queries,
+                K,
+                search_threads,
+                data_path
+            )
+            
+            # Calculate groundtruth offset (same structure as queries)
+            gt_start = split_offset + copy_offset
+            recall_all = calculate_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, this_split_size, groundtruth_dim
+            )
+            recall_hits = calculate_hit_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, hit_results, this_split_size, groundtruth_dim
+            )
+            
+            log_window_metrics(metrics, recall_all, recall_hits, split_idx=split_idx)
+        
+        print(json.dumps({
+            "event": "split_end",
+            "split_idx": split_idx
+        }))
     
     # Give async insert threads time to complete before cleanup
     # QVCache uses async insert threads that might still be processing
+    import time
     time.sleep(2)  # Wait 2 seconds for async operations to complete
     
     # Explicitly delete qvcache to trigger cleanup
@@ -240,7 +290,7 @@ def experiment_benchmark(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Windowed QVCache benchmark experiment with pgvector backend")
+    parser = argparse.ArgumentParser(description="QVCache benchmark experiment with pgvector backend")
     parser.add_argument("--data_path", type=str, required=True, help="Path to base data file")
     parser.add_argument("--query_path", type=str, required=True, help="Path to query data file")
     parser.add_argument("--groundtruth_path", type=str, required=True, help="Path to groundtruth file")
@@ -257,6 +307,8 @@ def main():
                        help="Database user (default: postgres)")
     parser.add_argument("--db_password", type=str, default="postgres",
                        help="Database password (default: postgres)")
+    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine"],
+                       help="Distance metric (default: l2)")
     
     # QVCache parameters
     parser.add_argument("--R", type=int, default=64, help="R parameter")
@@ -287,8 +339,6 @@ def main():
                                "SEQUENTIAL_ALL", "PARALLEL"],
                        help="Search strategy")
     parser.add_argument("--data_type", type=str, default="float", help="Data type")
-    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine", "inner_product"],
-                       help="Distance metric: l2, cosine, or inner_product")
     
     # Window parameters
     parser.add_argument("--window_size", type=int, required=True, help="Window size (number of splits per window)")
@@ -349,7 +399,7 @@ def main():
         num_vectors = np.frombuffer(f.read(4), dtype=np.uint32)[0]
         dimension = int(np.frombuffer(f.read(4), dtype=np.uint32)[0])  # Convert to Python int
     
-    # Create pgvector backend (assumes index already exists)
+    # Create pgvector backend (assumes table already exists)
     print(f"\nConnecting to PostgreSQL at {args.db_host}:{args.db_port}...", file=sys.stderr)
     backend = PgVectorBackend(
         table_name=args.table_name,
@@ -376,9 +426,8 @@ def main():
         args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
-        args.search_strategy, backend, args.table_name,
-        args.window_size, args.n_repeat, args.stride, args.n_round,
-        args.db_host, args.db_port, args.db_name, args.db_user, args.db_password, args.metric
+        args.search_strategy, backend, args.table_name, args.db_host, args.db_port,
+        args.db_name, args.db_user, args.db_password, args.metric
     )
 
 

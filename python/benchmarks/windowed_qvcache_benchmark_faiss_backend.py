@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Windowed QVCache benchmark using FAISS backend
+Python version of qvcache_benchmark.cpp using FAISS backend
 
-This script implements the window-based benchmark logic using a Python-implemented FAISS backend.
+This script implements the windowed QVCache benchmark logic from the C++ version
+but uses a Python-implemented FAISS backend.
 """
 
 import argparse
@@ -10,7 +11,6 @@ import numpy as np
 import json
 import sys
 import random
-import time
 
 # Import the compiled qvcache module
 try:
@@ -54,13 +54,11 @@ def experiment_benchmark(
     max_search_threads: int,
     search_strategy: str,
     backend: FaissBackend,
-    index_path: str,
-    window_size: int,
-    n_repeat: int,
-    stride: int,
-    n_round: int
-):
-    """Run the window-based benchmark experiment with FAISS backend."""
+    index_path: str
+,
+        args.window_size, args.n_repeat, args.stride, args.n_round
+    ):
+    """Run the windowed QVCache benchmark experiment with FAISS backend."""
     # Create QVCache with FAISS backend
     qvcache = qvc.QVCache(
         data_path=data_path,
@@ -184,8 +182,8 @@ def experiment_benchmark(
                     shuffled_groundtruth[current_idx:current_idx + info["query_size"]] = groundtruth_ids[info["gt_offset"]:info["gt_offset"] + info["query_size"]]
                     current_idx += info["query_size"]
                 
-                # Perform search on shuffled queries
-                hit_results, _, query_result_tags, metrics = hybrid_search(
+                # Perform search using backend
+                query_result_tags, metrics = hybrid_search(
                     qvcache,
                     shuffled_queries,
                     K,
@@ -199,8 +197,9 @@ def experiment_benchmark(
                     query_result_tags, total_repeat_queries, groundtruth_dim
                 )
                 recall_hits = calculate_hit_recall(
+                    K, shuffled_groundtruth,
                     K, shuffled_groundtruth, 
-                    query_result_tags, hit_results, total_repeat_queries, groundtruth_dim
+                    query_result_tags, total_repeat_queries, groundtruth_dim
                 )
                 
                 log_window_metrics(metrics, recall_all, recall_hits, window_idx=window_idx, repeat_idx=repeat_idx)
@@ -215,9 +214,60 @@ def experiment_benchmark(
             "event": "round_end",
             "round": round_num
         }))
+
+
+
+    for split_idx in range(n_splits):
+        print(json.dumps({
+            "event": "split_start",
+            "split_idx": split_idx
+        }))
+        
+        # Process all copies for this split
+        for copy_idx in range(n_split_repeat):
+            # Calculate query range for this specific copy of this split
+            # Structure: split 0 (all copies), split 1 (all copies), ...
+            # For split i, copy j: offset = i * (n_split_repeat * queries_per_original_split) + j * queries_per_original_split
+            split_offset = split_idx * n_split_repeat * queries_per_original_split
+            copy_offset = copy_idx * queries_per_original_split
+            query_start = split_offset + copy_offset
+            query_end = min(query_start + queries_per_original_split, query_num)
+            
+            if query_start >= query_end:
+                continue
+            
+            this_split_size = query_end - query_start
+            split_queries = queries[query_start:query_end]
+            
+            hit_results, _, query_result_tags, metrics = hybrid_search(
+                qvcache,
+                split_queries,
+                K,
+                search_threads,
+                data_path
+            )
+            
+            # Calculate groundtruth offset (same structure as queries)
+            gt_start = split_offset + copy_offset
+            recall_all = calculate_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, this_split_size, groundtruth_dim
+            )
+            recall_hits = calculate_hit_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, hit_results, this_split_size, groundtruth_dim
+            )
+            
+            log_window_metrics(metrics, recall_all, recall_hits, split_idx=split_idx)
+        
+        print(json.dumps({
+            "event": "split_end",
+            "split_idx": split_idx
+        }))
     
     # Give async insert threads time to complete before cleanup
     # QVCache uses async insert threads that might still be processing
+    import time
     time.sleep(2)  # Wait 2 seconds for async operations to complete
     
     # Explicitly delete qvcache to trigger cleanup
@@ -225,7 +275,7 @@ def experiment_benchmark(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Windowed QVCache benchmark experiment with FAISS backend")
+    parser = argparse.ArgumentParser(description="QVCache benchmark experiment with FAISS backend")
     parser.add_argument("--data_path", type=str, required=True, help="Path to base data file")
     parser.add_argument("--query_path", type=str, required=True, help="Path to query data file")
     parser.add_argument("--groundtruth_path", type=str, required=True, help="Path to groundtruth file")
@@ -341,8 +391,7 @@ def main():
         args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
-        args.search_strategy, backend, args.index_path,
-        args.window_size, args.n_repeat, args.stride, args.n_round
+        args.search_strategy, backend, args.index_path
     )
 
 

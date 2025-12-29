@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Windowed QVCache benchmark using Qdrant backend
+Python version of qvcache_benchmark.cpp using Qdrant backend
 
-This script implements the window-based benchmark logic using a Python-implemented Qdrant backend.
+This script implements the windowed QVCache benchmark logic from the C++ version
+but uses a Python-implemented Qdrant backend.
 """
 
 import argparse
@@ -10,7 +11,6 @@ import numpy as np
 import json
 import sys
 import random
-import time
 
 # Import the compiled qvcache module
 try:
@@ -24,8 +24,7 @@ from backends.qdrant_backend import QdrantBackend
 from benchmarks.utils import hybrid_search, calculate_recall, calculate_hit_recall, log_window_metrics
 
 
-def experiment_benchmark(
-    data_path: str,
+def experiment_benchmark(data_path: str,
     query_path: str,
     groundtruth_path: str,
     pca_prefix: str,
@@ -55,13 +54,12 @@ def experiment_benchmark(
     search_strategy: str,
     backend: QdrantBackend,
     collection_name: str,
+    qdrant_url: str = "http://localhost:6333",
     window_size: int,
     n_repeat: int,
     stride: int,
-    n_round: int,
-    qdrant_url: str = "http://localhost:6333"
-):
-    """Run the window-based benchmark experiment with Qdrant backend."""
+    n_round: int):
+    """Run the windowed QVCache benchmark experiment with Qdrant backend."""
     # Create QVCache with Qdrant backend
     qvcache = qvc.QVCache(
         data_path=data_path,
@@ -185,8 +183,8 @@ def experiment_benchmark(
                     shuffled_groundtruth[current_idx:current_idx + info["query_size"]] = groundtruth_ids[info["gt_offset"]:info["gt_offset"] + info["query_size"]]
                     current_idx += info["query_size"]
                 
-                # Perform search on shuffled queries
-                hit_results, _, query_result_tags, metrics = hybrid_search(
+                # Perform search using backend
+                query_result_tags, metrics = hybrid_search(
                     qvcache,
                     shuffled_queries,
                     K,
@@ -200,8 +198,9 @@ def experiment_benchmark(
                     query_result_tags, total_repeat_queries, groundtruth_dim
                 )
                 recall_hits = calculate_hit_recall(
+                    K, shuffled_groundtruth,
                     K, shuffled_groundtruth, 
-                    query_result_tags, hit_results, total_repeat_queries, groundtruth_dim
+                    query_result_tags, total_repeat_queries, groundtruth_dim
                 )
                 
                 log_window_metrics(metrics, recall_all, recall_hits, window_idx=window_idx, repeat_idx=repeat_idx)
@@ -216,9 +215,60 @@ def experiment_benchmark(
             "event": "round_end",
             "round": round_num
         }))
+
+
+
+    for split_idx in range(n_splits):
+        print(json.dumps({
+            "event": "split_start",
+            "split_idx": split_idx
+        }))
+        
+        # Process all copies for this split
+        for copy_idx in range(n_split_repeat):
+            # Calculate query range for this specific copy of this split
+            # Structure: split 0 (all copies), split 1 (all copies), ...
+            # For split i, copy j: offset = i * (n_split_repeat * queries_per_original_split) + j * queries_per_original_split
+            split_offset = split_idx * n_split_repeat * queries_per_original_split
+            copy_offset = copy_idx * queries_per_original_split
+            query_start = split_offset + copy_offset
+            query_end = min(query_start + queries_per_original_split, query_num)
+            
+            if query_start >= query_end:
+                continue
+            
+            this_split_size = query_end - query_start
+            split_queries = queries[query_start:query_end]
+            
+            hit_results, _, query_result_tags, metrics = hybrid_search(
+                qvcache,
+                split_queries,
+                K,
+                search_threads,
+                data_path
+            )
+            
+            # Calculate groundtruth offset (same structure as queries)
+            gt_start = split_offset + copy_offset
+            recall_all = calculate_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, this_split_size, groundtruth_dim
+            )
+            recall_hits = calculate_hit_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, hit_results, this_split_size, groundtruth_dim
+            )
+            
+            log_window_metrics(metrics, recall_all, recall_hits, split_idx=split_idx)
+        
+        print(json.dumps({
+            "event": "split_end",
+            "split_idx": split_idx
+        }))
     
     # Give async insert threads time to complete before cleanup
     # QVCache uses async insert threads that might still be processing
+    import time
     time.sleep(2)  # Wait 2 seconds for async operations to complete
     
     # Explicitly delete qvcache to trigger cleanup
@@ -226,13 +276,15 @@ def experiment_benchmark(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Windowed QVCache benchmark experiment with Qdrant backend")
+    parser = argparse.ArgumentParser(description="QVCache benchmark experiment with Qdrant backend")
     parser.add_argument("--data_path", type=str, required=True, help="Path to base data file")
     parser.add_argument("--query_path", type=str, required=True, help="Path to query data file")
     parser.add_argument("--groundtruth_path", type=str, required=True, help="Path to groundtruth file")
     parser.add_argument("--pca_prefix", type=str, required=True, help="PCA index prefix")
-    parser.add_argument("--collection_name", type=str, default="vectors", help="Qdrant collection name")
-    parser.add_argument("--qdrant_url", type=str, default="http://localhost:6333", help="Qdrant URL")
+    parser.add_argument("--collection_name", type=str, default="vectors",
+                       help="Qdrant collection name (default: vectors)")
+    parser.add_argument("--qdrant_url", type=str, default="http://localhost:6333",
+                       help="Qdrant service URL (default: http://localhost:6333)")
     
     # QVCache parameters
     parser.add_argument("--R", type=int, default=64, help="R parameter")
@@ -322,13 +374,13 @@ def main():
         num_vectors = np.frombuffer(f.read(4), dtype=np.uint32)[0]
         dimension = np.frombuffer(f.read(4), dtype=np.uint32)[0]
     
-    # Create Qdrant backend (assumes collection already exists)
+    # Create Qdrant backend (assumes index already exists)
     print(f"\nConnecting to Qdrant at {args.qdrant_url}...", file=sys.stderr)
     backend = QdrantBackend(
         collection_name=args.collection_name,
         dimension=dimension,
         qdrant_url=args.qdrant_url,
-        data_path=args.data_path,
+        data_path=None,  # Don't load data here, should already be indexed
         recreate_collection=False
     )
     
@@ -344,9 +396,7 @@ def main():
         args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
-        args.search_strategy, backend, args.collection_name,
-        args.window_size, args.n_repeat, args.stride, args.n_round,
-        args.qdrant_url
+        args.search_strategy, backend, args.collection_name, args.qdrant_url
     )
 
 

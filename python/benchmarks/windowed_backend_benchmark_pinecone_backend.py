@@ -9,8 +9,8 @@ import argparse
 import numpy as np
 import json
 import sys
-import os
 import random
+import os
 
 try:
     import qvcache as qvc
@@ -40,7 +40,7 @@ def experiment_benchmark(
     api_key: str = None,
     environment: str = None
 ):
-    """Run the windowed backend-only benchmark experiment with Pinecone backend."""
+    """Run the backend-only benchmark experiment with Pinecone backend."""
     # Load ground truth
     groundtruth_ids, groundtruth_dists = qvc.load_ground_truth_data(groundtruth_path)
     n_groundtruth, groundtruth_dim = groundtruth_ids.shape
@@ -150,6 +150,51 @@ def experiment_benchmark(
         }))
 
 
+
+    for split_idx in range(n_splits):
+        print(json.dumps({
+            "event": "split_start",
+            "split_idx": split_idx
+        }))
+        
+        # Process all copies for this split
+        for copy_idx in range(n_split_repeat):
+            # Calculate query range for this specific copy of this split
+            # Structure: split 0 (all copies), split 1 (all copies), ...
+            # For split i, copy j: offset = i * (n_split_repeat * queries_per_original_split) + j * queries_per_original_split
+            split_offset = split_idx * n_split_repeat * queries_per_original_split
+            copy_offset = copy_idx * queries_per_original_split
+            query_start = split_offset + copy_offset
+            query_end = min(query_start + queries_per_original_split, query_num)
+            
+            if query_start >= query_end:
+                continue
+            
+            this_split_size = query_end - query_start
+            split_queries = queries[query_start:query_end]
+            
+            query_result_tags, metrics = backend_search(
+                backend,
+                split_queries,
+                K,
+                search_threads
+            )
+            
+            # Calculate groundtruth offset (same structure as queries)
+            gt_start = split_offset + copy_offset
+            recall_all = calculate_backend_recall(
+                K, groundtruth_ids[gt_start:gt_start + this_split_size], 
+                query_result_tags, this_split_size, groundtruth_dim
+            )
+            
+            log_backend_window_metrics(metrics, recall_all, split_idx=split_idx)
+        
+        print(json.dumps({
+            "event": "split_end",
+            "split_idx": split_idx
+        }))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Windowed backend-only benchmark experiment with Pinecone backend")
     parser.add_argument("--data_path", type=str, required=True, help="Path to base data file")
@@ -224,9 +269,7 @@ def main():
         args.data_path, args.query_path, args.groundtruth_path,
         args.K, args.search_threads,
         args.n_splits, args.n_split_repeat,
-        backend, args.index_name,
-        args.window_size, args.n_repeat, args.stride, args.n_round,
-        api_key, args.environment
+        backend, args.index_name, api_key, args.environment
     )
 
 
