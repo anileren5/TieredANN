@@ -16,7 +16,7 @@ DATA_PATH="data/$DATASET/${DATASET}_base.bin"
 
 # Noisy query parameters
 N_SPLIT=10
-N_SPLIT_REPEAT=20
+N_SPLIT_REPEAT=30
 NOISE_RATIO=0.01
 
 # Window parameters
