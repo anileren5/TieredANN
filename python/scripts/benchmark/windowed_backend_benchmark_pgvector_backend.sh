@@ -35,12 +35,23 @@ GROUNDTRUTH_PATH="data/$DATASET/${DATASET}_groundtruth_nsplit-${N_SPLIT}_nrepeat
 K=10
 SEARCH_THREADS=24
 TABLE_NAME="$DATASET" # PostgreSQL table name (same as dataset name)
-DB_HOST="${DB_HOST:-localhost}"  # Default: localhost (use "postgres" for Docker)
 DB_PORT=5432
 DB_NAME="postgres"
 DB_USER="postgres"
 DB_PASSWORD="postgres"
 METRIC="l2" # Distance metric: "l2", "cosine", or "inner_product"
+
+# Detect if running inside Docker and set PostgreSQL host accordingly
+if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
+    DB_HOST="postgres"  # Docker internal network
+else
+    DB_HOST="localhost"  # Local machine
+fi
+
+# Allow override via environment variable
+if [ -n "$DB_HOST_ENV" ]; then
+    DB_HOST="$DB_HOST_ENV"
+fi
 
 # Validate window parameters
 MIN_SPLIT_REPEAT=$(( (WINDOW_SIZE / STRIDE) * N_REPEAT * N_ROUND ))
