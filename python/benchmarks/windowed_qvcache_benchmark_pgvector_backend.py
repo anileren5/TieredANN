@@ -54,16 +54,17 @@ def experiment_benchmark(data_path: str,
     search_strategy: str,
     backend: PgVectorBackend,
     table_name: str,
+    window_size: int,
+    n_repeat: int,
+    stride: int,
+    n_round: int,
     db_host: str = "localhost",
     db_port: int = 5432,
     db_name: str = "postgres",
     db_user: str = "postgres",
     db_password: str = "postgres",
-    metric: str = "l2",
-    window_size: int,
-    n_repeat: int,
-    stride: int,
-    n_round: int):
+    metric: str = "l2"
+):
     """Run the windowed QVCache benchmark experiment with pgvector backend."""
     # Convert metric string to enum
     if metric.lower() == "cosine":

@@ -54,11 +54,12 @@ def experiment_benchmark(data_path: str,
     search_strategy: str,
     backend: QdrantBackend,
     collection_name: str,
-    qdrant_url: str = "http://localhost:6333",
     window_size: int,
     n_repeat: int,
     stride: int,
-    n_round: int):
+    n_round: int,
+    qdrant_url: str = "http://localhost:6333"
+):
     """Run the windowed QVCache benchmark experiment with Qdrant backend."""
     # Create QVCache with Qdrant backend
     qvcache = qvc.QVCache(

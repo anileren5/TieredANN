@@ -54,10 +54,12 @@ def experiment_benchmark(
     max_search_threads: int,
     search_strategy: str,
     backend: FaissBackend,
-    index_path: str
-,
-        args.window_size, args.n_repeat, args.stride, args.n_round
-    ):
+    index_path: str,
+    window_size: int,
+    n_repeat: int,
+    stride: int,
+    n_round: int
+):
     """Run the windowed QVCache benchmark experiment with FAISS backend."""
     # Create QVCache with FAISS backend
     qvcache = qvc.QVCache(

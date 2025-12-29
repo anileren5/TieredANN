@@ -55,12 +55,13 @@ def experiment_benchmark(data_path: str,
     search_strategy: str,
     backend: PineconeBackend,
     index_name: str,
-    api_key: str = None,
-    environment: str = None,
     window_size: int,
     n_repeat: int,
     stride: int,
-    n_round: int):
+    n_round: int,
+    api_key: str = None,
+    environment: str = None
+):
     """Run the windowed QVCache benchmark experiment with Pinecone backend."""
     # Create QVCache with Pinecone backend
     qvcache = qvc.QVCache(
@@ -375,13 +376,11 @@ def main():
         "number_of_mini_indexes": args.number_of_mini_indexes,
         "search_mini_indexes_in_parallel": args.search_mini_indexes_in_parallel,
         "max_search_threads": args.max_search_threads,
-        "search_strategy",
+        "search_strategy": args.search_strategy,
         "window_size": args.window_size,
         "n_repeat": args.n_repeat,
         "stride": args.stride,
         "n_round": args.n_round
-    }
-    : args.search_strategy
     }
     print(json.dumps(params))
     
