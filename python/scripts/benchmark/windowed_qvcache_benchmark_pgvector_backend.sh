@@ -57,7 +57,7 @@ SEARCH_STRATEGY="SEQUENTIAL_LRU_ADAPTIVE" # Search strategy: SEQUENTIAL_LRU_STOP
 METRIC="l2" # Distance metric: "l2", "cosine", or "inner_product"
 
 # PgVector backend parameters
-TABLE_NAME="vectors"
+TABLE_NAME="$DATASET" # PostgreSQL table name (same as dataset name)
 DB_HOST="${DB_HOST:-localhost}"  # Default: localhost (use "postgres" for Docker)
 DB_PORT="${DB_PORT:-5432}"       # Default PostgreSQL port
 DB_NAME="${DB_NAME:-postgres}"   # Default database name

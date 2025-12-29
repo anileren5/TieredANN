@@ -34,8 +34,8 @@ GROUNDTRUTH_PATH="data/$DATASET/${DATASET}_groundtruth_nsplit-${N_SPLIT}_nrepeat
 # PgVector backend parameters
 K=10
 SEARCH_THREADS=24
-TABLE_NAME="vectors"
-DB_HOST="localhost"
+TABLE_NAME="$DATASET" # PostgreSQL table name (same as dataset name)
+DB_HOST="${DB_HOST:-localhost}"  # Default: localhost (use "postgres" for Docker)
 DB_PORT=5432
 DB_NAME="postgres"
 DB_USER="postgres"

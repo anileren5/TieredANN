@@ -61,7 +61,7 @@ DB_USER="${DB_USER:-postgres}"   # Default user
 DB_PASSWORD="${DB_PASSWORD:-postgres}"  # Default password
 
 # Table name is derived from dataset name
-TABLE_NAME="vectors"
+TABLE_NAME="$DATASET"
 
 # Detect if running inside Docker and set PostgreSQL host accordingly
 if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
