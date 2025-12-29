@@ -328,8 +328,8 @@ def main():
         collection_name=args.collection_name,
         dimension=dimension,
         qdrant_url=args.qdrant_url,
-        data_path=args.data_path,  # Needed for fetch_vectors_by_ids
-        recreate_index=False
+        data_path=None,  # Don't load data here, should already be indexed
+        recreate_collection=False
     )
     
     # Run experiment

@@ -326,7 +326,7 @@ def main():
     # Get vector dimension from data file
     with open(args.data_path, 'rb') as f:
         num_vectors = np.frombuffer(f.read(4), dtype=np.uint32)[0]
-        dimension = np.frombuffer(f.read(4), dtype=np.uint32)[0]
+        dimension = int(np.frombuffer(f.read(4), dtype=np.uint32)[0])  # Convert to Python int
     
     # Create Pinecone backend (assumes index already exists)
     print(f"\nConnecting to Pinecone index {args.index_name}...", file=sys.stderr)
