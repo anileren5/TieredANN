@@ -418,7 +418,9 @@ def main():
         args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
-        args.search_strategy, backend, args.index_name, api_key, args.environment
+        args.search_strategy, backend, args.index_name,
+        args.window_size, args.n_repeat, args.stride, args.n_round,
+        api_key, args.environment
     )
 
 
