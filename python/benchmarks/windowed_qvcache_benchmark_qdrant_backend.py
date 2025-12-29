@@ -54,11 +54,12 @@ def experiment_benchmark(
     max_search_threads: int,
     search_strategy: str,
     backend: QdrantBackend,
-    index_path: str,
+    collection_name: str,
     window_size: int,
     n_repeat: int,
     stride: int,
-    n_round: int
+    n_round: int,
+    qdrant_url: str = "http://localhost:6333"
 ):
     """Run the window-based benchmark experiment with Qdrant backend."""
     # Create QVCache with Qdrant backend
@@ -322,10 +323,11 @@ def main():
         dimension = np.frombuffer(f.read(4), dtype=np.uint32)[0]
     
     # Create Qdrant backend (assumes index already exists)
-    print(f"\nLoading Qdrant index from {args.index_path}...", file=sys.stderr)
+    print(f"\nConnecting to Qdrant at {args.qdrant_url}...", file=sys.stderr)
     backend = QdrantBackend(
-        index_path=args.index_path,
+        collection_name=args.collection_name,
         dimension=dimension,
+        qdrant_url=args.qdrant_url,
         data_path=args.data_path,  # Needed for fetch_vectors_by_ids
         recreate_index=False
     )
@@ -342,8 +344,9 @@ def main():
         args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
-        args.search_strategy, backend, args.collection_name, args.qdrant_url,
-        args.window_size, args.n_repeat, args.stride, args.n_round
+        args.search_strategy, backend, args.collection_name,
+        args.window_size, args.n_repeat, args.stride, args.n_round,
+        args.qdrant_url
     )
 
 

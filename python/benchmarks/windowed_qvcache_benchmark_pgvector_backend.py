@@ -257,8 +257,6 @@ def main():
                        help="Database user (default: postgres)")
     parser.add_argument("--db_password", type=str, default="postgres",
                        help="Database password (default: postgres)")
-    parser.add_argument("--metric", type=str, default="l2", choices=["l2", "cosine"],
-                       help="Distance metric (default: l2)")
     
     # QVCache parameters
     parser.add_argument("--R", type=int, default=64, help="R parameter")
