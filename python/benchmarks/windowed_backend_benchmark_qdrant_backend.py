@@ -32,10 +32,12 @@ def experiment_benchmark(
     n_split_repeat: int,
     backend: QdrantBackend,
     collection_name: str,
+    window_size: int,
+    n_repeat: int,
+    stride: int,
+    n_round: int,
     qdrant_url: str = "http://localhost:6333"
-,
-        args.window_size, args.n_repeat, args.stride, args.n_round
-    ):
+):
     """Run the backend-only benchmark experiment with Qdrant backend."""
     # Load ground truth
     groundtruth_ids, groundtruth_dists = qvc.load_ground_truth_data(groundtruth_path)
@@ -263,7 +265,9 @@ def main():
         args.data_path, args.query_path, args.groundtruth_path,
         args.K, args.search_threads,
         args.n_splits, args.n_split_repeat,
-        backend, args.collection_name, args.qdrant_url
+        backend, args.collection_name,
+        args.window_size, args.n_repeat, args.stride, args.n_round,
+        args.qdrant_url
     )
 
 
