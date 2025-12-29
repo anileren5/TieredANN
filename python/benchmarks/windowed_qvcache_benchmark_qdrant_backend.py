@@ -264,7 +264,7 @@ def experiment_benchmark(data_path: str,
                 query_result_tags, hit_results, this_split_size, groundtruth_dim
             )
             
-            log_window_metrics(metrics, recall_all, recall_hits, split_idx=split_idx)
+            log_window_metrics(metrics, recall_all, recall_hits)
         
         print(json.dumps({
             "event": "split_end",
