@@ -41,7 +41,7 @@ matplotlib.rcParams['ytick.minor.width'] = 0.4
 
 
 def parse_log_file(log_path: str) -> List[Dict[str, Any]]:
-    """Parse JSON log file and extract split_metrics events."""
+    """Parse JSON log file and extract split_metrics or window_metrics events."""
     metrics = []
     with open(log_path, 'r') as f:
         for line in f:
@@ -50,7 +50,7 @@ def parse_log_file(log_path: str) -> List[Dict[str, Any]]:
                 continue
             try:
                 data = json.loads(line)
-                if data.get('event') == 'split_metrics':
+                if data.get('event') in ('split_metrics', 'window_metrics'):
                     metrics.append(data)
             except json.JSONDecodeError:
                 continue
@@ -297,7 +297,7 @@ def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], ou
                            label=legend_name, alpha=0.9)
         
         ax.set_ylabel(ylabel, fontsize=7)
-        ax.set_xlabel('Splits', fontsize=7, labelpad=4)
+        ax.set_xlabel('iteration', fontsize=7, labelpad=4)
         ax.set_title(title, fontsize=8, fontweight='bold', pad=8)
         ax.tick_params(axis='x', labelsize=6, pad=2)
         if not use_log_scale:
@@ -503,7 +503,7 @@ def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], outpu
         
         ax.set_ylabel(ylabel, fontsize=7)
         if subplot_idx == num_subplots - 1:
-            ax.set_xlabel('Splits', fontsize=7, labelpad=4)
+            ax.set_xlabel('iteration', fontsize=7, labelpad=4)
         ax.set_title(title, fontsize=8, fontweight='bold', pad=8)
         ax.tick_params(axis='x', labelsize=6, pad=2)
         if not use_log_scale:

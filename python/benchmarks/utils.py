@@ -381,3 +381,50 @@ def log_split_metrics(metrics: dict, recall_all: dict, recall_hits: dict, split_
         combined["split_idx"] = split_idx
     print(json.dumps(combined))
 
+
+def log_window_metrics(metrics: dict, recall_all: dict, recall_hits: dict = None, window_idx: int = None, repeat_idx: int = None):
+    """
+    Log all metrics for a window in a single structured JSON line.
+    
+    Args:
+        metrics: Dictionary from hybrid_search or backend_search containing metrics
+        recall_all: Dictionary from calculate_recall or calculate_backend_recall containing recall for all queries
+        recall_hits: Optional dictionary from calculate_hit_recall containing recall for cache hits (for QVCache)
+        window_idx: Optional window index to include in the log
+        repeat_idx: Optional repeat index to include in the log
+    """
+    combined = {
+        "event": "window_metrics",
+        **metrics,
+        **recall_all
+    }
+    if recall_hits is not None:
+        combined.update(recall_hits)
+    if window_idx is not None:
+        combined["window_idx"] = window_idx
+    if repeat_idx is not None:
+        combined["repeat_idx"] = repeat_idx
+    print(json.dumps(combined))
+
+
+def log_backend_window_metrics(metrics: dict, recall_all: dict, window_idx: int = None, repeat_idx: int = None):
+    """
+    Log all metrics for a window in a single structured JSON line (backend-only).
+    
+    Args:
+        metrics: Dictionary from backend_search containing latency metrics
+        recall_all: Dictionary from calculate_backend_recall containing recall
+        window_idx: Optional window index to include in the log
+        repeat_idx: Optional repeat index to include in the log
+    """
+    combined = {
+        "event": "window_metrics",
+        **metrics,
+        **recall_all
+    }
+    if window_idx is not None:
+        combined["window_idx"] = window_idx
+    if repeat_idx is not None:
+        combined["repeat_idx"] = repeat_idx
+    print(json.dumps(combined))
+

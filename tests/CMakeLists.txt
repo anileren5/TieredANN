@@ -9,11 +9,13 @@
             qvcache_benchmark qvcache/qvcache_benchmark.cpp
             qvcache_benchmark_sptag qvcache/qvcache_benchmark_sptag.cpp
             windowed_qvcache_benchmark qvcache/windowed_qvcache_benchmark.cpp
+            windowed_qvcache_benchmark_sptag qvcache/windowed_qvcache_benchmark_sptag.cpp
             cache_pressure qvcache/cache_pressure.cpp
             backend_cache_pressure qvcache/backend_cache_pressure.cpp
             backend_benchmark qvcache/backend_benchmark.cpp
             backend_benchmark_sptag qvcache/backend_benchmark_sptag.cpp
             windowed_backend_benchmark qvcache/windowed_backend_benchmark.cpp
+            windowed_backend_benchmark_sptag qvcache/windowed_backend_benchmark_sptag.cpp
             diskann_split_search diskann/diskann_split_search.cpp
         )
 
@@ -69,6 +71,24 @@ if(TARGET backend_benchmark_sptag)
     target_include_directories(backend_benchmark_sptag
         PRIVATE
             ${PROJECT_SOURCE_DIR}/backends
+    )
+endif()
+
+# Special handling for windowed_backend_benchmark_sptag
+if(TARGET windowed_backend_benchmark_sptag)
+    target_sources(windowed_backend_benchmark_sptag PRIVATE ${PROJECT_SOURCE_DIR}/backends/sptag_backend.cpp)
+    target_include_directories(windowed_backend_benchmark_sptag
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/backends
+    )
+endif()
+
+# Special handling for windowed_qvcache_benchmark_sptag
+if(TARGET windowed_qvcache_benchmark_sptag)
+    target_sources(windowed_qvcache_benchmark_sptag PRIVATE ${PROJECT_SOURCE_DIR}/backends/sptag_backend.cpp)
+    target_include_directories(windowed_qvcache_benchmark_sptag
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/backends/Greator/include # For set_sector_len
     )
 endif()
 
