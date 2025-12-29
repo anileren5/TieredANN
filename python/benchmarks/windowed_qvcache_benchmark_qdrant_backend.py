@@ -231,7 +231,7 @@ def main():
     parser.add_argument("--groundtruth_path", type=str, required=True, help="Path to groundtruth file")
     parser.add_argument("--pca_prefix", type=str, required=True, help="PCA index prefix")
     parser.add_argument("--collection_name", type=str, default="vectors", help="Qdrant collection name")
-    parser.add_argument("--qdrant_url", type=str, default="http://localhost:6333", help="Qdrant URL")")
+    parser.add_argument("--qdrant_url", type=str, default="http://localhost:6333", help="Qdrant URL")
     
     # QVCache parameters
     parser.add_argument("--R", type=int, default=64, help="R parameter")

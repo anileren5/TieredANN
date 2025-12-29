@@ -233,7 +233,7 @@ def main():
     parser.add_argument("--pca_prefix", type=str, required=True, help="PCA index prefix")
     parser.add_argument("--index_name", type=str, required=True, help="Pinecone index name")
     parser.add_argument("--api_key", type=str, default=None, help="Pinecone API key (or use PINECONE_API_KEY env var)")
-    parser.add_argument("--environment", type=str, default=None, help="Pinecone environment (deprecated, not used)")")
+    parser.add_argument("--environment", type=str, default=None, help="Pinecone environment (deprecated, not used)")
     
     # QVCache parameters
     parser.add_argument("--R", type=int, default=64, help="R parameter")
