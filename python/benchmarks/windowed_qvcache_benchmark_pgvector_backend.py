@@ -55,16 +55,16 @@ def experiment_benchmark(
     search_strategy: str,
     backend: PgVectorBackend,
     table_name: str,
+    window_size: int,
+    n_repeat: int,
+    stride: int,
+    n_round: int,
     db_host: str = "localhost",
     db_port: int = 5432,
     db_name: str = "postgres",
     db_user: str = "postgres",
     db_password: str = "postgres",
-    metric: str = "l2",
-    window_size: int,
-    n_repeat: int,
-    stride: int,
-    n_round: int
+    metric: str = "l2"
 ):
     """Run the window-based benchmark experiment with pgvector backend."""
     # Convert metric string to enum
@@ -378,9 +378,9 @@ def main():
         args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,
         args.search_mini_indexes_in_parallel, args.max_search_threads,
-        args.search_strategy, backend, args.table_name, args.db_host, args.db_port,
-        args.db_name, args.db_user, args.db_password, args.metric,
-        args.window_size, args.n_repeat, args.stride, args.n_round
+        args.search_strategy, backend, args.table_name,
+        args.window_size, args.n_repeat, args.stride, args.n_round,
+        args.db_host, args.db_port, args.db_name, args.db_user, args.db_password, args.metric
     )
 
 
