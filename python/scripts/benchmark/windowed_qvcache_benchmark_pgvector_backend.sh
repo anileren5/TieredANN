@@ -58,12 +58,17 @@ METRIC="l2" # Distance metric: "l2", "cosine", or "inner_product"
 
 # PgVector backend parameters
 TABLE_NAME="vectors"
-DB_HOST="localhost"
-DB_PORT=5432
-DB_NAME="postgres"
-DB_USER="postgres"
-DB_PASSWORD="postgres"
+DB_HOST="${DB_HOST:-localhost}"  # Default: localhost (use "postgres" for Docker)
+DB_PORT="${DB_PORT:-5432}"       # Default PostgreSQL port
+DB_NAME="${DB_NAME:-postgres}"   # Default database name
+DB_USER="${DB_USER:-postgres}"   # Default user
+DB_PASSWORD="${DB_PASSWORD:-postgres}"  # Default password
 PCA_PREFIX="./index/${DATASET}/${DATASET}"
+
+# Detect if running inside Docker and set PostgreSQL host accordingly
+if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
+    DB_HOST="postgres"  # Docker internal network
+fi
 
 # Validate window parameters
 MIN_SPLIT_REPEAT=$(( (WINDOW_SIZE / STRIDE) * N_REPEAT * N_ROUND ))

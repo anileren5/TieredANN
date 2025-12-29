@@ -58,7 +58,19 @@ METRIC="l2" # Distance metric: "l2", "cosine", or "inner_product"
 
 # Qdrant backend parameters
 COLLECTION_NAME="vectors"
-QDRANT_URL="http://localhost:6333"
+
+# Detect if running inside Docker and set Qdrant URL accordingly
+if [ -f /.dockerenv ] || [ -n "$DOCKER_CONTAINER" ]; then
+    QDRANT_URL="http://qdrant:6333"  # Docker internal network
+else
+    QDRANT_URL="http://localhost:6333"  # Local machine
+fi
+
+# Allow override via environment variable
+if [ -n "$QDRANT_URL_ENV" ]; then
+    QDRANT_URL="$QDRANT_URL_ENV"
+fi
+
 PCA_PREFIX="./index/${DATASET}/${DATASET}"
 
 # Validate window parameters
