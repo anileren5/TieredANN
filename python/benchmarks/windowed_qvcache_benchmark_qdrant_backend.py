@@ -322,13 +322,13 @@ def main():
         num_vectors = np.frombuffer(f.read(4), dtype=np.uint32)[0]
         dimension = np.frombuffer(f.read(4), dtype=np.uint32)[0]
     
-    # Create Qdrant backend (assumes index already exists)
+    # Create Qdrant backend (assumes collection already exists)
     print(f"\nConnecting to Qdrant at {args.qdrant_url}...", file=sys.stderr)
     backend = QdrantBackend(
         collection_name=args.collection_name,
         dimension=dimension,
         qdrant_url=args.qdrant_url,
-        data_path=None,  # Don't load data here, should already be indexed
+        data_path=args.data_path,
         recreate_collection=False
     )
     
