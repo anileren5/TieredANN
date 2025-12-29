@@ -230,7 +230,9 @@ def main():
         args.data_path, args.query_path, args.groundtruth_path,
         args.K, args.search_threads,
         args.n_splits, args.n_split_repeat,
-        backend, args.index_name, api_key, args.environment
+        backend, args.index_name,
+        args.window_size, args.n_repeat, args.stride, args.n_round,
+        api_key, args.environment
     )
 
 
