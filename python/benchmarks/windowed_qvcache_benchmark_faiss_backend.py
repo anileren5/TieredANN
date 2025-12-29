@@ -190,7 +190,7 @@ def experiment_benchmark(
                     current_idx += info["query_size"]
                 
                 # Perform search using backend
-                _, _, query_result_tags, metrics = hybrid_search(
+                hit_results, _, query_result_tags, metrics = hybrid_search(
                     qvcache,
                     shuffled_queries,
                     K,
@@ -205,8 +205,7 @@ def experiment_benchmark(
                 )
                 recall_hits = calculate_hit_recall(
                     K, shuffled_groundtruth,
-                    K, shuffled_groundtruth, 
-                    query_result_tags, total_repeat_queries, groundtruth_dim
+                    query_result_tags, hit_results, total_repeat_queries, groundtruth_dim
                 )
                 
                 log_window_metrics(metrics, recall_all, recall_hits, window_idx=window_idx, repeat_idx=repeat_idx)
