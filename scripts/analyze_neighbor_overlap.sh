@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to analyze unique neighbors using analyze_unique_neighbors.py
+# Script to analyze neighbor overlap across repetitions using analyze_neighbor_overlap.py
 # This script wraps the Python script for easier command-line usage
 
 set -e
@@ -9,7 +9,7 @@ set -e
 cd "$(dirname "$0")/.." || exit 1
 
 # Check if Python script exists
-PYTHON_SCRIPT="scripts/analyze_unique_neighbors.py"
+PYTHON_SCRIPT="scripts/analyze_neighbor_overlap.py"
 if [ ! -f "$PYTHON_SCRIPT" ]; then
     echo "Error: Python script not found: $PYTHON_SCRIPT"
     exit 1
@@ -19,7 +19,7 @@ fi
 DATASET="sift"
 N_SPLIT="10"
 N_SPLIT_REPEAT="5"
-NOISE_RATIO="0.1"
+NOISE_RATIO="0.001"
 K="10"
 DATA_DIR="data"
 DATA_TYPE="float"
@@ -57,7 +57,7 @@ if [ ! -f "$GT_FILE" ]; then
 fi
 
 echo "=========================================="
-echo "Analyzing Unique Neighbors"
+echo "Analyzing Neighbor Overlap Across Repetitions"
 echo "=========================================="
 echo "Dataset: $DATASET"
 echo "Groundtruth file: $GT_FILE"
@@ -82,7 +82,7 @@ python3 "$PYTHON_SCRIPT" \
 
 if [ $? -ne 0 ]; then
     echo ""
-    echo "✗ Error: Failed to analyze unique neighbors"
+    echo "✗ Error: Failed to analyze neighbor overlap"
     exit 1
 fi
 

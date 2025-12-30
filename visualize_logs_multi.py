@@ -8,7 +8,7 @@ Produces publication-ready plots for paper submission.
 import json
 import matplotlib.pyplot as plt
 import matplotlib
-from matplotlib.ticker import FuncFormatter, LogFormatter, LogLocator, FixedLocator, NullLocator
+from matplotlib.ticker import FuncFormatter, LogFormatter, LogLocator, FixedLocator, NullLocator, MultipleLocator
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
@@ -206,12 +206,13 @@ COLORS = ['#E63946', '#0066FF', '#228B22', '#FF6600', '#9900FF', '#FFCC00', '#00
           '#FF00AA', '#0000CC', '#CC0000', '#00CC00', '#FF8800', '#AA00FF', '#FFD700']
 
 
-def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], output_dir: Path):
+def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], output_dir: Path, tick_interval: int = 3):
     """
     Create individual plot files for each metric with comparison.
     
     Args:
         log_data_list: List of tuples (metrics, legend_name, color)
+        tick_interval: Interval between x-axis ticks (default: 3)
     """
     # Extract data for all log files
     all_metrics_data = {}
@@ -293,13 +294,44 @@ def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], ou
                     linestyle = '-' if idx == 0 else ('--' if idx == 1 else (':' if idx == 2 else '-.'))
                     
                     ax.plot(valid_iterations, valid_data, linewidth=1.0, color=plot_color, 
-                           linestyle=linestyle, 
-                           label=legend_name, alpha=0.9)
+                           linestyle=linestyle,
+                           label=legend_name, alpha=0.9, zorder=10)
         
         ax.set_ylabel(ylabel, fontsize=7)
-        ax.set_xlabel('iteration', fontsize=7, labelpad=4)
+        ax.set_xlabel('Window Step', fontsize=7, labelpad=4)
         ax.set_title(title, fontsize=8, fontweight='bold', pad=8)
+        
+        # Set x-axis limits to match data range (no extra tick at the end)
+        # Find the maximum iteration value from actual plotted data
+        max_iteration = -1
+        for metrics, legend_name, _ in log_data_list:
+            data = all_metrics_data[legend_name][metric_key]
+            if filename == 'hit_ratio.pdf':
+                valid_indices = [i for i, val in enumerate(data) if val is not None and val >= 0]
+            else:
+                valid_indices = [i for i, val in enumerate(data) if val is not None and val > 0]
+            if valid_indices:
+                max_iteration = max(max_iteration, max(valid_indices))
+        
+        # If no data, use length of iterations arrays
+        if max_iteration < 0:
+            max_iteration = max([len(all_iterations[legend_name]) for _, legend_name, _ in log_data_list]) - 1 if log_data_list else 0
+        
+        # Set x-axis limits to exactly match data range (no extra tick)
+        if max_iteration >= 0:
+            ax.set_xlim([-0.5, max_iteration + 0.5])
+        
+        # Set x-axis to show one tick per tick_interval records, plus the last tick if not a multiple of tick_interval
+        if max_iteration >= 0:
+            tick_positions = list(range(0, max_iteration + 1, tick_interval))
+            if max_iteration % tick_interval != 0 and max_iteration not in tick_positions:
+                tick_positions.append(max_iteration)
+            ax.xaxis.set_major_locator(FixedLocator(tick_positions))
+            # Set minor locator to show grid lines at every window step
+            ax.xaxis.set_minor_locator(MultipleLocator(base=1))
+        
         ax.tick_params(axis='x', labelsize=6, pad=2)
+        ax.tick_params(axis='x', which='minor', length=0)  # Hide minor tick marks, keep grid lines
         if not use_log_scale:
             ax.tick_params(axis='y', labelsize=6, pad=2)
         
@@ -374,9 +406,10 @@ def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], ou
         elif ylim:
             ax.set_ylim(ylim)
         
-        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray')
-        if use_log_scale:
-            ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray', which='both')
+        # Enable grid for both major and minor ticks to show vertical lines at every window step
+        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray', zorder=1, which='both')
+        # Make minor grid lines lighter for vertical lines
+        ax.grid(True, alpha=0.15, linestyle='--', linewidth=0.2, color='gray', zorder=1, which='minor', axis='x')
         
         if show_legend and any(all_metrics_data[legend_name][metric_key] for _, legend_name, _ in log_data_list):
             num_series = sum(1 for _, legend_name, _ in log_data_list if all_metrics_data[legend_name][metric_key])
@@ -392,7 +425,7 @@ def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], ou
 
 
 def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], output_dir: Path, 
-                         metric_keys: List[str], combined_filename: str = 'combined.pdf'):
+                         metric_keys: List[str], combined_filename: str = 'combined.pdf', tick_interval: int = 3):
     """
     Create a combined plot with multiple subplots arranged vertically.
     
@@ -401,6 +434,7 @@ def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], outpu
         output_dir: Output directory for the plot
         metric_keys: List of metric keys to include in the combined plot
         combined_filename: Filename for the combined plot
+        tick_interval: Interval between x-axis ticks (default: 3)
     """
     # Extract data for all log files
     all_metrics_data = {}
@@ -498,13 +532,46 @@ def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], outpu
                     linestyle = '-' if idx == 0 else ('--' if idx == 1 else (':' if idx == 2 else '-.'))
                     
                     ax.plot(valid_iterations, valid_data, linewidth=1.0, color=plot_color, 
-                           linestyle=linestyle, 
-                           label=legend_name, alpha=0.9)
+                           linestyle=linestyle,
+                           label=legend_name, alpha=0.9, zorder=10)
         
         ax.set_ylabel(ylabel, fontsize=7)
         if subplot_idx == num_subplots - 1:
-            ax.set_xlabel('iteration', fontsize=7, labelpad=4)
+            ax.set_xlabel('Window Step', fontsize=7, labelpad=4)
         ax.set_title(title, fontsize=8, fontweight='bold', pad=8)
+        
+        # Set x-axis limits to match data range (no extra tick at the end)
+        # Find the maximum iteration value from actual plotted data
+        max_iteration = -1
+        for metrics, legend_name, _ in log_data_list:
+            data = all_metrics_data[legend_name][metric_key]
+            if metric_key == 'hit_ratio':
+                valid_indices = [i for i, val in enumerate(data) if val is not None and val >= 0]
+            else:
+                valid_indices = [i for i, val in enumerate(data) if val is not None and val > 0]
+            if valid_indices:
+                max_iteration = max(max_iteration, max(valid_indices))
+        
+        # If no data, use length of iterations arrays
+        if max_iteration < 0:
+            max_iteration = max([len(all_iterations[legend_name]) for _, legend_name, _ in log_data_list]) - 1 if log_data_list else 0
+        
+        # Set x-axis limits to exactly match data range (no extra tick)
+        if max_iteration >= 0:
+            ax.set_xlim([-0.5, max_iteration + 0.5])
+        
+        # Set x-axis to show one tick per tick_interval records, plus the last tick if not a multiple of tick_interval
+        # (applies to all subplots via sharex if needed)
+        if max_iteration >= 0:
+            tick_positions = list(range(0, max_iteration + 1, tick_interval))
+            if max_iteration % tick_interval != 0 and max_iteration not in tick_positions:
+                tick_positions.append(max_iteration)
+            ax.xaxis.set_major_locator(FixedLocator(tick_positions))
+            # Set minor locator to show grid lines at every window step
+            ax.xaxis.set_minor_locator(MultipleLocator(base=1))
+            # Hide minor tick marks, keep grid lines
+            ax.tick_params(axis='x', which='minor', length=0)
+        
         ax.tick_params(axis='x', labelsize=6, pad=2)
         if not use_log_scale:
             ax.tick_params(axis='y', labelsize=6, pad=2)
@@ -518,9 +585,10 @@ def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], outpu
         if ylim:
             ax.set_ylim(ylim)
         
-        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray')
-        if use_log_scale:
-            ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray', which='both')
+        # Enable grid for both major and minor ticks to show vertical lines at every window step
+        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.4, color='gray', zorder=1, which='both')
+        # Make minor grid lines lighter for vertical lines
+        ax.grid(True, alpha=0.15, linestyle='--', linewidth=0.2, color='gray', zorder=1, which='minor', axis='x')
         
         # Add legend only to the last subplot
         if subplot_idx == num_subplots - 1:
@@ -550,6 +618,8 @@ def main():
     parser.add_argument('--format-type', type=str, default=None,
                        choices=['pca_dim', 'buckets_per_dim'],
                        help='Format type for legend names: "pca_dim" for PCA dimension, "buckets_per_dim" for buckets per dimension')
+    parser.add_argument('--tick-interval', type=int, default=3,
+                       help='Interval between x-axis ticks (default: 3)')
     args = parser.parse_args()
     
     # Validate inputs
@@ -593,7 +663,7 @@ def main():
         return
     
     print("\nGenerating individual plots...")
-    create_individual_plots(log_data_list, output_dir)
+    create_individual_plots(log_data_list, output_dir, tick_interval=args.tick_interval)
     
     print(f"\nPlots saved to: {output_dir.absolute()}")
 
