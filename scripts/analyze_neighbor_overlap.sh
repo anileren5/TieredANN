@@ -16,10 +16,10 @@ if [ ! -f "$PYTHON_SCRIPT" ]; then
 fi
 
 # Default values (can be overridden by command-line arguments)
-DATASET="sift"
+DATASET="gist"
 N_SPLIT="10"
-N_SPLIT_REPEAT="5"
-NOISE_RATIO="0.001"
+N_SPLIT_REPEAT="2"
+NOISE_RATIO="0.01"
 K="10"
 DATA_DIR="data"
 DATA_TYPE="float"

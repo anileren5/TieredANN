@@ -7,6 +7,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VISUALIZE_SCRIPT="${SCRIPT_DIR}/visualize_logs.py"
 VISUALIZE_MULTI_SCRIPT="${SCRIPT_DIR}/visualize_logs_multi.py"
+VISUALIZE_MULTI_K_SCRIPT="${SCRIPT_DIR}/visualize_logs_multi_k.py"
 EXPERIMENTS_DIR="${SCRIPT_DIR}/experiments"
 
 echo "Starting visualization of all experiment log files..."
@@ -590,6 +591,227 @@ if [ -d "$PCA_EXPERIMENTS_DIR" ]; then
 fi
 
 # ============================================================================
+# Process Total Cache Size Experiments
+# ============================================================================
+TOTAL_CACHE_SIZE_EXPERIMENTS_DIR="${EXPERIMENTS_DIR}/total_cache_size_experiments"
+OUTPUT_TOTAL_CACHE_SIZE="${SCRIPT_DIR}/plots/total_cache_size_experiments"
+
+if [ -d "$TOTAL_CACHE_SIZE_EXPERIMENTS_DIR" ]; then
+    echo "Processing Total Cache Size Experiments..."
+    echo "=========================================="
+    echo "Total cache size experiments directory: ${TOTAL_CACHE_SIZE_EXPERIMENTS_DIR}"
+    echo "Output directory: ${OUTPUT_TOTAL_CACHE_SIZE}"
+    echo ""
+    
+    # Define log files and their corresponding legends
+    log_files=(
+        "${TOTAL_CACHE_SIZE_EXPERIMENTS_DIR}/15k.log"
+        "${TOTAL_CACHE_SIZE_EXPERIMENTS_DIR}/30k.log"
+        "${TOTAL_CACHE_SIZE_EXPERIMENTS_DIR}/60k.log"
+        "${TOTAL_CACHE_SIZE_EXPERIMENTS_DIR}/120k.log"
+    )
+    legends=(
+        "15k"
+        "30k"
+        "60k"
+        "120k"
+    )
+    
+    # Check if all log files exist
+    missing_files=()
+    for log_file in "${log_files[@]}"; do
+        if [ ! -f "$log_file" ]; then
+            missing_files+=("$log_file")
+        fi
+    done
+    
+    if [ ${#missing_files[@]} -gt 0 ]; then
+        echo "  Warning: Some log files are missing:"
+        for missing_file in "${missing_files[@]}"; do
+            echo "    ${missing_file}"
+        done
+        echo "  Skipping total cache size experiments..."
+        echo ""
+    else
+        echo "  Found ${#log_files[@]} log files:"
+        for i in "${!log_files[@]}"; do
+            echo "    ${legends[$i]}: ${log_files[$i]}"
+        done
+        echo ""
+        
+        # Create output directory
+        mkdir -p "$OUTPUT_TOTAL_CACHE_SIZE"
+        
+        # Run visualization script with all logs
+        echo "  Generating plots with visualize_logs_multi.py..."
+        python3 "$VISUALIZE_MULTI_SCRIPT" \
+            --logs "${log_files[@]}" \
+            --legends "${legends[@]}" \
+            --output "$OUTPUT_TOTAL_CACHE_SIZE" \
+            --max-legend-width 2 \
+            --format-type cache_size
+        
+        if [ $? -eq 0 ]; then
+            echo "  ✓ Successfully generated plots for total cache size experiments"
+        else
+            echo "  ✗ Failed to generate plots for total cache size experiments"
+        fi
+        echo ""
+        
+        echo "Total cache size experiments visualization complete!"
+        echo "Plots saved to: ${OUTPUT_TOTAL_CACHE_SIZE}"
+        echo ""
+    fi
+fi
+
+# ============================================================================
+# Process Partitioning Experiments
+# ============================================================================
+PARTITIONING_EXPERIMENTS_DIR="${EXPERIMENTS_DIR}/partitioning_experiments"
+OUTPUT_PARTITIONING="${SCRIPT_DIR}/plots/partitioning_experiments"
+
+if [ -d "$PARTITIONING_EXPERIMENTS_DIR" ]; then
+    echo "Processing Partitioning Experiments..."
+    echo "=========================================="
+    echo "Partitioning experiments directory: ${PARTITIONING_EXPERIMENTS_DIR}"
+    echo "Output directory: ${OUTPUT_PARTITIONING}"
+    echo ""
+    
+    # Define log files and their corresponding legends
+    log_files=(
+        "${PARTITIONING_EXPERIMENTS_DIR}/2.log"
+        "${PARTITIONING_EXPERIMENTS_DIR}/4.log"
+        "${PARTITIONING_EXPERIMENTS_DIR}/8.log"
+    )
+    legends=(
+        "\$c_{\text{mini-index}}\$ = 30k"
+        "\$c_{\text{mini-index}}\$ = 15k"
+        "\$c_{\text{mini-index}}\$ = 7.5k"
+    )
+    
+    # Check if all log files exist
+    missing_files=()
+    for log_file in "${log_files[@]}"; do
+        if [ ! -f "$log_file" ]; then
+            missing_files+=("$log_file")
+        fi
+    done
+    
+    if [ ${#missing_files[@]} -gt 0 ]; then
+        echo "  Warning: Some log files are missing:"
+        for missing_file in "${missing_files[@]}"; do
+            echo "    ${missing_file}"
+        done
+        echo "  Skipping partitioning experiments..."
+        echo ""
+    else
+        echo "  Found ${#log_files[@]} log files:"
+        for i in "${!log_files[@]}"; do
+            echo "    ${legends[$i]}: ${log_files[$i]}"
+        done
+        echo ""
+        
+        # Create output directory
+        mkdir -p "$OUTPUT_PARTITIONING"
+        
+        # Run visualization script with all logs
+        echo "  Generating plots with visualize_logs_multi.py..."
+        python3 "$VISUALIZE_MULTI_SCRIPT" \
+            --logs "${log_files[@]}" \
+            --legends "${legends[@]}" \
+            --output "$OUTPUT_PARTITIONING"
+        
+        if [ $? -eq 0 ]; then
+            echo "  ✓ Successfully generated plots for partitioning experiments"
+        else
+            echo "  ✗ Failed to generate plots for partitioning experiments"
+        fi
+        echo ""
+        
+        echo "Partitioning experiments visualization complete!"
+        echo "Plots saved to: ${OUTPUT_PARTITIONING}"
+        echo ""
+    fi
+fi
+
+# ============================================================================
+# Process K Experiments (All Comparison)
+# ============================================================================
+K_EXPERIMENTS_DIR="${EXPERIMENTS_DIR}/k_experiments"
+OUTPUT_K_EXPERIMENTS="${SCRIPT_DIR}/plots/k_experiments"
+
+if [ -d "$K_EXPERIMENTS_DIR" ]; then
+    echo "Processing K Experiments (All Comparison)..."
+    echo "=========================================="
+    echo "K experiments directory: ${K_EXPERIMENTS_DIR}"
+    echo "Output directory: ${OUTPUT_K_EXPERIMENTS}/all_comparison"
+    echo ""
+    
+    # Define log files and their corresponding legends (using "auto" for automatic formatting)
+    log_files=(
+        "${K_EXPERIMENTS_DIR}/backend_1.log"
+        "${K_EXPERIMENTS_DIR}/backend_10.log"
+        "${K_EXPERIMENTS_DIR}/backend_100.log"
+        "${K_EXPERIMENTS_DIR}/qvcache_1.log"
+        "${K_EXPERIMENTS_DIR}/qvcache_10.log"
+        "${K_EXPERIMENTS_DIR}/qvcache_100.log"
+    )
+    legends=(
+        "auto"
+        "auto"
+        "auto"
+        "auto"
+        "auto"
+        "auto"
+    )
+    
+    # Check if all log files exist
+    missing_files=()
+    for log_file in "${log_files[@]}"; do
+        if [ ! -f "$log_file" ]; then
+            missing_files+=("$log_file")
+        fi
+    done
+    
+    if [ ${#missing_files[@]} -gt 0 ]; then
+        echo "  Warning: Some log files are missing:"
+        for missing_file in "${missing_files[@]}"; do
+            echo "    ${missing_file}"
+        done
+        echo "  Skipping k experiments..."
+        echo ""
+    else
+        echo "  Found ${#log_files[@]} log files:"
+        for i in "${!log_files[@]}"; do
+            echo "    ${log_files[$i]}"
+        done
+        echo ""
+        
+        # Create output directory
+        output_dir="${OUTPUT_K_EXPERIMENTS}/all_comparison"
+        mkdir -p "$output_dir"
+        
+        # Run visualization script with all logs
+        echo "  Generating plots with visualize_logs_multi_k.py..."
+        python3 "$VISUALIZE_MULTI_K_SCRIPT" \
+            --logs "${log_files[@]}" \
+            --legends "${legends[@]}" \
+            --output "$output_dir"
+        
+        if [ $? -eq 0 ]; then
+            echo "  ✓ Successfully generated plots for k experiments (all comparison)"
+        else
+            echo "  ✗ Failed to generate plots for k experiments (all comparison)"
+        fi
+        echo ""
+        
+        echo "K experiments (all comparison) visualization complete!"
+        echo "Plots saved to: ${output_dir}"
+        echo ""
+    fi
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo "=========================================="
@@ -613,6 +835,15 @@ if [ -d "$OUTPUT_DEVIATION_FACTOR" ]; then
 fi
 if [ -d "$OUTPUT_PCA" ]; then
     echo "  PCA experiments: ${OUTPUT_PCA}"
+fi
+if [ -d "$OUTPUT_TOTAL_CACHE_SIZE" ]; then
+    echo "  Total cache size experiments: ${OUTPUT_TOTAL_CACHE_SIZE}"
+fi
+if [ -d "$OUTPUT_PARTITIONING" ]; then
+    echo "  Partitioning experiments: ${OUTPUT_PARTITIONING}"
+fi
+if [ -d "$OUTPUT_K_EXPERIMENTS" ]; then
+    echo "  K experiments: ${OUTPUT_K_EXPERIMENTS}"
 fi
 echo ""
 

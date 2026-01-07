@@ -94,6 +94,7 @@ def format_legend_name(legend_name: str, deviation_factor: float = None, number_
     
     If format_type is "pca_dim", format as 'd_reduced' with subscript.
     If format_type is "buckets_per_dim", format as 'n_buckets' with subscript.
+    If format_type is "cache_size", format as 'Total Cache Size = {value}'.
     If number_of_mini_indexes is provided, format as 'n_mini-index' with subscript.
     If deviation_factor is provided, format as 'D = {value}'.
     Otherwise, try to parse legend_name as a numeric value.
@@ -113,6 +114,10 @@ def format_legend_name(legend_name: str, deviation_factor: float = None, number_
             return f'${{\\text{{n}}}}_{{\\text{{buckets}}}}$ = {value}'
         except (ValueError, AttributeError):
             return legend_name
+    
+    if format_type == "cache_size":
+        # Format as "Cache Capacity = {value}" preserving the original format (e.g., "15k", "30k")
+        return f'Cache Capacity = {legend_name}'
     
     if number_of_mini_indexes is not None:
         # Use LaTeX subscript notation: n_mini-index = value
@@ -206,13 +211,14 @@ COLORS = ['#E63946', '#0066FF', '#228B22', '#FF6600', '#9900FF', '#FFCC00', '#00
           '#FF00AA', '#0000CC', '#CC0000', '#00CC00', '#FF8800', '#AA00FF', '#FFD700']
 
 
-def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], output_dir: Path, tick_interval: int = 3):
+def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], output_dir: Path, tick_interval: int = 3, max_legend_width: int = None):
     """
     Create individual plot files for each metric with comparison.
     
     Args:
         log_data_list: List of tuples (metrics, legend_name, color)
         tick_interval: Interval between x-axis ticks (default: 3)
+        max_legend_width: Maximum number of legend items per row (default: 3, or None to use default behavior)
     """
     # Extract data for all log files
     all_metrics_data = {}
@@ -232,6 +238,7 @@ def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], ou
             'recall_all': extract_metric(metrics, 'recall_all'),
             'hit_ratio': extract_metric(metrics, 'hit_ratio', None),
             'memory_active_vectors': extract_metric(metrics, 'memory_active_vectors', None),
+            'pca_active_regions': extract_metric(metrics, 'pca_active_regions', None),
         }
     
     # Define plot configurations: (metric_key, ylabel, title, color_override, ylim, filename, show_legend, use_log_scale)
@@ -241,6 +248,7 @@ def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], ou
         ('p50', 'Latency (ms)', 'Latency (P50)', '#0066cc', None, 'p50_latency.pdf', True, False),
         ('qps', 'QPS', 'Query Throughput', '#bf8f00', None, 'qps.pdf', True, False),
         ('memory_active_vectors', 'Vectors', 'Vectors In Cache', '#5b2c6f', None, 'memory_active_vectors.pdf', True, False),
+        ('pca_active_regions', 'Regions', 'PCA Active Regions', '#8B4513', None, 'pca_active_regions.pdf', True, False),
         ('recall_all', '10-Recall@10', '10-Recall@10', '#2e75b6', None, 'recall.pdf', True, False),
     ]
     
@@ -413,8 +421,9 @@ def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], ou
         
         if show_legend and any(all_metrics_data[legend_name][metric_key] for _, legend_name, _ in log_data_list):
             num_series = sum(1 for _, legend_name, _ in log_data_list if all_metrics_data[legend_name][metric_key])
-            # Maximum 3 items per row
-            ncol = min(3, num_series)
+            # Maximum items per row (use max_legend_width if provided, otherwise default to 3)
+            max_width = max_legend_width if max_legend_width is not None else 3
+            ncol = min(max_width, num_series)
             ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=6, framealpha=0.95, 
                      frameon=True, ncol=ncol, edgecolor='gray', fancybox=False)
         
@@ -425,7 +434,7 @@ def create_individual_plots(log_data_list: List[Tuple[List[Dict], str, str]], ou
 
 
 def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], output_dir: Path, 
-                         metric_keys: List[str], combined_filename: str = 'combined.pdf', tick_interval: int = 3):
+                         metric_keys: List[str], combined_filename: str = 'combined.pdf', tick_interval: int = 3, max_legend_width: int = None):
     """
     Create a combined plot with multiple subplots arranged vertically.
     
@@ -435,6 +444,7 @@ def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], outpu
         metric_keys: List of metric keys to include in the combined plot
         combined_filename: Filename for the combined plot
         tick_interval: Interval between x-axis ticks (default: 3)
+        max_legend_width: Maximum number of legend items per row (default: 3, or None to use default behavior)
     """
     # Extract data for all log files
     all_metrics_data = {}
@@ -454,6 +464,7 @@ def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], outpu
             'recall_all': extract_metric(metrics, 'recall_all'),
             'hit_ratio': extract_metric(metrics, 'hit_ratio', None),
             'memory_active_vectors': extract_metric(metrics, 'memory_active_vectors', None),
+            'pca_active_regions': extract_metric(metrics, 'pca_active_regions', None),
         }
     
     # Map metric keys to their display info
@@ -463,6 +474,7 @@ def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], outpu
         'p50': ('Latency (ms)', 'Latency (P50)', None, False),
         'qps': ('QPS', 'Query Throughput', None, False),
         'memory_active_vectors': ('Vectors', 'Vectors In Cache', None, False),
+        'pca_active_regions': ('Regions', 'PCA Active Regions', None, False),
         'recall_all': ('10-Recall@10', '10-Recall@10', None, False),
     }
     
@@ -594,7 +606,9 @@ def create_combined_plot(log_data_list: List[Tuple[List[Dict], str, str]], outpu
         if subplot_idx == num_subplots - 1:
             num_series = sum(1 for _, legend_name, _ in log_data_list if all_metrics_data[legend_name][metric_key])
             if num_series > 0:
-                ncol = min(3, num_series)
+                # Maximum items per row (use max_legend_width if provided, otherwise default to 3)
+                max_width = max_legend_width if max_legend_width is not None else 3
+                ncol = min(max_width, num_series)
                 ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.25), fontsize=6, framealpha=0.95, 
                          frameon=True, ncol=ncol, edgecolor='gray', fancybox=False)
     
@@ -616,10 +630,12 @@ def main():
     parser.add_argument('--max_iterations', type=int, default=None, 
                        help='Maximum number of iterations to visualize (default: all)')
     parser.add_argument('--format-type', type=str, default=None,
-                       choices=['pca_dim', 'buckets_per_dim'],
-                       help='Format type for legend names: "pca_dim" for PCA dimension, "buckets_per_dim" for buckets per dimension')
+                       choices=['pca_dim', 'buckets_per_dim', 'cache_size'],
+                       help='Format type for legend names: "pca_dim" for PCA dimension, "buckets_per_dim" for buckets per dimension, "cache_size" for total cache size')
     parser.add_argument('--tick-interval', type=int, default=3,
                        help='Interval between x-axis ticks (default: 3)')
+    parser.add_argument('--max-legend-width', type=int, default=None,
+                       help='Maximum number of legend items per row (default: 3, or None to use default behavior)')
     args = parser.parse_args()
     
     # Validate inputs
@@ -663,7 +679,7 @@ def main():
         return
     
     print("\nGenerating individual plots...")
-    create_individual_plots(log_data_list, output_dir, tick_interval=args.tick_interval)
+    create_individual_plots(log_data_list, output_dir, tick_interval=args.tick_interval, max_legend_width=args.max_legend_width)
     
     print(f"\nPlots saved to: {output_dir.absolute()}")
 

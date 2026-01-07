@@ -224,6 +224,7 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
     # QVCache-only metrics
     qvcache_hit_ratios = extract_metric(qvcache_metrics, 'hit_ratio', None)
     qvcache_memory_active = extract_metric(qvcache_metrics, 'memory_active_vectors', None)
+    qvcache_pca_active_regions = extract_metric(qvcache_metrics, 'pca_active_regions', None)
     
     # Define plot configurations: (backend_data, qvcache_data, ylabel, title, color, ylim, filename, show_legend, use_log_scale)
     # Using professional, colorblind-friendly color palette with darker, more saturated colors
@@ -233,6 +234,7 @@ def create_individual_plots(backend_metrics: List[Dict], qvcache_metrics: List[D
         (backend_p50, qvcache_p50, 'Latency (ms)', 'Latency (P50)', '#0066cc', None, 'p50_latency.pdf', True, False),
         (backend_qps, qvcache_qps, 'QPS', 'Query Throughput', '#bf8f00', None, 'qps.pdf', True, False),
         (None, qvcache_memory_active, 'Vectors', 'Vectors In Cache', '#5b2c6f', None, 'memory_active_vectors.pdf', True, False),
+        (None, qvcache_pca_active_regions, 'Regions', 'PCA Active Regions', '#8B4513', None, 'pca_active_regions.pdf', True, False),
         (backend_recall, qvcache_recall, '10-Recall@10', '10-Recall@10', '#2e75b6', None, 'recall.pdf', True, False),
     ]
     
@@ -647,9 +649,10 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     # QVCache-only metrics
     qvcache_hit_ratios = extract_metric(qvcache_metrics, 'hit_ratio', None)
     qvcache_memory_active = extract_metric(qvcache_metrics, 'memory_active_vectors', None)
+    qvcache_pca_active_regions = extract_metric(qvcache_metrics, 'pca_active_regions', None)
     
-    # Create figure with 8 vertical subplots - make it bigger
-    fig, axes = plt.subplots(8, 1, figsize=(2.2, 9.0), sharex=True)
+    # Create figure with 9 vertical subplots - make it bigger
+    fig, axes = plt.subplots(9, 1, figsize=(2.2, 10.0), sharex=True)
     # Adjust left margin for log scale plots to accommodate tick labels
     # Leave extra space at bottom for legends and xlabel
     fig.subplots_adjust(hspace=0.30, left=0.22, right=0.95, top=0.98, bottom=0.25)
@@ -845,15 +848,26 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     if qvcache_memory_active and any(x is not None for x in qvcache_memory_active):
         axes[6].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=1)
     
-    # 8. Recall All - Both (with dynamic scale)
+    # 8. PCA Active Regions - QVCache only
+    if qvcache_pca_active_regions and any(x is not None for x in qvcache_pca_active_regions):
+        axes[7].plot(qvcache_iterations, qvcache_pca_active_regions, linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', 
+                    marker='^', markersize=2.0, label='With QVCache')
+    axes[7].set_ylabel('Regions', fontsize=6)
+    axes[7].set_title('PCA Active Regions', fontsize=6, fontweight='bold', pad=2)
+    axes[7].grid(True, alpha=0.25, linestyle='--', linewidth=0.35, which='both')
+    axes[7].grid(True, alpha=0.12, linestyle='--', linewidth=0.2, color='gray', which='minor', axis='x')
+    if qvcache_pca_active_regions and any(x is not None for x in qvcache_pca_active_regions):
+        axes[7].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=1)
+    
+    # 9. Recall All - Both (with dynamic scale)
     if backend_recall and any(x is not None for x in backend_recall):
-        axes[7].plot(backend_iterations, backend_recall, linewidth=0.7, color=BACKEND_COLOR, linestyle='--', 
+        axes[8].plot(backend_iterations, backend_recall, linewidth=0.7, color=BACKEND_COLOR, linestyle='--', 
                     marker='^', markersize=2.0, label='Backend only')
     if qvcache_recall and any(x is not None for x in qvcache_recall):
-        axes[7].plot(qvcache_iterations, qvcache_recall, linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', 
+        axes[8].plot(qvcache_iterations, qvcache_recall, linewidth=0.7, color=QVCACHE_COLOR, linestyle='-', 
                     marker='^', markersize=2.0, label='With QVCache')
-    axes[7].set_xlabel('Window Step', fontsize=6, labelpad=4)
-    axes[7].set_ylabel('10-Recall@10', fontsize=6)
+    axes[8].set_xlabel('Window Step', fontsize=6, labelpad=4)
+    axes[8].set_ylabel('10-Recall@10', fontsize=6)
     
     # Set x-axis limits to match data range (no extra tick at the end)
     # Find the maximum iteration value from actual plotted data
@@ -865,6 +879,7 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         (backend_p99, qvcache_p99),
         (backend_qps, qvcache_qps),
         (None, qvcache_memory_active),
+        (None, qvcache_pca_active_regions),
         (backend_recall, qvcache_recall),
         (None, qvcache_hit_ratios)
     ]
@@ -885,7 +900,7 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
     
     # Set x-axis limits to exactly match data range (no extra tick)
     if max_iteration >= 0:
-        axes[7].set_xlim([-0.5, max_iteration + 0.5])
+        axes[8].set_xlim([-0.5, max_iteration + 0.5])
     
     # Set x-axis to show one tick per 3 records, plus the last tick if not a multiple of 3
     # (applies to all subplots via sharex=True)
@@ -893,14 +908,14 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         tick_positions = list(range(0, max_iteration + 1, 3))
         if max_iteration % 3 != 0 and max_iteration not in tick_positions:
             tick_positions.append(max_iteration)
-        axes[7].xaxis.set_major_locator(FixedLocator(tick_positions))
+        axes[8].xaxis.set_major_locator(FixedLocator(tick_positions))
         # Set minor locator to show grid lines at every window step
-        axes[7].xaxis.set_minor_locator(MultipleLocator(base=1))
+        axes[8].xaxis.set_minor_locator(MultipleLocator(base=1))
         # Hide minor tick marks, keep grid lines
         for ax in axes:
             ax.tick_params(axis='x', which='minor', length=0)
     else:
-        axes[7].xaxis.set_major_locator(MultipleLocator(base=3))
+        axes[8].xaxis.set_major_locator(MultipleLocator(base=3))
     
     # Dynamic scale for recall based on actual data range
     all_recall_values = []
@@ -916,16 +931,16 @@ def create_all_metrics_plot(backend_metrics: List[Dict], qvcache_metrics: List[D
         padding = max(range_recall * 0.05, 0.01)  # At least 1% padding
         y_min = max(0, min_recall - padding)
         y_max = min(1.05, max_recall + padding)
-        axes[7].set_ylim([y_min, y_max])
+        axes[8].set_ylim([y_min, y_max])
     else:
-        axes[7].set_ylim([0, 1.05])
+        axes[8].set_ylim([0, 1.05])
     
-    axes[7].set_title('10-Recall@10', fontsize=6, fontweight='bold', pad=2)
-    axes[7].grid(True, alpha=0.25, linestyle='--', linewidth=0.35, which='both')
-    axes[7].grid(True, alpha=0.12, linestyle='--', linewidth=0.2, color='gray', which='minor', axis='x')
+    axes[8].set_title('10-Recall@10', fontsize=6, fontweight='bold', pad=2)
+    axes[8].grid(True, alpha=0.25, linestyle='--', linewidth=0.35, which='both')
+    axes[8].grid(True, alpha=0.12, linestyle='--', linewidth=0.2, color='gray', which='minor', axis='x')
     if (backend_recall and any(x is not None for x in backend_recall)) or \
        (qvcache_recall and any(x is not None for x in qvcache_recall)):
-        axes[7].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
+        axes[8].legend(loc='upper center', bbox_to_anchor=(0.5, -0.40), fontsize=5, framealpha=0.9, ncol=2)
     
     plt.savefig(output_dir / 'all_metrics.pdf', bbox_inches='tight', facecolor='white', format='pdf', pad_inches=0.05)
     plt.close()
