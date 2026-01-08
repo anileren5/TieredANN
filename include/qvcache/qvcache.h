@@ -6,7 +6,8 @@
 #include "qvcache/insert_thread_pool.h"
 #include "qvcache/pca_utils.h"
 #include "qvcache/lru_cache.h"
-#include "qvcache/backend_interface.h" 
+#include "qvcache/backend_interface.h"
+#include "qvcache/hit_rate_tracker.h" 
 
 // System headers
 #include <cstdint>
@@ -21,6 +22,7 @@
 #include <algorithm>
 #include <deque>
 #include <limits>
+#include <chrono>
 
 namespace qvcache {
 
@@ -82,12 +84,11 @@ namespace qvcache {
             // Search strategy for the public search method
             SearchStrategy search_strategy = SearchStrategy::SEQUENTIAL_LRU_STOP_FIRST_HIT;
             
-            // Hit ratio monitoring for adaptive strategy
-            std::deque<bool> hit_history;  // Sliding window of hit/miss results
-            std::mutex hit_history_mutex;
-            size_t hit_ratio_window_size = 100;  // Default window size
-            double hit_ratio_threshold = 0.90;   // Default threshold (90%)
-            bool use_adaptive_strategy = false;  // Whether to use adaptive behavior
+            // Hit ratio monitoring for adaptive strategy - using HitRateTracker (already thread-safe)
+            mutable std::mutex hit_rate_tracker_mutex;  // Protect tracker pointer and initialization
+            std::unique_ptr<HitRateTracker> hit_rate_tracker;  // Thread-safe hit rate tracker
+            std::atomic<bool> use_adaptive_strategy{false};  // Whether to use adaptive behavior
+            std::atomic<double> hit_ratio_threshold{0.90};  // Threshold for switching strategies (cached for fast access)
 
             // Helper function to create a memory index with given max points
             std::unique_ptr<diskann::AbstractIndex> create_memory_index(size_t max_points) {
@@ -327,7 +328,131 @@ namespace qvcache {
                 return false;
             }
 
-            // Parallel search across all memory indices using thread pool
+            // Helper function to merge and re-rank results from multiple indices
+            // Takes results from all indices, merges by tag (keeping best distance), and returns top-K
+            struct MergedResult {
+                uint32_t tag;
+                float distance;
+                T* vector_ptr;
+                size_t source_index_id;
+            };
+
+            void merge_and_rerank_results(
+                const std::vector<std::vector<uint32_t>>& all_tags,
+                const std::vector<std::vector<float>>& all_dists,
+                const std::vector<std::vector<T*>>& all_res,
+                const std::vector<size_t>& index_ids,
+                uint32_t K,
+                std::vector<uint32_t>& merged_tags,
+                std::vector<float>& merged_dists,
+                std::vector<T*>& merged_res,
+                std::vector<size_t>& contributing_indices_ordered) {
+                
+                // Map: tag -> (best_distance, vector_ptr, source_index_id)
+                std::unordered_map<uint32_t, std::tuple<float, T*, size_t>> tag_to_best;
+                
+                // Merge results from all indices
+                for (size_t idx = 0; idx < index_ids.size(); ++idx) {
+                    size_t index_id = index_ids[idx];
+                    
+                    if (index_id >= all_tags.size() || index_id >= all_dists.size() || index_id >= all_res.size()) {
+                        continue;
+                    }
+                    
+                    const auto& tags = all_tags[index_id];
+                    const auto& dists = all_dists[index_id];
+                    const auto& res_vec = all_res[index_id];
+                    
+                    // Process ALL results from this index (tags and dists should have same size)
+                    // Note: res_vec might be empty (DiskANN skips populating it if empty)
+                    // We don't actually need the vectors for merging, only tags and distances
+                    size_t num_results = std::min(tags.size(), dists.size());
+                    // Ensure we process all available results, not just first K
+                    for (size_t i = 0; i < num_results; ++i) {
+                        uint32_t tag = tags[i];
+                        float dist = dists[i];
+                        T* vec_ptr = (i < res_vec.size()) ? res_vec[i] : nullptr;  // May be null if res_vec wasn't populated
+                        
+                        // For L2: smaller is better, for COSINE: smaller is better (distance)
+                        // For INNER_PRODUCT: smaller is better (negative inner product)
+                        // Deduplicate by tag, keeping the best (smallest) distance
+                        auto it = tag_to_best.find(tag);
+                        if (it == tag_to_best.end()) {
+                            // New tag, add it
+                            tag_to_best[tag] = std::make_tuple(dist, vec_ptr, index_id);
+                        } else {
+                            // Tag already exists, keep the better (smaller) distance
+                            float existing_dist = std::get<0>(it->second);
+                            if (dist < existing_dist) {
+                                tag_to_best[tag] = std::make_tuple(dist, vec_ptr, index_id);
+                            }
+                        }
+                    }
+                }
+                
+                // Convert map to vector and sort by distance
+                std::vector<MergedResult> merged_candidates;
+                merged_candidates.reserve(tag_to_best.size());
+                for (const auto& [tag, tuple_val] : tag_to_best) {
+                    merged_candidates.push_back({
+                        tag,
+                        std::get<0>(tuple_val),
+                        std::get<1>(tuple_val),
+                        std::get<2>(tuple_val)
+                    });
+                }
+                
+                // Sort by distance (ascending - smaller is better)
+                std::sort(merged_candidates.begin(), merged_candidates.end(),
+                    [](const MergedResult& a, const MergedResult& b) {
+                        return a.distance < b.distance;
+                    });
+                
+                // Take top-K
+                size_t result_size = std::min(static_cast<size_t>(K), merged_candidates.size());
+                merged_tags.resize(result_size);
+                merged_dists.resize(result_size);
+                merged_res.resize(result_size);
+                
+                // Track contribution counts per index
+                std::unordered_map<size_t, size_t> contribution_counts;
+                
+                for (size_t i = 0; i < result_size; ++i) {
+                    merged_tags[i] = merged_candidates[i].tag;
+                    merged_dists[i] = merged_candidates[i].distance;
+                    merged_res[i] = merged_candidates[i].vector_ptr;
+                    
+                    // Count contributions to final top-K
+                    size_t source_index_id = merged_candidates[i].source_index_id;
+                    contribution_counts[source_index_id]++;
+                }
+                
+                // Create ordered list of contributing indices: least to most contributing
+                // This ensures that when we call access() in this order, the most contributing
+                // index will be at the front (most recently used) position
+                contributing_indices_ordered.clear();
+                contributing_indices_ordered.reserve(contribution_counts.size());
+                
+                // Convert to vector of pairs for sorting
+                std::vector<std::pair<size_t, size_t>> contributions;
+                contributions.reserve(contribution_counts.size());
+                for (const auto& [index_id, count] : contribution_counts) {
+                    contributions.push_back({index_id, count});
+                }
+                
+                // Sort by contribution count (ascending: least to most)
+                std::sort(contributions.begin(), contributions.end(),
+                    [](const std::pair<size_t, size_t>& a, const std::pair<size_t, size_t>& b) {
+                        return a.second < b.second;
+                    });
+                
+                // Extract ordered index IDs
+                for (const auto& [index_id, count] : contributions) {
+                    contributing_indices_ordered.push_back(index_id);
+                }
+            }
+
+            // Parallel search across all memory indices using thread pool with merge and re-rank
             bool parallel_search_memory_indices(const T* query_ptr, uint32_t K, 
                                               uint32_t* query_result_tags_ptr, std::vector<T*>& res,
                                               float* query_result_dists_ptr) {
@@ -340,36 +465,37 @@ namespace qvcache {
                 std::vector<std::vector<uint32_t>> all_tags(number_of_mini_indexes);
                 std::vector<std::vector<float>> all_dists(number_of_mini_indexes);
                 std::vector<std::vector<T*>> all_res(number_of_mini_indexes);
-                std::vector<bool> hit_results(number_of_mini_indexes, false);
                 std::vector<std::mutex> result_mutexes(number_of_mini_indexes);
                 std::vector<std::future<void>> futures;
 
                 // Lambda function for parallel search
                 auto search_worker = [&](size_t index_id) {
+                    if (index_id >= memory_indices.size()) {
+                        return;
+                    }
+                    
                     if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
                         // Allocate temporary storage for this thread
                         std::vector<uint32_t> temp_tags(K);
                         std::vector<float> temp_dists(K);
+                        // Don't pre-size temp_res - DiskANN's get_vector expects valid pointers if res_vectors is non-empty
+                        // We don't need the vectors for merging anyway, only tags and distances
                         std::vector<T*> temp_res;
-
-                        // Search in this index
-                        memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
                         
-                        // Check if this is a hit
-                        bool is_hit = this->isHit(query_ptr, K, temp_dists.data());
+                        // Search in this index - returns number of results found
+                        size_t num_results = memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
                         
-                        // Only update LRU cache if this search resulted in a hit
-                        if (is_hit) {
-                            lru_cache->access(index_id);
-                        }
+                        // Resize tags and dists to actual number of results
+                        // temp_res stays empty (DiskANN skips populating it if empty, which is fine)
+                        temp_tags.resize(num_results);
+                        temp_dists.resize(num_results);
                         
-                        // Store results atomically
+                        // Store results atomically (we'll check for individual hits after all searches complete)
                         {
                             std::lock_guard<std::mutex> lock(result_mutexes[index_id]);
                             all_tags[index_id] = std::move(temp_tags);
                             all_dists[index_id] = std::move(temp_dists);
                             all_res[index_id] = std::move(temp_res);
-                            hit_results[index_id] = is_hit;
                         }
                     }
                 };
@@ -400,13 +526,58 @@ namespace qvcache {
                     future.get();
                 }
 
-                // Find the first hit and use its results
+                // Collect indices that were searched
+                std::vector<size_t> searched_index_ids;
                 for (size_t i = 0; i < number_of_mini_indexes; ++i) {
-                    if (hit_results[i]) {
-                        // Copy the winning results to the output
-                        std::copy(all_tags[i].begin(), all_tags[i].end(), query_result_tags_ptr);
-                        std::copy(all_dists[i].begin(), all_dists[i].end(), query_result_dists_ptr);
-                        res = std::move(all_res[i]);
+                    if (!all_tags[i].empty()) {
+                        searched_index_ids.push_back(i);
+                    }
+                }
+                
+                // Fast path: if only one index has results, use it directly (no merge needed)
+                if (searched_index_ids.size() == 1) {
+                    size_t single_index_id = searched_index_ids[0];
+                    if (all_tags[single_index_id].size() >= K) {
+                        bool is_hit = this->isHit(query_ptr, K, all_dists[single_index_id].data());
+                        if (is_hit) {
+                            std::copy(all_tags[single_index_id].begin(), all_tags[single_index_id].begin() + K, query_result_tags_ptr);
+                            std::copy(all_dists[single_index_id].begin(), all_dists[single_index_id].begin() + K, query_result_dists_ptr);
+                            res.resize(K);
+                            if (all_res[single_index_id].size() >= K) {
+                                std::copy(all_res[single_index_id].begin(), all_res[single_index_id].begin() + K, res.begin());
+                            }
+                            lru_cache->access(single_index_id);
+                            return true;
+                        }
+                    }
+                }
+
+                // Multiple indices have results - always merge and re-rank for better recall
+                std::vector<uint32_t> merged_tags;
+                std::vector<float> merged_dists;
+                std::vector<T*> merged_res;
+                std::vector<size_t> contributing_indices_ordered;
+                merge_and_rerank_results(all_tags, all_dists, all_res, searched_index_ids, K, merged_tags, merged_dists, merged_res, contributing_indices_ordered);
+
+                // Check if merged result is a hit
+                // isHit() requires at least K results (it accesses distances[K-1])
+                if (merged_dists.size() >= K) {
+                    bool is_hit = this->isHit(query_ptr, K, merged_dists.data());
+                    
+                    if (is_hit) {
+                        // Copy merged results to output (only first K)
+                        size_t copy_size = std::min(static_cast<size_t>(K), merged_tags.size());
+                        std::copy(merged_tags.begin(), merged_tags.begin() + copy_size, query_result_tags_ptr);
+                        std::copy(merged_dists.begin(), merged_dists.begin() + copy_size, query_result_dists_ptr);
+                        res.resize(copy_size);
+                        std::copy(merged_res.begin(), merged_res.begin() + copy_size, res.begin());
+                        
+                        // Update LRU cache in order from least to most contributing
+                        // This ensures the most contributing index ends up at the front (most recently used)
+                        for (size_t index_id : contributing_indices_ordered) {
+                            lru_cache->access(index_id);
+                        }
+                        
                         return true;
                     }
                 }
@@ -426,17 +597,31 @@ namespace qvcache {
                 std::vector<size_t> lru_order = lru_cache->get_all_tags();
                 
                 for (size_t index_id : lru_order) {
+                    if (index_id >= memory_indices.size()) {
+                        continue;  // Safety check
+                    }
+                    
                     if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
-                        memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, res);
+                        // Use local temp res to avoid issues with passed-in res vector
+                        // This ensures clean state for each search
+                        std::vector<T*> temp_res;
+                        size_t num_results = memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, query_result_tags_ptr, query_result_dists_ptr, temp_res);
+                        
+                        // Copy to output res if hit (temp_res will be destroyed but pointers are still valid)
                         bool is_hit = this->isHit(query_ptr, K, query_result_dists_ptr);
                         
                         // Only update LRU cache if this search resulted in a hit
                         if (is_hit) {
+                            // Copy temp_res to res (pointers are still valid at this point)
+                            res = temp_res;
                             lru_cache->access(index_id);
                             return true; // Found a hit, stop immediately (this was the problem!)
                         }
                     }
                 }
+                
+                // No hit found - ensure res is empty
+                res.clear();
                 
                 // No hit found in memory indices, search disk using the backend interface
                 this->backend->search(query_ptr, (uint64_t)K, query_result_tags_ptr, query_result_dists_ptr, nullptr, backend_stats);
@@ -467,6 +652,10 @@ namespace qvcache {
                 
                 bool was_hit;
                 
+                // Clear res vector to ensure clean state regardless of previous call
+                // This prevents stale pointers when switching between strategies
+                res.clear();
+                
                 if (use_adaptive) {
                     // Use SEQUENTIAL_ALL strategy when hit ratio is low
                     was_hit = search_sequential_all_impl(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
@@ -481,7 +670,7 @@ namespace qvcache {
                 return was_hit;
             }
             
-            // Helper method for SEQUENTIAL_ALL implementation
+            // Helper method for SEQUENTIAL_ALL implementation with merge and re-rank
             bool search_sequential_all_impl(const T* query_ptr, uint32_t K, uint32_t* query_result_tags_ptr, std::vector<T *>& res, float* query_result_dists_ptr, void* backend_stats) {
                 // Get current active insert index ID (atomic read)
                 size_t current_active_id = active_insert_index_id.load();
@@ -489,50 +678,130 @@ namespace qvcache {
                 // Sequential search in LRU order (most recently used first)
                 std::vector<size_t> lru_order = lru_cache->get_all_tags();
                 
-                // Search indices in LRU order (most recently used first)
-                // But don't stop at first hit - search all indices to find the best result
-                bool found_hit = false;
-                float best_distance = std::numeric_limits<float>::max();
-                size_t best_index_id = 0;
-                std::vector<uint32_t> best_tags;
-                std::vector<float> best_dists;
-                std::vector<T*> best_res;
+                // Collect results from all indices
+                std::vector<std::vector<uint32_t>> all_tags(number_of_mini_indexes);
+                std::vector<std::vector<float>> all_dists(number_of_mini_indexes);
+                std::vector<std::vector<T*>> all_res(number_of_mini_indexes);
+                std::vector<size_t> searched_index_ids;
                 
+                // Search all indices in LRU order
                 for (size_t index_id : lru_order) {
+                    if (index_id >= memory_indices.size()) {
+                        continue;
+                    }
+                    
                     if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
                         // Allocate temporary storage for this search
                         std::vector<uint32_t> temp_tags(K);
                         std::vector<float> temp_dists(K);
+                        // Don't pre-size temp_res - DiskANN's get_vector expects valid pointers if res_vectors is non-empty
+                        // We don't need the vectors for merging anyway, only tags and distances
                         std::vector<T*> temp_res;
                         
-                        memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
-                        bool is_hit = this->isHit(query_ptr, K, temp_dists.data());
+                        // Search in this index - returns number of results found
+                        size_t num_results = memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
                         
-                        if (is_hit) {
-                            found_hit = true;
-                            // Check if this result is better than the current best
-                            // Use the K-th distance as a quality metric
-                            if (temp_dists[K-1] < best_distance) {
-                                best_distance = temp_dists[K-1];
-                                best_index_id = index_id;
-                                best_tags = std::move(temp_tags);
-                                best_dists = std::move(temp_dists);
-                                best_res = std::move(temp_res);
-                            }
-                        }
+                        // Resize tags and dists to actual number of results
+                        // temp_res stays empty (DiskANN skips populating it if empty, which is fine)
+                        temp_tags.resize(num_results);
+                        temp_dists.resize(num_results);
+                        
+                        // Store results for merging
+                        all_tags[index_id] = std::move(temp_tags);
+                        all_dists[index_id] = std::move(temp_dists);
+                        all_res[index_id] = std::move(temp_res);
+                        searched_index_ids.push_back(index_id);
                     }
                 }
                 
-                if (found_hit) {
-                    // Use the best result found
-                    std::copy(best_tags.begin(), best_tags.end(), query_result_tags_ptr);
-                    std::copy(best_dists.begin(), best_dists.end(), query_result_dists_ptr);
-                    res = std::move(best_res);
+                // Fast path: if only one index has results, use it directly (no merge needed)
+                // This matches STOP_FIRST behavior exactly for single-index case
+                if (searched_index_ids.size() == 1) {
+                    size_t single_index_id = searched_index_ids[0];
+                    if (single_index_id < all_tags.size() && single_index_id < all_dists.size() && 
+                        all_tags[single_index_id].size() >= K && all_dists[single_index_id].size() >= K) {
+                        bool is_hit = this->isHit(query_ptr, K, all_dists[single_index_id].data());
+                        
+                        if (is_hit) {
+                            std::copy(all_tags[single_index_id].begin(), all_tags[single_index_id].begin() + K, query_result_tags_ptr);
+                            std::copy(all_dists[single_index_id].begin(), all_dists[single_index_id].begin() + K, query_result_dists_ptr);
+                            res.resize(K);
+                            if (single_index_id < all_res.size() && all_res[single_index_id].size() >= K) {
+                                std::copy(all_res[single_index_id].begin(), all_res[single_index_id].begin() + K, res.begin());
+                            }
+                            lru_cache->access(single_index_id);
+                            return true;
+                        }
+                        // If single index doesn't have hit, continue to disk search below
+                    }
+                }
+                
+                // Multiple indices have results - merge and re-rank for better recall
+                // We'll check merged results, and if that fails, fall back to checking individual indices
+                std::vector<uint32_t> merged_tags;
+                std::vector<float> merged_dists;
+                std::vector<T*> merged_res;
+                std::vector<size_t> contributing_indices_ordered;
+                merge_and_rerank_results(all_tags, all_dists, all_res, searched_index_ids, K, merged_tags, merged_dists, merged_res, contributing_indices_ordered);
+                
+                // Check if merged result is a hit
+                // isHit() requires at least K results (it accesses distances[K-1])
+                if (merged_dists.size() >= K) {
+                    bool merged_is_hit = this->isHit(query_ptr, K, merged_dists.data());
                     
-                    // Update LRU cache for the index that provided the best result
-                    lru_cache->access(best_index_id);
+                    if (merged_is_hit) {
+                        // Copy merged results to output (only first K)
+                        size_t copy_size = std::min(static_cast<size_t>(K), merged_tags.size());
+                        std::copy(merged_tags.begin(), merged_tags.begin() + copy_size, query_result_tags_ptr);
+                        std::copy(merged_dists.begin(), merged_dists.begin() + copy_size, query_result_dists_ptr);
+                        res.resize(copy_size);
+                        if (merged_res.size() >= copy_size) {
+                            std::copy(merged_res.begin(), merged_res.begin() + copy_size, res.begin());
+                        }
+                        
+                        // Update LRU cache in order from least to most contributing
+                        // This ensures the most contributing index ends up at the front (most recently used)
+                        for (size_t index_id : contributing_indices_ordered) {
+                            lru_cache->access(index_id);
+                        }
+                        
+                        return true;
+                    }
+                }
+                
+                // Merged result didn't pass hit check, try individual indices as fallback
+                // This ensures we don't lose recall compared to STOP_FIRST_HIT
+                // Check in LRU order (matching STOP_FIRST_HIT behavior)
+                for (size_t index_id : lru_order) {
+                    // Skip if this index wasn't searched or doesn't have results
+                    if (std::find(searched_index_ids.begin(), searched_index_ids.end(), index_id) == searched_index_ids.end()) {
+                        continue;
+                    }
                     
-                    return true;
+                    if (index_id >= all_tags.size() || index_id >= all_dists.size()) {
+                        continue;
+                    }
+                    
+                    const auto& tags = all_tags[index_id];
+                    const auto& dists = all_dists[index_id];
+                    
+                    // Check if this index has enough results and is a hit
+                    if (tags.size() >= K && dists.size() >= K) {
+                        bool is_hit = this->isHit(query_ptr, K, dists.data());
+                        
+                        if (is_hit) {
+                            // Use results from this index directly (it's already a hit)
+                            // This matches STOP_FIRST_HIT behavior - use first hit in LRU order
+                            std::copy(tags.begin(), tags.begin() + K, query_result_tags_ptr);
+                            std::copy(dists.begin(), dists.begin() + K, query_result_dists_ptr);
+                            res.resize(K);
+                            if (index_id < all_res.size() && all_res[index_id].size() >= K) {
+                                std::copy(all_res[index_id].begin(), all_res[index_id].begin() + K, res.begin());
+                            }
+                            lru_cache->access(index_id);
+                            return true;
+                        }
+                    }
                 }
                 
                 // No hit found in memory indices, search disk using the backend interface
@@ -753,6 +1022,10 @@ namespace qvcache {
                     theta_map[10] = init_value;
                     theta_map[100] = init_value;
                 }
+                
+                // Initialize hit rate tracker (lazy initialization - only when adaptive strategy is enabled)
+                // Will be created when enable_adaptive_strategy(true) is called
+                hit_rate_tracker = nullptr;
             }
 
 
@@ -770,55 +1043,11 @@ namespace qvcache {
                     return search_sequential_lru_stop_first_hit(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
                 } else if (search_strategy == SearchStrategy::SEQUENTIAL_LRU_ADAPTIVE) {
                     return search_adaptive_hit_ratio(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
+                } else if (search_strategy == SearchStrategy::SEQUENTIAL_ALL) {
+                    return search_sequential_all_impl(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
                 } else {
-                    // Sequential search in LRU order (most recently used first)
-                    std::vector<size_t> lru_order = lru_cache->get_all_tags();
-                    
-                    // Search indices in LRU order (most recently used first)
-                    // But don't stop at first hit - search all indices to find the best result
-                    bool found_hit = false;
-                    float best_distance = std::numeric_limits<float>::max();
-                    size_t best_index_id = 0;
-                    std::vector<uint32_t> best_tags;
-                    std::vector<float> best_dists;
-                    std::vector<T*> best_res;
-                    
-                    for (size_t index_id : lru_order) {
-                        if (memory_indices[index_id]->get_number_of_active_vectors() > 0) {
-                            // Allocate temporary storage for this search
-                            std::vector<uint32_t> temp_tags(K);
-                            std::vector<float> temp_dists(K);
-                            std::vector<T*> temp_res;
-                            
-                            memory_indices[index_id]->search_with_tags(query_ptr, K, memory_L, temp_tags.data(), temp_dists.data(), temp_res);
-                            bool is_hit = this->isHit(query_ptr, K, temp_dists.data());
-                            
-                            if (is_hit) {
-                                found_hit = true;
-                                // Check if this result is better than the current best
-                                // Use the K-th distance as a quality metric
-                                if (temp_dists[K-1] < best_distance) {
-                                    best_distance = temp_dists[K-1];
-                                    best_index_id = index_id;
-                                    best_tags = std::move(temp_tags);
-                                    best_dists = std::move(temp_dists);
-                                    best_res = std::move(temp_res);
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (found_hit) {
-                        // Use the best result found
-                        std::copy(best_tags.begin(), best_tags.end(), query_result_tags_ptr);
-                        std::copy(best_dists.begin(), best_dists.end(), query_result_dists_ptr);
-                        res = std::move(best_res);
-                        
-                        // Update LRU cache for the index that provided the best result
-                        lru_cache->access(best_index_id);
-                        
-                        is_hit = true;
-                    }
+                    // Fallback: use SEQUENTIAL_ALL implementation
+                    return search_sequential_all_impl(query_ptr, K, query_result_tags_ptr, res, query_result_dists_ptr, backend_stats);
                 }
                 
                 if (is_hit) {
@@ -929,44 +1158,111 @@ namespace qvcache {
                 return search_strategy;
             }
             
-            // Hit ratio monitoring methods
+            // Hit ratio monitoring methods - direct approach using HitRateTracker (already thread-safe)
+            // HitRateTracker uses its own internal mutex, so it's safe to call from multiple threads
+            // But we need to protect the pointer itself from being deleted while in use
             void update_hit_history(bool was_hit) {
-                std::lock_guard<std::mutex> lock(hit_history_mutex);
-                hit_history.push_back(was_hit);
-                if (hit_history.size() > hit_ratio_window_size) {
-                    hit_history.pop_front();
+                std::lock_guard<std::mutex> lock(hit_rate_tracker_mutex);
+                if (!hit_rate_tracker) {
+                    return;  // Tracker not initialized, skip silently
+                }
+                
+                // Direct call - HitRateTracker is already thread-safe with its own mutex
+                // Lock protects the pointer, HitRateTracker's mutex protects its data
+                try {
+                    hit_rate_tracker->record_request(was_hit);
+                } catch (...) {
+                    // Ignore any exceptions - don't let hit tracking break the search
                 }
             }
             
             double get_current_hit_ratio() const {
-                std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(hit_history_mutex));
-                if (hit_history.empty()) {
-                    return 1.0;  // Assume good hit ratio if no history
+                std::lock_guard<std::mutex> lock(hit_rate_tracker_mutex);
+                if (!hit_rate_tracker) {
+                    return 1.0;  // Assume good hit ratio if tracker not initialized
                 }
-                size_t hits = std::count(hit_history.begin(), hit_history.end(), true);
-                return static_cast<double>(hits) / hit_history.size();
+                
+                try {
+                    return hit_rate_tracker->get_hit_rate();
+                } catch (...) {
+                    // If tracker access fails, assume good hit ratio (conservative)
+                    return 1.0;
+                }
             }
             
             bool should_use_adaptive_strategy() const {
-                return use_adaptive_strategy && get_current_hit_ratio() < hit_ratio_threshold;
-            }
-            
-            // Configuration methods for adaptive strategy
-            void set_hit_ratio_window_size(size_t window_size) {
-                std::lock_guard<std::mutex> lock(hit_history_mutex);
-                hit_ratio_window_size = window_size;
-                // Trim history if new window is smaller
-                while (hit_history.size() > hit_ratio_window_size) {
-                    hit_history.pop_front();
+                // Read atomic flag without lock (lock-free read)
+                if (!use_adaptive_strategy.load(std::memory_order_acquire)) {
+                    return false;
+                }
+                
+                // Get local copy of tracker pointer while holding lock
+                HitRateTracker* tracker_ptr = nullptr;
+                {
+                    std::lock_guard<std::mutex> lock(hit_rate_tracker_mutex);
+                    if (!hit_rate_tracker) {
+                        // Tracker not initialized, don't switch to adaptive
+                        return false;
+                    }
+                    tracker_ptr = hit_rate_tracker.get();  // Get raw pointer while mutex is held
+                }
+                // Mutex released here, but tracker_ptr is valid as long as we're not recreating
+                
+                try {
+                    // Use local pointer - HitRateTracker is thread-safe internally
+                    // Note: There's a small window where tracker could be recreated, but that's rare
+                    // and HitRateTracker's internal mutex protects its data
+                    double current_hit_ratio = tracker_ptr->get_hit_rate();
+                    double threshold = hit_ratio_threshold.load(std::memory_order_acquire);
+                    
+                    // Sanity check on threshold
+                    if (threshold <= 0.0 || threshold > 1.0) {
+                        return false;  // Invalid threshold, don't switch
+                    }
+                    
+                    // Sanity check on hit ratio (should be between 0 and 1)
+                    if (current_hit_ratio < 0.0 || current_hit_ratio > 1.0) {
+                        return false;  // Invalid hit ratio, don't switch
+                    }
+                    
+                    return current_hit_ratio < threshold;
+                } catch (...) {
+                    // If any error occurs, don't switch to adaptive (conservative)
+                    return false;
                 }
             }
             
+            // Configuration methods for adaptive strategy
+            void set_hit_ratio_window_size(size_t new_window_size) {
+                std::lock_guard<std::mutex> lock(hit_rate_tracker_mutex);
+                double threshold = hit_ratio_threshold.load(std::memory_order_acquire);
+                // Create new tracker with new window size (protected by mutex)
+                hit_rate_tracker = std::make_unique<HitRateTracker>(new_window_size, threshold);
+            }
+            
             void set_hit_ratio_threshold(double threshold) {
-                hit_ratio_threshold = threshold;
+                hit_ratio_threshold.store(threshold, std::memory_order_release);
+                std::lock_guard<std::mutex> lock(hit_rate_tracker_mutex);
+                // Update tracker if it exists (recreate with new threshold, protected by mutex)
+                if (hit_rate_tracker) {
+                    // Save window size before destroying tracker
+                    size_t window_size = hit_rate_tracker->get_window_size();
+                    // Destroy old tracker and create new one (protected by mutex)
+                    hit_rate_tracker.reset();
+                    hit_rate_tracker = std::make_unique<HitRateTracker>(window_size, threshold);
+                }
             }
             
             void enable_adaptive_strategy(bool enable) {
-                use_adaptive_strategy = enable;
+                use_adaptive_strategy.store(enable, std::memory_order_release);
+                
+                std::lock_guard<std::mutex> lock(hit_rate_tracker_mutex);
+                if (enable && !hit_rate_tracker) {
+                    // Initialize tracker with default values (will be configured by set_hit_ratio_window_size/threshold)
+                    double threshold = hit_ratio_threshold.load(std::memory_order_acquire);
+                    hit_rate_tracker = std::make_unique<HitRateTracker>(100, threshold);  // Default window size 100
+                }
+                // Don't clear tracker when disabled - keep it for potential re-enabling
             }
             
 
