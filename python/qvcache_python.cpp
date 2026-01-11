@@ -71,6 +71,7 @@ PYBIND11_MODULE(qvcache, m) {
                          bool use_reconstructed_vectors, double p, double deviation_factor,
                          size_t memory_index_max_points, uint32_t beamwidth,
                          bool use_regional_theta, size_t pca_dim, size_t buckets_per_dim,
+                         size_t max_regions,
                          uint32_t n_async_insert_threads, bool lazy_theta_updates,
                          size_t number_of_mini_indexes, bool search_mini_indexes_in_parallel,
                          size_t max_search_threads, diskann::Metric metric,
@@ -80,8 +81,7 @@ PYBIND11_MODULE(qvcache, m) {
                     data_path, pca_prefix, R, memory_L, B, M, alpha,
                     build_threads, search_threads, use_reconstructed_vectors,
                     p, deviation_factor, memory_index_max_points, beamwidth,
-                    use_regional_theta, pca_dim, buckets_per_dim,
-                    std::numeric_limits<size_t>::max(),  // max_regions (unlimited)
+                    use_regional_theta, pca_dim, buckets_per_dim, max_regions,
                     n_async_insert_threads, lazy_theta_updates,
                     number_of_mini_indexes, search_mini_indexes_in_parallel,
                     max_search_threads, metric, nullptr
@@ -93,8 +93,7 @@ PYBIND11_MODULE(qvcache, m) {
                     data_path, pca_prefix, R, memory_L, B, M, alpha,
                     build_threads, search_threads, use_reconstructed_vectors,
                     p, deviation_factor, memory_index_max_points, beamwidth,
-                    use_regional_theta, pca_dim, buckets_per_dim,
-                    std::numeric_limits<size_t>::max(),  // max_regions (unlimited)
+                    use_regional_theta, pca_dim, buckets_per_dim, max_regions,
                     n_async_insert_threads, lazy_theta_updates,
                     number_of_mini_indexes, search_mini_indexes_in_parallel,
                     max_search_threads, metric, std::move(backend)
@@ -118,6 +117,7 @@ PYBIND11_MODULE(qvcache, m) {
             py::arg("use_regional_theta") = true,
             py::arg("pca_dim") = 16,
             py::arg("buckets_per_dim") = 4,
+            py::arg("max_regions") = std::numeric_limits<size_t>::max(),
             py::arg("n_async_insert_threads") = 4,
             py::arg("lazy_theta_updates") = true,
             py::arg("number_of_mini_indexes") = 2,
@@ -178,6 +178,7 @@ PYBIND11_MODULE(qvcache, m) {
            bool use_reconstructed_vectors, double p, double deviation_factor,
            size_t memory_index_max_points, uint32_t beamwidth,
            bool use_regional_theta, size_t pca_dim, size_t buckets_per_dim,
+           size_t max_regions,
            uint32_t n_async_insert_threads, bool lazy_theta_updates,
            size_t number_of_mini_indexes, bool search_mini_indexes_in_parallel,
            size_t max_search_threads, diskann::Metric metric,
@@ -190,8 +191,7 @@ PYBIND11_MODULE(qvcache, m) {
                 data_path, pca_prefix, R, memory_L, B, M, alpha,
                 build_threads, search_threads, use_reconstructed_vectors,
                 p, deviation_factor, memory_index_max_points, beamwidth,
-                use_regional_theta, pca_dim, buckets_per_dim,
-                std::numeric_limits<size_t>::max(),  // max_regions (unlimited)
+                use_regional_theta, pca_dim, buckets_per_dim, max_regions,
                 n_async_insert_threads, lazy_theta_updates,
                 number_of_mini_indexes, search_mini_indexes_in_parallel,
                 max_search_threads, metric, std::move(backend)
