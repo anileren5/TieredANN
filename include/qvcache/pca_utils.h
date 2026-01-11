@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <iostream>
 #include <limits>
+#include <list>
 #include "diskann/distance.h"
 
 namespace qvcache {
@@ -37,6 +38,9 @@ namespace qvcache {
         // Map: region -> (K -> theta)
         std::unordered_map<RegionKey, std::unordered_map<uint32_t, double>, ArrayHash> region_theta_map;
         std::mutex region_theta_map_mutex;
+        // Track insertion order for FIFO eviction
+        std::list<RegionKey> region_insertion_order;
+        size_t max_regions;
         
         // PCA projection matrix and min/max for bucketing
         Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> pca_components; // [dim, PCA_DIM]
@@ -59,8 +63,8 @@ namespace qvcache {
         }
 
     public:
-        PCAUtils(size_t dim, size_t pca_dim, size_t buckets_per_dim, const std::string& disk_index_prefix, diskann::Metric metric_ = diskann::L2)
-            : dim(dim), PCA_DIM(pca_dim), BUCKETS_PER_DIM(buckets_per_dim), disk_index_prefix(disk_index_prefix), metric(metric_) {}
+        PCAUtils(size_t dim, size_t pca_dim, size_t buckets_per_dim, const std::string& disk_index_prefix, diskann::Metric metric_ = diskann::L2, size_t max_regions_ = std::numeric_limits<size_t>::max())
+            : dim(dim), PCA_DIM(pca_dim), BUCKETS_PER_DIM(buckets_per_dim), disk_index_prefix(disk_index_prefix), metric(metric_), max_regions(max_regions_) {}
 
         // Save PCA data to file
         void save_pca_to_file(bool is_float) {
@@ -226,6 +230,14 @@ namespace qvcache {
         void lazy_init_region(const RegionKey& key) {
             std::lock_guard<std::mutex> lock(region_theta_map_mutex);
             if (region_theta_map.find(key) == region_theta_map.end()) {
+                // Check if we need to evict the oldest region
+                if (region_theta_map.size() >= max_regions && !region_insertion_order.empty()) {
+                    // Evict the oldest region (first in the list)
+                    RegionKey oldest_key = region_insertion_order.front();
+                    region_insertion_order.pop_front();
+                    region_theta_map.erase(oldest_key);
+                }
+                
                 // Initialize so that initially everything is a miss
                 // For cosine: use negative infinity so that distances[K-1] > -infinity is always true (MISS)
                 // For L2: use max double so that distances[K-1] > max is always false initially,
@@ -235,6 +247,9 @@ namespace qvcache {
                 region_theta_map[key][5] = init_value;
                 region_theta_map[key][10] = init_value;
                 region_theta_map[key][100] = init_value;
+                
+                // Add to insertion order list (at the end)
+                region_insertion_order.push_back(key);
             }
         }
 

@@ -340,6 +340,7 @@ void experiment_benchmark(
     bool use_regional_theta,
     uint32_t pca_dim,
     uint32_t buckets_per_dim,
+    size_t max_regions,
     int n_splits,
     int n_split_repeat,
     uint32_t n_async_insert_threads,
@@ -383,6 +384,7 @@ void experiment_benchmark(
        use_regional_theta,
        pca_dim,
        buckets_per_dim,
+       max_regions,
        n_async_insert_threads,
        lazy_theta_updates,
        number_of_mini_indexes,
@@ -538,6 +540,7 @@ int main(int argc, char **argv) {
     bool use_regional_theta = true;
     uint32_t pca_dim, buckets_per_dim;
     size_t memory_index_max_points;
+    size_t max_regions = std::numeric_limits<size_t>::max();
     int n_splits;
     int n_split_repeat;
     uint32_t n_async_insert_threads = 4;
@@ -577,6 +580,7 @@ int main(int argc, char **argv) {
             ("pca_dim", po::value<uint32_t>(&pca_dim)->required(), "Value of PCA dimension")
             ("buckets_per_dim", po::value<uint32_t>(&buckets_per_dim)->required(), "Value of buckets per dimension")
             ("memory_index_max_points", po::value<size_t>(&memory_index_max_points)->required(), "Max points for memory index")
+            ("max_regions", po::value<size_t>(&max_regions)->default_value(std::numeric_limits<size_t>::max()), "Maximum number of regions for regional theta (default: unlimited)")
             ("n_splits", po::value<int>(&n_splits)->required(), "Number of splits for queries")
             ("n_split_repeat", po::value<int>(&n_split_repeat)->required(), "Number of repeats per split pattern")
             ("n_async_insert_threads", po::value<uint32_t>(&n_async_insert_threads)->default_value(4), "Number of async insert threads")
@@ -641,6 +645,7 @@ int main(int argc, char **argv) {
         "  \"pca_dim\": {},\n"
         "  \"buckets_per_dim\": {},\n"
         "  \"memory_index_max_points\": {},\n"
+        "  \"max_regions\": {},\n"
         "  \"n_splits\": {},\n"
         "  \"n_split_repeat\": {},\n"
         "  \"n_async_insert_threads\": {},\n"
@@ -658,28 +663,28 @@ int main(int argc, char **argv) {
         "  \"stride\": {},\n"
         "  \"n_round\": {}\n"
         "}}",
-        data_type, data_path, query_path, groundtruth_path, memory_L, K, B, M, search_threads, alpha, use_reconstructed_vectors, p, deviation_factor, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric_str, sptag_server_addr, sptag_server_port, vector_dim, window_size, n_repeat, stride, n_round);
+        data_type, data_path, query_path, groundtruth_path, memory_L, K, B, M, search_threads, alpha, use_reconstructed_vectors, p, deviation_factor, sector_len, use_regional_theta, pca_dim, buckets_per_dim, memory_index_max_points, max_regions, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric_str, sptag_server_addr, sptag_server_port, vector_dim, window_size, n_repeat, stride, n_round);
     if (data_type == "float") {
         if (vector_dim == 0) {
             size_t num_vectors, dim;
             diskann::get_bin_metadata(data_path, num_vectors, dim);
             vector_dim = dim;
         }
-        experiment_benchmark<float>(data_type, data_path, query_path, groundtruth_path, memory_L, K, B, M, alpha, search_threads, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, sptag_server_addr, sptag_server_port, vector_dim, window_size, n_repeat, stride, n_round);
+        experiment_benchmark<float>(data_type, data_path, query_path, groundtruth_path, memory_L, K, B, M, alpha, search_threads, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, max_regions, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, sptag_server_addr, sptag_server_port, vector_dim, window_size, n_repeat, stride, n_round);
     } else if (data_type == "int8") {
         if (vector_dim == 0) {
             size_t num_vectors, dim;
             diskann::get_bin_metadata(data_path, num_vectors, dim);
             vector_dim = dim;
         }
-        experiment_benchmark<int8_t>(data_type, data_path, query_path, groundtruth_path, memory_L, K, B, M, alpha, search_threads, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, sptag_server_addr, sptag_server_port, vector_dim, window_size, n_repeat, stride, n_round);
+        experiment_benchmark<int8_t>(data_type, data_path, query_path, groundtruth_path, memory_L, K, B, M, alpha, search_threads, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, max_regions, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, sptag_server_addr, sptag_server_port, vector_dim, window_size, n_repeat, stride, n_round);
     } else if (data_type == "uint8") {
         if (vector_dim == 0) {
             size_t num_vectors, dim;
             diskann::get_bin_metadata(data_path, num_vectors, dim);
             vector_dim = dim;
         }
-        experiment_benchmark<uint8_t>(data_type, data_path, query_path, groundtruth_path, memory_L, K, B, M, alpha, search_threads, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, sptag_server_addr, sptag_server_port, vector_dim, window_size, n_repeat, stride, n_round);
+        experiment_benchmark<uint8_t>(data_type, data_path, query_path, groundtruth_path, memory_L, K, B, M, alpha, search_threads, use_reconstructed_vectors, p, deviation_factor, memory_index_max_points, use_regional_theta, pca_dim, buckets_per_dim, max_regions, n_splits, n_split_repeat, n_async_insert_threads, lazy_theta_updates, number_of_mini_indexes, search_mini_indexes_in_parallel, max_search_threads, search_strategy, metric, sptag_server_addr, sptag_server_port, vector_dim, window_size, n_repeat, stride, n_round);
     } else {
         std::cerr << "Unsupported data type: " << data_type << std::endl;
     }

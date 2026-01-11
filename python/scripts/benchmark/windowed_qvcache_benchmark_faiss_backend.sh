@@ -48,6 +48,7 @@ USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=60000 # Set to desired max points for memory index
+MAX_REGIONS=1000000 # Maximum number of regions for regional theta (default: unlimited = max size_t, set to a specific number to limit)
 N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
 LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates
 NUMBER_OF_MINI_INDEXES=4 # Number of mini indexes for shadow cycling
@@ -127,6 +128,7 @@ python3 python/benchmarks/windowed_qvcache_benchmark_faiss_backend.py \
   --use_regional_theta "$USE_REGIONAL_THETA" \
   --pca_dim "$PCA_DIM" \
   --buckets_per_dim "$BUCKETS_PER_DIM" \
+  --max_regions "$MAX_REGIONS" \
   --n_splits "$N_SPLIT" \
   --n_split_repeat "$N_SPLIT_REPEAT" \
   --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" \

@@ -45,6 +45,7 @@ def experiment_benchmark(data_path: str,
     use_regional_theta: bool,
     pca_dim: int,
     buckets_per_dim: int,
+    max_regions: int,
     n_splits: int,
     n_split_repeat: int,
     n_async_insert_threads: int,
@@ -82,6 +83,7 @@ def experiment_benchmark(data_path: str,
         use_regional_theta=use_regional_theta,
         pca_dim=pca_dim,
         buckets_per_dim=buckets_per_dim,
+        max_regions=max_regions,
         n_async_insert_threads=n_async_insert_threads,
         lazy_theta_updates=lazy_theta_updates,
         number_of_mini_indexes=number_of_mini_indexes,
@@ -272,6 +274,7 @@ def main():
     parser.add_argument("--use_regional_theta", type=bool, default=True, help="Use regional theta")
     parser.add_argument("--pca_dim", type=int, default=16, help="PCA dimension")
     parser.add_argument("--buckets_per_dim", type=int, default=8, help="Buckets per dimension")
+    parser.add_argument("--max_regions", type=int, default=18446744073709551615, help="Maximum number of regions for regional theta (default: unlimited)")
     parser.add_argument("--n_splits", type=int, required=True, help="Number of splits for queries")
     parser.add_argument("--n_split_repeat", type=int, required=True, help="Number of repeats per split pattern")
     parser.add_argument("--n_async_insert_threads", type=int, default=16, help="Async insert threads")
@@ -323,6 +326,7 @@ def main():
         "use_regional_theta": args.use_regional_theta,
         "pca_dim": args.pca_dim,
         "buckets_per_dim": args.buckets_per_dim,
+        "max_regions": args.max_regions,
         "memory_index_max_points": args.memory_index_max_points,
         "n_splits": args.n_splits,
         "n_split_repeat": args.n_split_repeat,
@@ -363,7 +367,7 @@ def main():
         args.build_threads, args.search_threads, args.beamwidth,
         args.use_reconstructed_vectors, args.p, args.deviation_factor,
         args.memory_index_max_points,
-        args.use_regional_theta, args.pca_dim, args.buckets_per_dim,
+        args.use_regional_theta, args.pca_dim, args.buckets_per_dim, args.max_regions,
         args.n_splits, args.n_split_repeat,
         args.n_async_insert_threads,
         args.lazy_theta_updates, args.number_of_mini_indexes,

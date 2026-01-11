@@ -356,6 +356,7 @@ void experiment_with_backend(
        use_regional_theta,
        pca_dim,
        buckets_per_dim,
+       std::numeric_limits<size_t>::max(),  // max_regions (unlimited)
        n_async_insert_threads,
        lazy_theta_updates,
        number_of_mini_indexes,

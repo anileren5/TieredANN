@@ -21,7 +21,7 @@ NOISE_RATIO=0.01
 
 # Window parameters
 WINDOW_SIZE=4
-N_REPEAT=2
+N_REPEAT=3
 STRIDE=1
 N_ROUND=1
 
@@ -34,7 +34,7 @@ GROUNDTRUTH_PATH="data/$DATASET/${DATASET}_groundtruth_nsplit-${N_SPLIT}_nrepeat
 # QVCache parameters
 R=64
 MEMORY_L=32  
-DISK_L=128
+DISK_L=64
 K=10
 B=8
 M=8
@@ -52,6 +52,7 @@ USE_REGIONAL_THETA=1 # Set to 0 to use global theta instead of regional theta
 PCA_DIM=16 # Set to desired PCA dimension (e.g., 16)
 BUCKETS_PER_DIM=8 # Set to desired number of buckets per PCA dimension (e.g., 4)
 MEMORY_INDEX_MAX_POINTS=60000 # Set to desired max points for memory index
+MAX_REGIONS=1000000 # Maximum number of regions for regional theta (default: unlimited = max size_t, set to a specific number to limit)
 N_ASYNC_INSERT_THREADS=4 # Number of async insert threads
 LAZY_THETA_UPDATES=1 # Set to 1 to enable lazy theta updates, 0 for immediate updates
 NUMBER_OF_MINI_INDEXES=16 # Number of mini indexes for shadow cycling
@@ -121,6 +122,7 @@ echo ""
   --pca_dim "$PCA_DIM" \
   --buckets_per_dim "$BUCKETS_PER_DIM" \
   --memory_index_max_points "$MEMORY_INDEX_MAX_POINTS" \
+  --max_regions "$MAX_REGIONS" \
   --n_splits "$N_SPLIT" \
   --n_split_repeat "$N_SPLIT_REPEAT" \
   --n_async_insert_threads "$N_ASYNC_INSERT_THREADS" \

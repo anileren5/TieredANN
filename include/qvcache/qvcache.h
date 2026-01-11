@@ -900,6 +900,7 @@ namespace qvcache {
                         bool use_regional_theta = true,
                         size_t pca_dim = 16,
                         size_t buckets_per_dim = 4,
+                        size_t max_regions_ = std::numeric_limits<size_t>::max(),
                         uint32_t n_async_insert_threads_ = 4,
                         bool lazy_theta_updates_ = true,
                         size_t number_of_mini_indexes_ = 2,
@@ -987,7 +988,7 @@ namespace qvcache {
 
                 // PCA is constructed at construction time using Eigen. Eigen is required.
                 if (use_regional_theta) {
-                    pca_utils = std::make_unique<PCAUtils<T>>(dim, pca_dim, buckets_per_dim, pca_prefix, metric);
+                    pca_utils = std::make_unique<PCAUtils<T>>(dim, pca_dim, buckets_per_dim, pca_prefix, metric, max_regions_);
                     bool loaded = false;
                     if constexpr (std::is_floating_point<T>::value) {
                         loaded = pca_utils->load_pca_from_file(false);

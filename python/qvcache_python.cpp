@@ -81,6 +81,7 @@ PYBIND11_MODULE(qvcache, m) {
                     build_threads, search_threads, use_reconstructed_vectors,
                     p, deviation_factor, memory_index_max_points, beamwidth,
                     use_regional_theta, pca_dim, buckets_per_dim,
+                    std::numeric_limits<size_t>::max(),  // max_regions (unlimited)
                     n_async_insert_threads, lazy_theta_updates,
                     number_of_mini_indexes, search_mini_indexes_in_parallel,
                     max_search_threads, metric, nullptr
@@ -93,6 +94,7 @@ PYBIND11_MODULE(qvcache, m) {
                     build_threads, search_threads, use_reconstructed_vectors,
                     p, deviation_factor, memory_index_max_points, beamwidth,
                     use_regional_theta, pca_dim, buckets_per_dim,
+                    std::numeric_limits<size_t>::max(),  // max_regions (unlimited)
                     n_async_insert_threads, lazy_theta_updates,
                     number_of_mini_indexes, search_mini_indexes_in_parallel,
                     max_search_threads, metric, std::move(backend)
@@ -189,6 +191,7 @@ PYBIND11_MODULE(qvcache, m) {
                 build_threads, search_threads, use_reconstructed_vectors,
                 p, deviation_factor, memory_index_max_points, beamwidth,
                 use_regional_theta, pca_dim, buckets_per_dim,
+                std::numeric_limits<size_t>::max(),  // max_regions (unlimited)
                 n_async_insert_threads, lazy_theta_updates,
                 number_of_mini_indexes, search_mini_indexes_in_parallel,
                 max_search_threads, metric, std::move(backend)
