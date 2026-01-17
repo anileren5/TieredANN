@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Unified script to visualize all experiment log files
-# Handles: backend_experiments, dataset_experiments, granularity_experiments, spatial_threshold_experiments, deviation_factor_experiments, and pca_experiments
+# Handles: backend_experiments, dataset_experiments, granularity_experiments, spatial_threshold_experiments, deviation_factor_experiments, pca_experiments, total_cache_size_experiments, partitioning_experiments, noise_ratio_experiments, and k_experiments
 # Usage: ./visualize_all_experiments.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -735,6 +735,83 @@ if [ -d "$PARTITIONING_EXPERIMENTS_DIR" ]; then
 fi
 
 # ============================================================================
+# Process Noise Ratio Experiments
+# ============================================================================
+NOISE_RATIO_EXPERIMENTS_DIR="${EXPERIMENTS_DIR}/noise_ratio_experiments"
+OUTPUT_NOISE_RATIO="${SCRIPT_DIR}/plots/noise_ratio_experiments"
+
+if [ -d "$NOISE_RATIO_EXPERIMENTS_DIR" ]; then
+    echo "Processing Noise Ratio Experiments..."
+    echo "=========================================="
+    echo "Noise ratio experiments directory: ${NOISE_RATIO_EXPERIMENTS_DIR}"
+    echo "Output directory: ${OUTPUT_NOISE_RATIO}"
+    echo ""
+    
+    # Define log files and their corresponding legends
+    log_files=(
+        "${NOISE_RATIO_EXPERIMENTS_DIR}/0.01.log"
+        "${NOISE_RATIO_EXPERIMENTS_DIR}/0.05.log"
+        "${NOISE_RATIO_EXPERIMENTS_DIR}/0.1.log"
+        "${NOISE_RATIO_EXPERIMENTS_DIR}/0.2.log"
+        "${NOISE_RATIO_EXPERIMENTS_DIR}/0.4.log"
+        "${NOISE_RATIO_EXPERIMENTS_DIR}/0.6.log"
+    )
+    legends=(
+        "0.01"
+        "0.05"
+        "0.1"
+        "0.2"
+        "0.4"
+        "0.6"
+    )
+    
+    # Check if all log files exist
+    missing_files=()
+    for log_file in "${log_files[@]}"; do
+        if [ ! -f "$log_file" ]; then
+            missing_files+=("$log_file")
+        fi
+    done
+    
+    if [ ${#missing_files[@]} -gt 0 ]; then
+        echo "  Warning: Some log files are missing:"
+        for missing_file in "${missing_files[@]}"; do
+            echo "    ${missing_file}"
+        done
+        echo "  Skipping noise ratio experiments..."
+        echo ""
+    else
+        echo "  Found ${#log_files[@]} log files:"
+        for i in "${!log_files[@]}"; do
+            echo "    ${legends[$i]}: ${log_files[$i]}"
+        done
+        echo ""
+        
+        # Create output directory
+        mkdir -p "$OUTPUT_NOISE_RATIO"
+        
+        # Run visualization script with all logs
+        echo "  Generating plots with visualize_logs_multi.py..."
+        python3 "$VISUALIZE_MULTI_SCRIPT" \
+            --logs "${log_files[@]}" \
+            --legends "${legends[@]}" \
+            --format-type noise_ratio \
+            --output "$OUTPUT_NOISE_RATIO"
+        
+        if [ $? -eq 0 ]; then
+            echo "  ✓ Successfully generated plots for noise ratio experiments"
+        else
+            echo "  ✗ Failed to generate plots for noise ratio experiments"
+        fi
+        echo ""
+        
+        echo "Noise ratio experiments visualization complete!"
+        echo "Plots saved to: ${OUTPUT_NOISE_RATIO}"
+        echo ""
+    fi
+fi
+
+# ============================================================================
 # Process K Experiments (All Comparison)
 # ============================================================================
 K_EXPERIMENTS_DIR="${EXPERIMENTS_DIR}/k_experiments"
@@ -841,6 +918,9 @@ if [ -d "$OUTPUT_TOTAL_CACHE_SIZE" ]; then
 fi
 if [ -d "$OUTPUT_PARTITIONING" ]; then
     echo "  Partitioning experiments: ${OUTPUT_PARTITIONING}"
+fi
+if [ -d "$OUTPUT_NOISE_RATIO" ]; then
+    echo "  Noise ratio experiments: ${OUTPUT_NOISE_RATIO}"
 fi
 if [ -d "$OUTPUT_K_EXPERIMENTS" ]; then
     echo "  K experiments: ${OUTPUT_K_EXPERIMENTS}"

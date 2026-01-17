@@ -95,6 +95,7 @@ def format_legend_name(legend_name: str, deviation_factor: float = None, number_
     If format_type is "pca_dim", format as 'd_reduced' with subscript.
     If format_type is "buckets_per_dim", format as 'n_buckets' with subscript.
     If format_type is "cache_size", format as 'Total Cache Size = {value}'.
+    If format_type is "noise_ratio", format as 'η = {value}'.
     If number_of_mini_indexes is provided, format as 'n_mini-index' with subscript.
     If deviation_factor is provided, format as 'D = {value}'.
     Otherwise, try to parse legend_name as a numeric value.
@@ -118,6 +119,34 @@ def format_legend_name(legend_name: str, deviation_factor: float = None, number_
     if format_type == "cache_size":
         # Format as "Cache Capacity = {value}" preserving the original format (e.g., "15k", "30k")
         return f'Cache Capacity = {legend_name}'
+    
+    if format_type == "noise_ratio":
+        try:
+            # Parse the value, handling both decimal and zero-padded formats
+            if '.' in legend_name:
+                value = float(legend_name)
+            elif legend_name.isdigit() and len(legend_name) > 1 and legend_name.startswith('0'):
+                # Handle zero-padded numbers like "025" -> 0.25, "05" -> 0.5, "005" -> 0.05
+                leading_zeros = 0
+                for char in legend_name:
+                    if char == '0':
+                        leading_zeros += 1
+                    else:
+                        break
+                if leading_zeros > 0:
+                    remaining_digits = legend_name[leading_zeros:]
+                    if remaining_digits:
+                        value = float('0.' + '0' * (leading_zeros - 1) + remaining_digits)
+                    else:
+                        value = 0.0
+                else:
+                    value = float(legend_name)
+            else:
+                value = float(legend_name)
+            # Format as η = value using LaTeX notation
+            return f'$\\eta$ = {value}'
+        except (ValueError, AttributeError):
+            return legend_name
     
     if number_of_mini_indexes is not None:
         # Use LaTeX subscript notation: n_mini-index = value
@@ -630,8 +659,8 @@ def main():
     parser.add_argument('--max_iterations', type=int, default=None, 
                        help='Maximum number of iterations to visualize (default: all)')
     parser.add_argument('--format-type', type=str, default=None,
-                       choices=['pca_dim', 'buckets_per_dim', 'cache_size'],
-                       help='Format type for legend names: "pca_dim" for PCA dimension, "buckets_per_dim" for buckets per dimension, "cache_size" for total cache size')
+                       choices=['pca_dim', 'buckets_per_dim', 'cache_size', 'noise_ratio'],
+                       help='Format type for legend names: "pca_dim" for PCA dimension, "buckets_per_dim" for buckets per dimension, "cache_size" for total cache size, "noise_ratio" for noise ratio (η)')
     parser.add_argument('--tick-interval', type=int, default=3,
                        help='Interval between x-axis ticks (default: 3)')
     parser.add_argument('--max-legend-width', type=int, default=None,
